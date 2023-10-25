@@ -30,15 +30,16 @@ class Olt(models.Model):
     uptime = models.DurationField(null=True, blank=True)
     sysinfo = models.CharField(max_length=300, null=True, blank=True)
     snmp_community = models.CharField(default='public', max_length=200)
-    created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    # created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, default='auth.User')
     created_time = models.DateTimeField(auto_now=True)
+    oid = models.CharField(max_length=300, default='1.3.6.1.4.1.2011.6.128.1.1.2.51.1.4')
 
     def __str__(self):
         return self.hostname
 
     def get_optical_signal_status(self):
         # Create an SNMP query to get the value for the specified OID
-        oid = '1.3.6.1.4.1.2011.6.128.1.1.2.51.1.4'
+        oid = self.oid
         community = self.snmp_community
         target_ip = self.ip_addr
 
@@ -69,7 +70,7 @@ class Switch(models.Model):
     uptime = models.DurationField(null=True, blank=True)
     sysinfo = models.CharField(max_length=300, null=True, blank=True)
     snmp_community = models.CharField(default='public', max_length=200)
-    # created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, default='admin')
+    # created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, default='auth.User')
     created_time = models.DateTimeField(auto_now=True)
 
     def __str__(self):

@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 
-app_name = 'snmp'  # Replace 'your_app_name' with your app's name
+app_name = 'snmp'
 
 urlpatterns = [
     path('vendors/', views.vendor_list, name='vendor_list'),
