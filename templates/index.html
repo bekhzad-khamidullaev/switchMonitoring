@@ -1,0 +1,28 @@
+{% load static %}
+<!doctype html>
+<html>
+<head>
+  <title>{% block title %}{% endblock %}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="{% static 'checkbox.js' %}"></script>
+  <script src="{% static 'kanban.js' %}"></script>
+  <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
+  <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet" type="text/css">
+
+</head>
+<body class="bg-gray-300 dark:bg-gray-700">
+{% if user.is_authenticated %}
+    {% include 'navbar.html' %}
+    {% block content %}
+    {% endblock %}
+
+{% else %}
+
+    {% include 'login_page.html' %}
+
+{% endif %}
+</body>
+</html>
