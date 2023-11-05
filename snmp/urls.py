@@ -1,15 +1,18 @@
 from django.urls import path
 from . import views
 
-app_name = 'snmp'
-
 urlpatterns = [
-    # path('vendors/', views.vendor_list, name='vendor_list'),
-    # path('device-models/', views.device_model_list, name='device_model_list'),
-    # path('olts/', views.olt_list, name='olt_list'),
-    # path('switches/', views.switch_list, name='switch_list'),
-    # path('olts/<int:olt_id>/', views.olt_detail, name='olt_detail'),
-    # path('switches/<int:switch_id>/', views.switch_detail, name='switch_detail'),
-    # path('create-olt/', views.create_olt, name='create_olt'),
-    # path('create-switch/', views.create_switch, name='create_switch'),
+    # Switch views
+    path('switches/', views.switch_list, name='switch_list'),
+    path('switches/create/', views.switch_create, name='switch_create'),
+    path('switches/<int:pk>/', views.switch_detail, name='switch_detail'),
+    path('switches/<int:pk>/update/', views.switch_update, name='switch_update'),
+    path('switches/<int:pk>/delete/', views.switch_delete, name='switch_delete'),
+
+    # Olt views
+    path('olts/', views.olt_list, name='olt_list'),
+    path('olts/create/', views.olt_create, name='olt_create'),
+    path('olts/<int:pk>/', views.olt_detail, name='olt_detail'),
+    path('olts/<int:pk>/update/', views.olt_update, name='olt_update'),
+    path('olts/<int:pk>/delete/', views.olt_delete, name='olt_delete'),
 ]

@@ -1,0 +1,13 @@
+{% extends "index.html" %}
+
+{% block title %}Switch List{% endblock %}
+
+{% block content %}
+<h1>Switch List</h1>
+<ul>
+    {% for switch in switches %}
+        <li><a href="{% url 'switch_detail' switch.pk %}">{{ switch }}</a></li>
+    {% endfor %}
+</ul>
+<a href="{% url 'switch_create' %}">Create New Switch</a>
+{% endblock %}
