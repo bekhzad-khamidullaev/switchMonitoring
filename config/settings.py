@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'snmp',
     'users',
-    'background_task',
+    # 'background_task',
 ]
 
 MIDDLEWARE = [
