@@ -1,11 +1,27 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Vendor, SwitchModel, OltModel, Device, Switch, Olt
 from .forms import SwitchForm, OltForm
+from django.core.paginator import Paginator
+from django.shortcuts import render
+
+
 
 
 def switches(request):
-    switches = Switch.objects.all()
-    return render(request, 'switch_list.html', {'switches': switches})
+    items = Switch.objects.all()
+    paginator = Paginator(items, 10)
+    page_number = request.GET.get('page')
+    page_items = paginator.get_page(page_number)
+
+    return render(request, 'switch_list.html', {'switches': page_items})
+
+# def switches(request):
+#     items = Switch.objects.all()
+#     paginator = Paginator(items, 10)
+#     switches = request.GET.get('page')
+#     page_items = paginator.get_page(switches)
+
+#     return render(request, 'switch_list.html', {'switches': switches})
 
 def switch_detail(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
