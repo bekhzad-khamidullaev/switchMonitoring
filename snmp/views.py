@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Vendor, DeviceModel, Olt, Switch
-from .forms import OltForm, SwitchForm
+from .models import Olt, Switch
+
 
 def olt_detail(request, olt_id):
     olt = get_object_or_404(Olt, pk=olt_id)

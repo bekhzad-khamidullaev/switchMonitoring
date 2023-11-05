@@ -1,55 +1,62 @@
 from django.db import models
 
 class Vendor(models.Model):
-    vendor = models.CharField(max_length=200)
+    name = models.CharField(max_length=200)
 
     def __str__(self):
-        return self.vendor
+        return self.name
 
-class DeviceModel(models.Model):
-    deviceModel = models.CharField(max_length=200)
+
+class SwitchModel(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
-
+    device_model = models.CharField(max_length=200)
+    
     def __str__(self):
-        return self.deviceModel
+        return self.device_model
+
+
+class OltModel(models.Model):
+    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
+    device_model = models.CharField(max_length=200)
+    
+    def __str__(self):
+        return self.device_model
+
 
 class Device(models.Model):
     DEVICE_CHOICES = [
         ('Switch', 'Switch'),
         ('Olt', 'Olt'),
     ]
-    deviceType = models.CharField(max_length=10, choices=DEVICE_CHOICES)
-    deviceModel = models.ForeignKey(DeviceModel, on_delete=models.SET_NULL, null=True)
-    hostname = models.CharField(max_length=200, null=True, blank=True)
+    device_type = models.CharField(max_length=10, choices=DEVICE_CHOICES)
+    device_model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, null=True, blank=True)
+    device_model_olt = models.ForeignKey(OltModel, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return self.deviceType
+        return self.device_type
+
 
 class Switch(models.Model):
-    DeviceType = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True)
-    deviceModel = models.ForeignKey(DeviceModel, on_delete=models.SET_NULL, null=True)
-    hostname = models.CharField(max_length=200, null=True, blank=True)
-    ip_addr = models.GenericIPAddressField(null=False)
-    uptime = models.DurationField(null=True, blank=True)
-    sysinfo = models.CharField(max_length=300, null=True, blank=True)
-    snmp_community = models.CharField(default='snmp2netread', max_length=200)
-    created_time = models.DateTimeField(auto_now=True)
-    oid = models.CharField(max_length=300, default='1.3.6.1.2.1.1.1.0')
+    device_type = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True)
+    device_model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, null=True, blank=True)
+    device_hostname = models.CharField(max_length=200, null=True, blank=True)
+    device_ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
+    device_optical_info = models.IntegerField(null=True, blank=True)
+    device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
+    device_general_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
 
     def __str__(self):
-        return self.hostname
+        return self.device_model
 
 
 class Olt(models.Model):
-    DeviceType = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True)
-    deviceModel = models.ForeignKey(DeviceModel, on_delete=models.SET_NULL, null=True)
-    hostname = models.CharField(max_length=200, null=True, blank=True)
-    ip_addr = models.GenericIPAddressField(null=False)
-    uptime = models.DurationField(null=True, blank=True)
-    sysinfo = models.CharField(max_length=300, null=True, blank=True)
-    snmp_community = models.CharField(default='snmp2netread', max_length=200)
-    created_time = models.DateTimeField(auto_now=True)
-    oid = models.CharField(max_length=300, default='1.3.6.1.2.1.1.1.0')
-
+    device_type = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True)
+    device_model = models.ForeignKey(OltModel, on_delete=models.SET_NULL, null=True, blank=True)
+    device_hostname = models.CharField(max_length=200, null=True, blank=True)
+    device_ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
+    device_optical_info = models.IntegerField(null=True)
+    device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
+    device_general_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
+        
     def __str__(self):
-        return self.hostname
+        return self.device_ip
