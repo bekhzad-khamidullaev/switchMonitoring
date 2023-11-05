@@ -46,7 +46,7 @@ class Switch(models.Model):
     device_general_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
 
     def __str__(self):
-        return self.device_model
+        return f"{self.device_model}"
 
 
 class Olt(models.Model):
@@ -59,4 +59,4 @@ class Olt(models.Model):
     device_general_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
         
     def __str__(self):
-        return self.device_ip
+        return f"{self.device_model}"
