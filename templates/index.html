@@ -13,11 +13,15 @@
   <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet" type="text/css">
 
 </head>
-<body class="bg-gray-300 dark:bg-gray-700">
+<body class="text-gray-300 bg-gray-300 dark:bg-gray-700 dark:text-white">
 {% if user.is_authenticated %}
     {% include 'navbar.html' %}
-    {% block content %}
-    {% endblock %}
+  <div class="flex justify-center items-center h-screen">
+    <div class="p-8 rounded-lg shadow-md">
+      {% block content %}
+      {% endblock %}
+    </div>
+  </div>
 
 {% else %}
 

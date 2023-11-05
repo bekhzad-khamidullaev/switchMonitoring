@@ -2,7 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Vendor, SwitchModel, OltModel, Device, Switch, Olt
 from .forms import SwitchForm, OltForm
 
-def switch_list(request):
+
+def switches(request):
     switches = Switch.objects.all()
     return render(request, 'switch_list.html', {'switches': switches})
 
@@ -40,7 +41,7 @@ def switch_delete(request, pk):
 
 # Similar views for Olt model
 
-def olt_list(request):
+def olts(request):
     olts = Olt.objects.all()
     return render(request, 'olt_list.html', {'olts': olts})
 

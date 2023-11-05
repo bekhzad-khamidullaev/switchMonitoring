@@ -1,0 +1,13 @@
+{% extends 'index.html' %}
+
+{% block title %}OLT Details{% endblock %}
+
+{% block content %}
+  <div class="p-8">
+    <h2 class="text-2xl">OLT Details</h2>
+    <p><strong>Vendor:</strong> {{ olt.vendor.name }}</p>
+    <p><strong>Model:</strong> {{ olt.device_model }}</p>
+    <!-- Add more details as needed -->
+    <a href="{% url 'olts' %}" class="btn btn-secondary">Back to List</a>
+  </div>
+{% endblock %}

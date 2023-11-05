@@ -1,0 +1,15 @@
+{% extends 'index.html' %}
+
+{% block title %}Confirm OLT Deletion{% endblock %}
+
+{% block content %}
+  <div class="p-8">
+    <h2 class="text-2xl">Confirm Deletion</h2>
+    <p class="text-gray-300 dark:text-white">Are you sure you want to delete the OLT "{{ olt.device_model }}"?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a href="{% url 'olts' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+{% endblock %}

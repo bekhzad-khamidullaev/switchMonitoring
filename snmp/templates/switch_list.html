@@ -3,11 +3,62 @@
 {% block title %}Switch List{% endblock %}
 
 {% block content %}
-<h1>Switch List</h1>
-<ul>
-    {% for switch in switches %}
-        <li><a href="{% url 'switch_detail' switch.pk %}">{{ switch }}</a></li>
-    {% endfor %}
-</ul>
-<a href="{% url 'switch_create' %}">Create New Switch</a>
+<div class="p-8">
+  <h1 class="text-2xl mb-4">Switch List</h1>
+  <a href="{% url 'switch_create' %}" class="btn btn-primary bg-green-500 hover:bg-green-600 focus:ring focus:ring-green-300">
+    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+    </svg>
+    Create New Switch
+  </a>
+  
+  <table class="table-auto">
+    <thead>
+      <tr>
+        <th class="px-4 py-2">ID</th>
+        <th class="px-4 py-2">Model</th>
+        <th class="px-4 py-2">IP</th>
+        <th class="px-4 py-2">Hostname</th>
+        <th class="px-4 py-2">Optical info</th>
+        <th class="px-4 py-2">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for switch in switches %}
+        <tr>
+          <td class="px-4 py-2">{{ switch.pk }}</td>
+          <td class="px-4 py-2">{{ switch.device_model }}</td>
+          <td class="px-4 py-2">{{ switch.device_ip }}</td>
+          <td class="px-4 py-2">{{ switch.device_hostname }}</td>
+          <td class="px-4 py-2">{{ switch.device_optical_info }}</td>
+          <td class="px-4 py-2">
+            <div class="mt-4">
+              <a href="{% url 'switch_detail' switch.pk %}" class="btn btn-info bg-blue-500 hover:bg-blue-600 focus:ring focus:ring-blue-300">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h6m0 0V3m0 6v6m-6 0h6m0 0l3-3m-3 3l-3 3"></path>
+                </svg>
+                Details
+              </a>
+            
+              <a href="{% url 'switch_update' switch.pk %}" class="btn btn-warning bg-yellow-500 hover:bg-yellow-600 focus:ring focus:ring-yellow-300">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h6m0 0V3m0 6v6m-6 0h6m0 0l3-3m-3 3l-3 3"></path>
+                </svg>
+                Edit
+              </a>
+            
+              <a href="{% url 'switch_delete' switch.pk %}" class="btn btn-danger bg-red-500 hover:bg-red-600 focus:ring focus:ring-red-300">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Delete
+              </a>
+            </div>
+            
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

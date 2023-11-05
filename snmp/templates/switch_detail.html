@@ -1,12 +1,53 @@
-{% extends "index.html" %}
+{% extends 'index.html' %}
 
-{% block title %}{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}{% endblock %}
+{% block title %}Switch Details{% endblock %}
 
 {% block content %}
-<h1>{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}</h1>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">{% if form.instance.pk %}Update{% else %}Create{% endif %}</button>
-</form>
+  <div class="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Switch Details</h2>
+    <table class="table w-full">
+      {% comment %} <tr>
+        <td class="font-bold">Vendor:</td>
+        <td>{{ switch.device_type.vendor.name }}</td>
+      </tr> {% endcomment %}
+      <tr>
+        <td class="font-bold">Model:</td>
+        <td>{{ switch.device_model.device_model }}</td>
+      </tr>
+      <tr>
+        <td class="font-bold">IP:</td>
+        <td>{{ switch.device_ip }}</td>
+      </tr>
+      <tr>
+        <td class="font-bold">Optical info:</td>
+        <td>{{ switch.device_optical_info }}</td>
+      </tr>
+    </table>
+
+    <div class="mt-4">
+      <a href="{% url 'switch_update' switch.pk %}" class="btn btn-primary mr-2 bg-yellow-500 hover:bg-yellow-600 focus:ring focus:ring-yellow-300">
+        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3a2 2 0 00-2 2v4a2 2 0 002 2 2 2 0 002-2 2 2 0 00-2-2z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21a2 2 0 01-2 2h-4a2 2 0 01-2-2 2 2 0 012-2h4a2 2 0 012 2z"></path>
+        </svg>
+        Edit
+      </a>
+      
+      <a href="{% url 'switch_delete' switch.pk %}" class="btn btn-danger bg-red-500 hover:bg-red-600 focus:ring focus:ring-red-300">
+        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+        Delete
+      </a>
+      
+      <a href="{% url 'switches' %}" class="btn btn-secondary bg-gray-500 hover:bg-gray-600 focus:ring focus:ring-gray-300">
+        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10l5 5 5-5"></path>
+        </svg>
+        Back to List
+      </a>
+      
+    </div>
+  </div>
 {% endblock %}

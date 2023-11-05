@@ -1,0 +1,15 @@
+{% extends 'index.html' %}
+
+{% block title %}Create or Update OLT{% endblock %}
+
+{% block content %}
+  <div class="p-8">
+    <h2 class="text-2xl">Create or Update OLT</h2>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'olts' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+{% endblock %}

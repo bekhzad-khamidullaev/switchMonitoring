@@ -1,12 +1,37 @@
-{% extends "index.html" %}
+{% extends 'index.html' %}
 
 {% block title %}{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}{% endblock %}
 
 {% block content %}
-<h1>{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}</h1>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">{% if form.instance.pk %}Update{% else %}Create{% endif %}</button>
-</form>
+  <div class="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">
+      {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
+    </h2>
+    <form method="post" class="mt-4">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary bg-green-500 hover:bg-green-600 focus:ring focus:ring-green-300">
+          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v8m0 0v8m0-8h8m-8 0H4"></path>
+          </svg>
+          {% if form.instance.pk %}Update{% else %}Create{% endif %}
+        </button>
+        
+        <a href="{% url 'switches' %}" class="btn btn-secondary bg-gray-500 hover:bg-gray-600 focus:ring focus:ring-gray-300">
+          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+          </svg>
+          Cancel
+        </a>
+        
+      </div>
+    </form>
+  </div>
+</div>
+<style>
+  input[type="text"], input[type="password"], select, textarea {
+    color: black;
+  }
+</style>
 {% endblock %}
