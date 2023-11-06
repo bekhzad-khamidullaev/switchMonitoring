@@ -16,17 +16,30 @@
 <body class="text-gray-300 bg-gray-300 dark:bg-gray-700 dark:text-white">
 {% if user.is_authenticated %}
     {% include 'navbar.html' %}
-  <div class="flex justify-center items-center h-screen">
-    <div class="p-8 rounded-lg shadow-md">
+  {% comment %} <div class="flex justify-center items-center h-screen"> {% endcomment %}
+    <div class="rounded-lg shadow-md">
       {% block content %}
       {% endblock %}
     </div>
-  </div>
+  {% comment %} </div> {% endcomment %}
 
 {% else %}
 
     {% include 'login_page.html' %}
 
 {% endif %}
+  <script>
+    // Attach a click event handler to your delete button
+    document.getElementById("deleteButton").addEventListener("click", function(event) {
+      event.preventDefault(); // Prevent the default action of the button
+      // Get the URL for the delete action from the button's "data-url" attribute
+      var deleteUrl = this.getAttribute("data-url");
+      // Set the "href" attribute of the modal's delete link to the delete URL
+      document.getElementById("deleteLink").setAttribute("href", deleteUrl);
+      // Show the modal
+      $('#deleteModal').modal('show');
+    });
+  </script>
+
 </body>
 </html>

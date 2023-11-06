@@ -3,25 +3,37 @@ from .models import Vendor, SwitchModel, OltModel, Device, Switch, Olt
 from .forms import SwitchForm, OltForm
 from django.core.paginator import Paginator
 from django.shortcuts import render
+from django.db.models import Q
+
 
 
 
 
 def switches(request):
     items = Switch.objects.all()
-    paginator = Paginator(items, 10)
+
+    # Filter switches by vendor name
+    vendor_name = request.GET.get('vendor_name')
+    if vendor_name:
+        items = items.filter(vendor__name=vendor_name)
+
+    # Search functionality
+    search_query = request.GET.get('search')
+    if search_query:
+        items = items.filter(
+            Q(device_hostname__icontains=search_query) |
+            Q(device_ip__icontains=search_query) |
+            Q(device_model_local__icontains=search_query)
+        )
+
+    paginator = Paginator(items, 30)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
 
     return render(request, 'switch_list.html', {'switches': page_items})
 
-# def switches(request):
-#     items = Switch.objects.all()
-#     paginator = Paginator(items, 10)
-#     switches = request.GET.get('page')
-#     page_items = paginator.get_page(switches)
 
-#     return render(request, 'switch_list.html', {'switches': switches})
+
 
 def switch_detail(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
