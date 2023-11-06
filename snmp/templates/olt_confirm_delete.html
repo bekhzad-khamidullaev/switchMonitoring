@@ -5,11 +5,11 @@
 {% block content %}
   <div class="p-8">
     <h2 class="text-2xl">Confirm Deletion</h2>
-    <p class="text-gray-300 dark:text-white">Are you sure you want to delete the OLT "{{ olt.device_model }}"?</p>
+    <p class="text-neutral-300 dark:text-white">Are you sure you want to delete the OLT "{{ olt.device_model }}"?</p>
     <form method="post">
       {% csrf_token %}
       <button type="submit" class="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900">Delete</button>
-      <a href="{% url 'olts' %}" class="py-2 px-5 mr-2 mb-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-md border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Cancel</a>
+      <a href="{% url 'olts' %}" class="py-2 px-5 mr-2 mb-2 text-sm font-medium text-neutral-900 focus:outline-none bg-white rounded-md border border-neutral-200 hover:bg-neutral-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-neutral-200 dark:focus:ring-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-600 dark:hover:text-white dark:hover:bg-neutral-700">Cancel</a>
     </form>
   </div>
 {% endblock %}

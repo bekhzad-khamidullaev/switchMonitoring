@@ -1,32 +1,37 @@
-from pysnmp.hlapi import *
+import subprocess
+from snmp.models import Switch
+from snmp.models import Vendor
+from snmp.models import SwitchModel
 
-# Определение параметров SNMP
-ip_address = '10.101.33.15'
-community_string = 'snmp2netread'
+# Step 2: Query the snmp_switch table to select IP addresses
+ip_addresses = Switch.objects.values_list('device_ip', flat=True)
 
-# OID для состояния оптических портов (пример)
-optical_port_status_oid = '.1.3.6.1.4.1.890.1.5.8.68.117.2.1.7'
+for ip in ip_addresses:
+    # Step 3: Check if the host is alive (you can use fping or another method)
+    host_alive = subprocess.call(["fping", ip]) == 0  # Assuming fping returns 0 for a reachable host
 
-# Функция для получения информации о состоянии оптических портов
-def get_optical_port_status(ip_address, community_string):
-    errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(
-            SnmpEngine(),
-            CommunityData(community_string),
-            UdpTransportTarget((ip_address, 161)),
-            ContextData(),
-            ObjectType(ObjectIdentity(optical_port_status_oid)),
-        )
-    )
+    if host_alive:
+        # Step 4: Update the status field to True
+        switch = Switch.objects.get(device_ip=ip)
+        switch.status = True
+        switch.save()
 
-    if errorIndication:
-        print(f"Ошибка: {errorIndication}")
-    else:
-        if errorStatus:
-            print(f"Ошибка: {errorStatus.prettyPrint()}")
-        else:
-            for varBind in varBinds:
-                print(f"OID: {varBind[0]}, Значение: {varBind[1]}")
+        # Step 5: Select IP addresses where status is True
+        selected_switches = Switch.objects.filter(status=True)
 
-if __name__ == "__main__":
-    get_optical_port_status(ip_address, community_string)
+        for selected_switch in selected_switches:
+            # Step 6: Send an SNMPwalk request with the OID '1.3.6.1.2.1.1.1.0' to the selected IP address
+            # (You can use an SNMP library like pysnmp to perform SNMP operations)
+            snmp_response = perform_snmpwalk(selected_switch.device_ip, '1.3.6.1.2.1.1.1.0')
+
+            # Step 7: Check the response for containing the name from the snmp_vendor table
+            vendor_name = selected_switch.device_type.device_model.vendor.name
+            if vendor_name in snmp_response:
+                # Step 8: Check if the response contains the snmp_switchmodel device_model field
+                device_model_name = selected_switch.device_type.device_model.device_model
+                if device_model_name in snmp_response:
+                    # Step 9: Update device_model_id, device_model_local, and device_hostname
+                    selected_switch.device_model_id = SwitchModel.objects.get(device_model=device_model_name).pk
+                    selected_switch.device_model_local = device_model_name
+                    selected_switch.device_hostname = device_model_name
+                    selected_switch.save()

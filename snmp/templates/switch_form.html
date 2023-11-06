@@ -3,8 +3,8 @@
 {% block title %}{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}{% endblock %}
 
 {% block content %}
-  <div class="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">
+  <div class="bg-white dark:bg-neutral-900 p-4 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white">
       {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
     </h2>
     <form method="post" class="mt-4">
@@ -18,7 +18,7 @@
           {% if form.instance.pk %}Update{% else %}Create{% endif %}
         </button>
         
-        <a href="{% url 'switches' %}" class="btn btn-secondary bg-gray-500 hover:bg-gray-600 focus:ring focus:ring-gray-300">
+        <a href="{% url 'switches' %}" class="btn btn-secondary bg-neutral-500 hover:bg-neutral-600 focus:ring focus:ring-neutral-300">
           <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
           </svg>
