@@ -44,8 +44,8 @@
         <td class="text-center px-2 py-1">
           <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_model }}</a>
         </td>
-        <td class="text-center px-2 py-1">
-          <a href="{% url 'switch_detail' switch.pk %}">{{ switch.status }}</a>
+        <td class="text-center px-2 py-1 {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+          <a href="{% url 'switch_detail' switch.pk %}">{% if switch.status %}UP{% else %}DOWN{% endif %}</a>
         </td>
         <td class="text-center px-2 py-1">
           <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_optical_info }}</a>
