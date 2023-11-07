@@ -48,7 +48,7 @@ class Switch(models.Model):
     device_model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, null=True, blank=True)
     device_model_local = models.CharField(max_length=200, null=True, blank=True)
     device_hostname = models.CharField(max_length=200, null=True, blank=True)
-    device_ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
+    device_ip = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
     device_optical_info = models.IntegerField(null=True, blank=True)
     device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
     device_general_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
