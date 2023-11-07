@@ -23,7 +23,8 @@ def switches(request):
         items = items.filter(
             Q(device_hostname__icontains=search_query) |
             Q(device_ip__icontains=search_query) |
-            Q(device_model_local__icontains=search_query)
+            Q(device_model_local__icontains=search_query) |
+            Q(status__icontains=search_query)
         )
 
     paginator = Paginator(items, 30)
