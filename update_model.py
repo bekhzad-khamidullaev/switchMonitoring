@@ -12,6 +12,12 @@ logger = logging.getLogger("SNMP RESPONSE")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 application = get_wsgi_application()
 
+from snmp.models import Switch
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ICMP RESPONSE")
+
+
 SNMP_COMMUNITY = "snmp2netread"
 OID_SYSTEM_DESCRIPTION = "1.3.6.1.2.1.1.1.0"
 
@@ -33,11 +39,6 @@ def perform_snmpwalk(ip, oid):
             snmp_response.append(str(varBind))
     return snmp_response
 
-
-from snmp.models import Switch
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("ICMP RESPONSE")
 
 def update_switch_inventory_main():
     selected_switches = Switch.objects.filter(status=True)
