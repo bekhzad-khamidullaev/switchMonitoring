@@ -1,3 +1,4 @@
+# from background_task import background
 from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel, Vendor
 import logging
@@ -7,7 +8,7 @@ import sys
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
 
-# Define SNMP constants
+
 SNMP_COMMUNITY = "snmp2netread"
 OID_SYSTEM_DESCRIPTION = "1.3.6.1.2.1.1.1.0"
 
@@ -70,4 +71,5 @@ class Command(BaseCommand):
                     logger.warning(f'Skipping switch {selected_switch.id} due to missing vendor for {model_name}')
                     continue
 
-
+# def run_update_switch_status_inventory():
+#     Command()

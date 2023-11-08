@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'snmp',
     'users',
-    # 'background_task',
+    'background_task',
 ]
 
 MIDDLEWARE = [
@@ -106,4 +106,23 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+
+# CELERY_TIMEZONE = 'UTC'
+# CELERY_APP_NAME = 'config'
+# CELERY_IMPORTS = ('snmp.tasks',)
+
+# CELERY_BEAT_SCHEDULE = {
+#     'update_switch_status': {
+#         'task': 'snmp.tasks.run_update_switch_status_task',
+#         'schedule': timedelta(days=1),  # Run once per day
+#     },
+# }
+
+# CELERY_TRACK_STARTED = True
 
