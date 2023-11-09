@@ -11,9 +11,43 @@
   <script src="{% static 'kanban.js' %}"></script>
   <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
   <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet" type="text/css">
-
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Add the JavaScript script tag after your HTML content -->
+  <script>
+    $(document).ready(function() {
+      // Click event handler for sortable columns
+      $('.sortable').click(function() {
+        var column = $(this).data('column');
+        var order = $(this).hasClass('asc') ? 'desc' : 'asc';
+    
+        // Remove 'asc' and 'desc' classes from all columns except the current one
+        $('.sortable').not(this).removeClass('asc desc');
+        
+        // Add 'asc' or 'desc' class to the current column header
+        $(this).addClass(order);
+    
+        // Sort the table rows based on the selected column
+        var rows = $('tbody > tr').get();
+        rows.sort(function(a, b) {
+          var keyA = $(a).find('.' + column).text();
+          var keyB = $(b).find('.' + column).text();
+          if (order === 'asc') {
+            return keyA.localeCompare(keyB);
+          } else {
+            return keyB.localeCompare(keyA);
+          }
+        });
+    
+        // Reorder the rows in the table
+        $.each(rows, function(index, row) {
+          $('tbody').append(row);
+        });
+      });
+    });
+  </script>
+  
 </head>
-  <body class="text-white bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-200">
+  <body class="text-neutral-900 dark:text-white bg-white dark:bg-neutral-900">
   {% if user.is_authenticated %}
       {% include 'navbar.html' %}
       <div class="rounded-lg shadow-md">

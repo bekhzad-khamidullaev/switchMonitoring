@@ -1,48 +1,47 @@
 {% extends "index.html" %}
-
+{% load static %}
 {% block title %}Switch List{% endblock %}
 
 {% block content %}
 <div class="flex justify-between px-2">
-  <a href="{% url 'switch_create' %}" class="focus:outline-none text-neutral-200 bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-md text-sm px-2 md-2 mt-2 mb-2 dark:bg-green-600 dark:hover-bg-green-700 dark:focus:ring-green-800">
+  <a href="{% url 'switch_create' %}" class="focus:outline-none text-neutral-200 bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-md text-sm px-2 md-2 mt-2 mb-2 light:bg-green-700 dark:bg-green-600 light:hover:bg-green-800 dark:hover:bg-green-700 light:focus:ring-green-300 dark:focus:ring-green-800">
     Create New Switch
   </a>
   <form method="get">
     <div class="form-group px-2">
-
-      <input type="text" name="search" id="search" value="{{ request.GET.search }}" class="bg-neutral-900 text-neutral-200 rounded-md form-control">
-      <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-2 md-2 mt-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">Search</button>
+      <input type="text" name="search" id="search" value="{{ request.GET.search }}" class="bg-neutral-400 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-200 rounded-md form-control" placeholder="search query">
+      <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-2 md-2 mt-2 mb-2 light:bg-blue-700 dark:bg-blue-600 light:hover:bg-blue-800 dark:hover:bg-blue-700 light:focus:ring-blue-300 dark:focus:ring-blue-800">Search</button>
     </div>
   </form>
 </div>
 
 <div class="relative overflow-x-auto rounded-md shadow-md sm:rounded-md px-2">
   <table class="w-full text-xs text-left text-neutral-500 dark:text-neutral-400">
-    <thead class="text-xs text-neutral-900 uppercase bg-neutral-50 dark:bg-neutral-900 dark:text-neutral-200">
-      <tr class="bg-neutral-500">
-        <th scope="col" class="text-center px-2 py-2">ID</th>
-        <th scope="col" class="text-center px-2 py-2">Hostname</th>
-        <th scope="col" class="text-center px-2 py-2">IP</th>
-        <th scope="col" class="text-center px-2 py-2">Model</th>
-        <th scope="col" class="text-center px-2 py-2">Status</th>
-        <th scope="col" class="text-center px-2 py-2">Optical info</th>
+    <thead class="text-xs text-neutral-900 uppercase bg-neutral-50 dark:bg-neutral-900 text-neutral-200">
+      <tr class="bg-neutral-600 light:text-white dark:text-neutrall-200">
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="id">ID</th>
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="hostname">Hostname</th>
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="ip">IP</th>
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="model">Model</th>
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="status">Status</th>
+        <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">Optical info</th>
         <th scope="col" class="text-center px-2 py-2">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for switch in switches %}
-      <tr class="bg-white border-b text-white dark:bg-neutral-800 dark:border-neutral-700 hover:bg-neutral-900 dark:hover-bg-neutral-600">
+      <tr class="bg-white border-b {% if switch.status %}text-green-600{% else %}text-red-600{% endif %} light:bg-neutral-900 dark:bg-neutral-800 light:border-neutral-600 dark:border-neutral-700 light:hover:bg-neutral-800 dark:hover-bg-neutral-600">
         <td class="text-center px-2 py-1">
           <a href="{% url 'switch_detail' switch.pk %}">{{ switch.pk }}</a>
         </td>
         <td class="text-center px-2 py-1">
           <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_hostname }}</a>
-        </th>
+        </td>
         <td class="text-center px-2 py-1">
           <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_ip }}</a>
         </td>
         <td class="text-center px-2 py-1">
-          <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_model }}</a>
+          <a href="{% url 'switch_detail' switch.pk %}">{{ switch.device_model_local }}</a>
         </td>
         <td class="text-center px-2 py-1 {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
           <a href="{% url 'switch_detail' switch.pk %}">{% if switch.status %}UP{% else %}DOWN{% endif %}</a>
@@ -73,15 +72,15 @@
   <div class="pagination">
     <span class="step-links">
       {% if switches.has_previous %}
-        <a href="?page=1&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">&laquo; first</a>
-        <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">previous</a>
+        <a href="?page=1&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 light:bg-blue-700 dark:bg-blue-600 light:hover:bg-blue-800 dark:hover:bg-blue-700 light:focus:ring-blue-300 dark:focus:ring-blue-800">&laquo; first</a>
+        <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover-bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 light:bg-blue-700 dark:bg-blue-600 light:hover:bg-blue-800 dark:hover:bg-blue-700 light:focus:ring-blue-300 dark:focus:ring-blue-800">previous</a>
       {% endif %}
       <span class="current-page">
         Page {{ switches.number }} of {{ switches.paginator.num_pages }}.
       </span>
       {% if switches.has_next %}
-        <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">next</a>
-        <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">last &raquo;</a>
+        <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 light:bg-blue-700 dark:bg-blue-600 light:hover:bg-blue-800 dark:hover:bg-blue-700 light:focus:ring-blue-300 dark:focus:ring-blue-800">next</a>
+        <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-md text-sm px-5 py-2 mr-2 mb-2 light:bg-blue-700 dark:bg-blue-600 light:hover:bg-blue-800 dark:hover:bg-blue-700 light:focus:ring-blue-300 dark:focus:ring-blue-800">last &raquo;</a>
       {% endif %}
     </span>
   </div>

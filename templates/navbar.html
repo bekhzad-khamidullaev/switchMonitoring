@@ -1,22 +1,23 @@
-<nav class="bg-neutral-900">
+<nav class="bg-sky-600 dark:bg-neutral-900">
   <div class="mx-auto max-w-8xl px-2 sm:px-6 lg:px-8">
     <div class="relative flex h-16 items-center justify-between">
       <div class="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
-        <div class="flex items-center text-white">
-          <a href="" class="flex items-center text-3xl font-bold text-white dark:text-neutral-200">
+        <div class="flex items-center text-neutral-800 dark:text-neutral-200">
+          <a href="" class="flex items-center text-3xl font-bold text-neutral-800">
             SNMP 2.0
           </a>
         </div>
         <div class="hidden sm:ml-6 sm:block">
           <div class="flex space-x-4">
-            <a href="{% url 'switches' %}" class="text-neutral-300 hover:bg-neutral-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">SWITCHES</a>
-            <a href="{% url 'olts' %}" class="text-neutral-300 hover:bg-neutral-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">OLT's</a>            
+            <a href="{% url 'switches' %}" class="text-neutral-800 dark:text-white hover:bg-indigo-950 hover:text-white rounded-md px-3 py-2 text-sm font-medium {% if request.path == '/switches/' %}active{% endif %}">SWITCHES</a>
+            <a href="{% url 'olts' %}" class="text-neutral-800 dark:text-white hover:bg-indigo-950 hover:text-white rounded-md px-3 py-2 text-sm font-medium {% if request.path == '/olts/' %}active{% endif %}">OLT's</a>
           </div>
         </div>
       </div>
       <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
-        <a href="{% url 'logout' %}" class="px-3 py-2 text-xs font-medium text-center inline-flex items-center text-white bg-neutral-600 rounded-lg hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800">
-          Logout</a>
+        <a href="{% url 'logout' %}" class="rounded-md px-3 py-2 text-xs font-medium text-center inline-flex items-center text-white dark:text-white bg-red-600 dark:bg-neutral-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800">
+          Logout
+        </a>
       </div>
     </div>
   </div>

@@ -11,27 +11,21 @@
       {% csrf_token %}
       {{ form.as_p }}
       <div class="mt-4">
-        <button type="submit" class="btn btn-primary bg-green-500 hover:bg-green-600 focus:ring focus:ring-green-300">
+        <button type="submit" class="bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 text-white font-medium rounded-md text-sm px-2 md:2 mt-2 mb-2 focus:outline-none">
           <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v8m0 0v8m0-8h8m-8 0H4"></path>
           </svg>
           {% if form.instance.pk %}Update{% else %}Create{% endif %}
         </button>
         
-        <a href="{% url 'switches' %}" class="btn btn-secondary bg-neutral-500 hover:bg-neutral-600 focus:ring focus:ring-neutral-300">
+        <a href="{% url 'switches' %}" class="bg-neutral-700 hover:bg-neutral-800 focus:ring-4 focus:ring-neutral-300 text-white font-medium rounded-md text-sm px-2 md:2 mt-2 mb-2 focus:outline-none">
           <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
           </svg>
           Cancel
         </a>
-        
       </div>
     </form>
   </div>
 </div>
-<style>
-  input[type="text"], input[type="password"], select, textarea {
-    color: black;
-  }
-</style>
 {% endblock %}
