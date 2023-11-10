@@ -11,6 +11,8 @@ logger = logging.getLogger("SNMP RESPONSE")
 
 SNMP_COMMUNITY = "snmp2netread"
 OID_SYSTEM_DESCRIPTION = "1.3.6.1.2.1.1.1.0"
+OID_SYSTEM_HOSTNAME='1.3.6.1.2.1.1.5'
+OID_SYSTEM_UPTIME='1.3.6.1.2.1.1.3'
 
 def perform_snmpwalk(ip, oid):
     snmp_walk = getCmd(
@@ -42,6 +44,16 @@ class Command(BaseCommand):
         for selected_switch in selected_switches:
             vendor_name = None
             model_name = None
+            snmp_response = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_DESCRIPTION)
+            if not snmp_response:
+                logger.warning(f"No SNMP response received for IP address: {selected_switch.device_ip}")
+                continue
+
+                response = str(snmp_response[0]).strip().split()
+                logger.info(response)
+                selected_switch.device_hostname = response
+                selected_switch.save()
+                
             for vendor in vendors:
                 vendor_name = vendor.name
                 for model in models:
