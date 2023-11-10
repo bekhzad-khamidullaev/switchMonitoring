@@ -45,6 +45,7 @@ class Device(models.Model):
 
 class Switch(models.Model):
     device_model_local = models.CharField(max_length=200, null=True, blank=True)
+    uptime = models.CharField(max_length=200, blank=True)
     device_hostname = models.CharField(max_length=200, null=True, blank=True)
     device_ip = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
     device_optical_info = models.IntegerField(null=True, blank=True)
@@ -58,6 +59,7 @@ class Switch(models.Model):
 
 class Olt(models.Model):
     device_model_local = models.CharField(max_length=200, null=True, blank=True)
+    uptime = models.CharField(max_length=200, blank=True)
     device_hostname = models.CharField(max_length=200, null=True, blank=True)
     device_ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
     device_optical_info = models.IntegerField(null=True, blank=True)
