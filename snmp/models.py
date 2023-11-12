@@ -1,4 +1,7 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
+
+
 
 class Vendor(models.Model):
     name = models.CharField(max_length=200)
@@ -52,6 +55,8 @@ class Switch(models.Model):
     device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
     sysDescr_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
     status = models.BooleanField(default=False)
+
+    history = HistoricalRecords()
 
     def __str__(self):
         return f"{self.device_hostname}"

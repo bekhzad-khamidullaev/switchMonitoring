@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Vendor, SwitchModel, OltModel, Device, Switch, Olt
+from .models import Switch, Olt
 from .forms import SwitchForm, OltForm
 from django.core.paginator import Paginator
 from django.shortcuts import render
@@ -27,7 +27,7 @@ def switches(request):
             Q(status__icontains=search_query)
         )
 
-    paginator = Paginator(items, 30)
+    paginator = Paginator(items, 20)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
 
