@@ -24,10 +24,14 @@ def switches(request):
             Q(device_hostname__icontains=search_query) |
             Q(device_ip__icontains=search_query) |
             Q(device_model_local__icontains=search_query) |
-            Q(status__icontains=search_query)
+            Q(status__icontains=search_query) |
+            Q(sfp_vendor__icontains=search_query) |
+            Q(part_number__icontains=search_query) |
+            Q(rx_signal__icontains=search_query) |
+            Q(tx_signal__icontains=search_query)
         )
 
-    paginator = Paginator(items, 20)
+    paginator = Paginator(items, 30)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
 

@@ -55,8 +55,14 @@ class Switch(models.Model):
     device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
     sysDescr_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
     status = models.BooleanField(default=False)
-
+    uplink = models.IntegerField(blank=True, null=True)
     history = HistoricalRecords()
+    tx_signal = models.FloatField(null=True, blank=True)
+    rx_signal = models.FloatField(null=True, blank=True)
+    sfp_vendor = models.CharField(max_length=200, null=True, blank=True)
+    part_number = models.CharField(max_length=200, null=True, blank=True)
+    ats = models.CharField(max_length=200, null=True, blank=True)
+    # high_signal_value = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.device_hostname}"
