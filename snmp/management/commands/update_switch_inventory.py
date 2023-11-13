@@ -13,7 +13,7 @@ logger = logging.getLogger("SNMP RESPONSE")
 
 
 SNMP_COMMUNITY = "snmp2netread"
-OID_SYSTEM_DESCRIPTION ="1.3.6.1.2.1.1.1"
+OID_SYSTEM_DESCRIPTION ="iso.3.6.1.2.1.1.1"
 OID_SYSTEM_HOSTNAME='iso.3.6.1.2.1.1.5.0'
 OID_SYSTEM_UPTIME='iso.3.6.1.2.1.1.3.0'
 
