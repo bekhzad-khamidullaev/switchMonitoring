@@ -31,7 +31,7 @@ def switches(request):
             Q(tx_signal__icontains=search_query)
         )
 
-    paginator = Paginator(items, 30)
+    paginator = Paginator(items, 45)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
 

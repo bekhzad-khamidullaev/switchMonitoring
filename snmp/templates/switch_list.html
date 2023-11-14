@@ -69,8 +69,8 @@
           {% if 'No Such' in switch.sfp_vendor  or 'No Such' in switch.part_number or switch.rx_signal is None %}Not available{% else %}
           {{ switch.sfp_vendor }} | {{ switch.part_number }} | {{ switch.rx_signal }} | {{ switch.tx_signal }}
           {% endif %}
-          {% if switch.rx_signal >= 10 %}
-          <a href="#" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
+          {% if switch.rx_signal <= -11 %}
+          <a href="#" class="rounded-md px-3 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
           {% endif %}
         </td>
         

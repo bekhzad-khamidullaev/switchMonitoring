@@ -65,71 +65,72 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
-        selected_switches = Switch.objects.filter(status=True)
-        vendors = Vendor.objects.all()
-        models = SwitchModel.objects.all()
+            while True:
+                selected_switches = Switch.objects.filter(status=True)
+                vendors = Vendor.objects.all()
+                models = SwitchModel.objects.all()
 
-        for selected_switch in selected_switches:
-            vendor_name = None
-            model_name = None
-            snmp_response_hostname = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_HOSTNAME)
-            snmp_response_uptime = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_UPTIME)
-            # logger.info(f'{snmp_response_hostname} ================== {snmp_response_uptime}')
-            if not snmp_response_hostname:
-                logger.warning(f"No SNMP response (uptime and hostname) received for IP address: {selected_switch.device_ip}")
-                continue
-
-
-            match1 = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', snmp_response_hostname[0])
-            if match1:
-                hostname = match1.group(1).strip()
-                logger.info(hostname)
-            else:
-                logger.warning(f"Unexpected SNMP response format for hostname: {snmp_response_hostname[0]}")
-                continue
-            
-            
-            match2 = re.search(r'SNMPv2-MIB::sysUpTime.0\s*=\s*(\d+)', snmp_response_uptime[0])
-            logger.info(match2)
-            if match2:
-                uptime = convert_uptime_to_human_readable(match2.group(1).strip())
-                logger.info(uptime)
-
-                # uptime = match2.group(1).strip()
-                # logger.info(uptime)
-            else:
-                logger.warning(f"Unexpected SNMP response format for uptime: {snmp_response_uptime[0]}")
-                continue
-
-
-            selected_switch.device_hostname = hostname
-            selected_switch.uptime = uptime
-            selected_switch.save()
-                
-            for vendor in vendors:
-                vendor_name = vendor.name
-                for model in models:
-                    model_name = model.device_model
-                    logger.info(f'Vendor name: {vendor_name} and device model: {model_name}')             
-                    snmp_response = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_DESCRIPTION)
-                    if not snmp_response:
-                        logger.warning(f"No SNMP response (vendor) received for IP address: {selected_switch.device_ip}")
+                for selected_switch in selected_switches:
+                    vendor_name = None
+                    model_name = None
+                    snmp_response_hostname = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_HOSTNAME)
+                    snmp_response_uptime = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_UPTIME)
+                    # logger.info(f'{snmp_response_hostname} ================== {snmp_response_uptime}')
+                    if not snmp_response_hostname:
+                        logger.warning(f"No SNMP response (uptime and hostname) received for IP address: {selected_switch.device_ip}")
                         continue
 
-                    response = str(snmp_response[0]).strip().split()
-                    logger.info(response)
-                    if vendor_name in response:
-                        if model_name in response:
-                            selected_switch.device_model_local = model_name
-                            selected_switch.save()
-                            logger.info(f"Updated device_model for switch {selected_switch.device_hostname} to {model_name}")
-                        else:
-                            logger.warning(f"Device model name {model_name} not found in SNMP response for switch {selected_switch.device_hostname}")
+
+                    match1 = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', snmp_response_hostname[0])
+                    if match1:
+                        hostname = match1.group(1).strip()
+                        logger.info(hostname)
                     else:
-                        logger.warning(f"Vendor name {vendor_name} not found in SNMP response for switch {selected_switch.device_hostname}")
+                        logger.warning(f"Unexpected SNMP response format for hostname: {snmp_response_hostname[0]}")
+                        continue
                     
                     
-                else:
-                    logger.warning(f'Skipping switch {selected_switch.id} due to missing vendor for {model_name}')
-                    continue
+                    match2 = re.search(r'SNMPv2-MIB::sysUpTime.0\s*=\s*(\d+)', snmp_response_uptime[0])
+                    logger.info(match2)
+                    if match2:
+                        uptime = convert_uptime_to_human_readable(match2.group(1).strip())
+                        logger.info(uptime)
+
+                        # uptime = match2.group(1).strip()
+                        # logger.info(uptime)
+                    else:
+                        logger.warning(f"Unexpected SNMP response format for uptime: {snmp_response_uptime[0]}")
+                        continue
+
+
+                    selected_switch.device_hostname = hostname
+                    selected_switch.uptime = uptime
+                    selected_switch.save()
+                        
+                    for vendor in vendors:
+                        vendor_name = vendor.name
+                        for model in models:
+                            model_name = model.device_model
+                            logger.info(f'Vendor name: {vendor_name} and device model: {model_name}')             
+                            snmp_response = perform_snmpwalk(selected_switch.device_ip, OID_SYSTEM_DESCRIPTION)
+                            if not snmp_response:
+                                logger.warning(f"No SNMP response (vendor) received for IP address: {selected_switch.device_ip}")
+                                continue
+
+                            response = str(snmp_response[0]).strip().split()
+                            logger.info(response)
+                            if vendor_name in response:
+                                if model_name in response:
+                                    selected_switch.device_model_local = model_name
+                                    selected_switch.save()
+                                    logger.info(f"Updated device_model for switch {selected_switch.device_hostname} to {model_name}")
+                                else:
+                                    logger.warning(f"Device model name {model_name} not found in SNMP response for switch {selected_switch.device_hostname}")
+                            else:
+                                logger.warning(f"Vendor name {vendor_name} not found in SNMP response for switch {selected_switch.device_hostname}")
+                            
+                            
+                        else:
+                            logger.warning(f'Skipping switch {selected_switch.id} due to missing vendor for {model_name}')
+                            continue
 
