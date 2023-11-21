@@ -3,7 +3,7 @@
 {% block title %}{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}{% endblock %}
 
 {% block content %}
-  <div class="bg-white dark:bg-neutral-900 p-4 rounded-lg shadow-md">
+  <div class="bg-white dark:bg-neutral-900 p-4 rounded-lg flex justify-center shadow-md">
     <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white">
       {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
     </h2>
@@ -11,17 +11,11 @@
       {% csrf_token %}
       {{ form.as_p }}
       <div class="mt-4">
-        <button type="submit" class="bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 text-white font-medium rounded-md text-sm px-2 md:2 mt-2 mb-2 focus:outline-none">
-          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v8m0 0v8m0-8h8m-8 0H4"></path>
-          </svg>
+        <button type="submit" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
           {% if form.instance.pk %}Update{% else %}Create{% endif %}
         </button>
         
-        <a href="{% url 'switches' %}" class="bg-neutral-700 hover:bg-neutral-800 focus:ring-4 focus:ring-neutral-300 text-white font-medium rounded-md text-sm px-2 md:2 mt-2 mb-2 focus:outline-none">
-          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-          </svg>
+        <a href="{% url 'switches' %}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
           Cancel
         </a>
       </div>

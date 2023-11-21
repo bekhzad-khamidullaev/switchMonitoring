@@ -1,8 +1,8 @@
 # from background_task import background
 from django.core.management.base import BaseCommand
-from snmp.models import Switch, SwitchModel, Vendor
+from snmp.models import Switch
 from pysnmp.hlapi import *
-import logging, math, re
+import logging, math
 
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +20,10 @@ def mw_to_dbm(mw):
 class SNMPUpdater:
     def __init__(self, selected_switch, snmp_community):
         self.selected_switch = selected_switch
-        self.model = selected_switch.device_model_local
+        if selected_switch.device_model:
+            self.model = selected_switch.device_model.device_model
+        else:
+            self.model = None
         self.device_ip = selected_switch.device_ip
         self.snmp_community = snmp_community
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
@@ -245,7 +248,7 @@ class Command(BaseCommand):
         while True:
             snmp_community = "snmp2netread"
             selected_switches = Switch.objects.filter(status=True).order_by('pk')
-            # selected_switches = Switch.objects.filter(device_model_local__icontains='Quidway').order_by('pk')
+            # selected_switches = Switch.objects.filter(device_model__icontains='Quidway').order_by('pk')
             for selected_switch in selected_switches:
                 snmp_updater = SNMPUpdater(selected_switch, snmp_community)
                 snmp_updater.update_switch_data()

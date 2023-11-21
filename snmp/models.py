@@ -43,7 +43,6 @@ class Device(models.Model):
 
 
 class Switch(models.Model):
-    device_model_local = models.CharField(max_length=200, null=True, blank=True)
     device_model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
     device_hostname = models.CharField(max_length=200, null=True, blank=True)
@@ -51,8 +50,7 @@ class Switch(models.Model):
     device_snmp_community = models.CharField(max_length=100, default='snmp2netread')
     sysdescr_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
     status = models.BooleanField(default=False, null=True, blank=True)
-    uplink = models.IntegerField(blank=True, null=True)
-    history = HistoricalRecords() 
+    uplink = models.ForeignKey("Switch", on_delete=models.SET_NULL, blank=True, null=True)
     tx_signal = models.FloatField(null=True, blank=True)
     rx_signal = models.FloatField(null=True, blank=True)
     sfp_vendor = models.CharField(max_length=200, null=True, blank=True)

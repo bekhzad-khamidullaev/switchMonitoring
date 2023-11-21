@@ -54,7 +54,7 @@
           </td>
           <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
             {{ switch.rx_signal }}
-            {% if switch.rx_signal >= 10 %}
+            {% if switch.rx_signal <= -11 %}
             <a href="#" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
             {% endif %}
           </td>

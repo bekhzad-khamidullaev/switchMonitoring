@@ -24,7 +24,7 @@ def switches(request):
             Q(pk__icontains=search_query) |
             Q(device_hostname__icontains=search_query) |
             Q(device_ip__icontains=search_query) |
-            Q(device_model_local__icontains=search_query) |
+            Q(device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
             Q(sfp_vendor__icontains=search_query) |
             Q(part_number__icontains=search_query) |

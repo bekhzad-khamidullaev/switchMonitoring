@@ -11,35 +11,36 @@
   </div>
   <div class="ml-20">
     {% if switches.has_previous %}
-      <a href="?page=1&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">&laquo; first</a>
-      <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">previous</a>
+      <a href="?page=1&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">&laquo; first</a>
+      <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">previous</a>
     {% endif %}
     <span class="current-page">
       Page {{ switches.number }} of {{ switches.paginator.num_pages }}.
     </span>
     {% if switches.has_next %}
-      <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">next</a>
-      <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">last &raquo;</a>
+      <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">next</a>
+      <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">last &raquo;</a>
     {% endif %}
   </div>
   <form method="get">
     <div class="form-group px-2">
-      <input type="text" name="search" id="search" value="{{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white dark:bg-gray-600 bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-sky-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 text-sky-primary invalid:text-gray-400 form-control" placeholder="search query">
-      <button type="submit" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-sky-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Search</button>
+      <input type="text" name="search" id="search" value="{{ request.GET.search }}" class="shadow-sm placeholder:italic placeholder:text-neutral-200 block rounded-md px-2 py-2 font-bold text-center inline-flex items-center text-xs text-white dark:bg-gray-600 bg-gradient-to-r from-sky-400 to-sky-600 hover:bg-sky-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 text-sky-primary invalid:text-gray-400 form-control" placeholder="search query">
+      <button type="submit" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-sky-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Search</button>
     </div>
+    
   </form>
 </div>
 
 <div class="relative rounded-md px-2">
   <table class="w-full text-xs text-left text-neutral-900 dark:text-neutral-300">
     <thead class="bg-sky-900 dark:bg-neutral-900 text-neutral-300 text-center px-2 py-2 uppercase">
-      <tr class="">
+      <tr class="font-sans">
         <th scope="col">ID</th>
-        <th scope="col">Hostname</th>
-        <th scope="col">IP</th>
+        <th scope="col">Status</th>        
         <th scope="col">Vendor</th>
         <th scope="col">Model</th>
-        <th scope="col">Status</th>
+        <th scope="col">Hostname</th>
+        <th scope="col">IP</th>        
         <th scope="col">Uptime</th>
         <th scope="col">SFP Vendor</th>
         <th scope="col">SFP Part #</th>
@@ -50,29 +51,30 @@
     </thead>
     <tbody>
       {% for switch in switches %}
-      <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
+      <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600">
         <td class="text-center px-2 py-1">
          {{ switch.pk }}
         </td>
-        <td class="text-center border-1 font-medium text-neutral-50 px-2 py-1 {% if switch.status %}bg-green-600{% else %}bg-red-600{% endif %}">
-          {{ switch.device_hostname }}</a>
-        </td>
-        <td class="text-center px-2 py-1">
-          {{ switch.device_ip }}</a>
-        </td>
+        <td id="switch-status-{{ switch.pk }}" class="text-center px-2 py-1 font-medium {% if switch.status %}text-white bg-green-600{% else %}text-neutral-950 bg-red-600 animate-pulse{% endif %}">
+          {% if switch.status %}UP{% else %}DOWN{% endif %}
+        </td>        
         <td class="text-center px-2 py-1">
           {{ switch.device_model.vendor.name }}</a>
         </td>
         <td class="text-center px-2 py-1">
-          {{ switch.device_model_local }}</a>
+          {{ switch.device_model.device_model }}</a>
+        </td>        
+        <td class="text-center font-bold	text-sm border-1 text-neutral-300 px-2 py-1">
+          {{ switch.device_hostname }}</a>
+        </td>        
+        <td class="text-center px-2 py-1">
+          {{ switch.device_ip }}</a>
         </td>
-        <td id="switch-status-{{ switch.pk }}" class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-          {% if switch.status %}UP{% else %}DOWN{% endif %}
-        </td>
+
         <!-- <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
           {% if switch.status %}UP{% else %}DOWN{% endif %}</a>
         </td> -->
-        <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+        <td class="text-center px-2 py-1">
           {{ switch.uptime }}
         </td>
         <td class="text-center px-2 py-1">
@@ -80,20 +82,18 @@
           {{ switch.sfp_vendor }}
           {% endif %}
         </td>
-        <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+        <td class="text-center px-2 py-1">
           {{ switch.part_number }}
         </td>
-        <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+        <td class="text-center px-2 py-1">
           {{ switch.rx_signal }}
-          {% if switch.rx_signal >= 10 %}
-          <a href="#" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
+          {% if switch.rx_signal <= -11 %}
+          <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">High</button>
           {% endif %}
         </td>
-        <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+        <td class="text-center px-2 py-1">
           {{ switch.tx_signal }}
         </td>
-        
-        
         <td class="text-center px-2 py-1">
           <div class="flex justify-center space-x-2">
             {% if switch.status %}
@@ -122,15 +122,15 @@
 <div class="pagination flex justify-center py-2">
     <span class="step-links">
       {% if switches.has_previous %}
-        <a href="?page=1&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">&laquo; first</a>
-        <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">previous</a>
+        <a href="?page=1&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">&laquo; first</a>
+        <a href="?page={{ switches.previous_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">previous</a>
       {% endif %}
       <span class="current-page">
         Page {{ switches.number }} of {{ switches.paginator.num_pages }}.
       </span>
       {% if switches.has_next %}
-        <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">next</a>
-        <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-slate-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">last &raquo;</a>
+        <a href="?page={{ switches.next_page_number }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">next</a>
+        <a href="?page={{ switches.paginator.num_pages }}&search={{ request.GET.search }}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">last &raquo;</a>
       {% endif %}
     </span>
 </div>

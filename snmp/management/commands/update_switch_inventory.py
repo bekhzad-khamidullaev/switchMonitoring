@@ -2,9 +2,7 @@ from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel
 import logging
 from pysnmp.hlapi import *
-import sys
 import re
-from datetime import timedelta
 
 
 logging.basicConfig(level=logging.INFO)
@@ -99,7 +97,7 @@ class Command(BaseCommand):
                     logger.info(response)
 
                     if device_model in response:
-                        selected_switch.device_model = model
+                        selected_switch.device_model.device_model = model
                         selected_switch.save()
                         logger.info(f"Updated device_model for switch {selected_switch.device_hostname} to {device_model}")
                         break
