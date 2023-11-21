@@ -2,14 +2,10 @@ import ping3
 from django.core.management.base import BaseCommand
 from snmp.models import Switch
 import logging
-
-
 from pysnmp.hlapi import *
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
-
 
 class Command(BaseCommand):
     help = 'Update switch data'

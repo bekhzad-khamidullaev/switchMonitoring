@@ -13,80 +13,80 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
 
 
-interface_name = "GigabitEthernet0/0/1"
-username = "bekhzad"
-password = "adminadmin"
-port = 23
+# interface_name = "GigabitEthernet0/0/1"
+# username = "bekhzad"
+# password = "adminadmin"
+# port = 23
 
-def establish_telnet_connection(host, port, username, password):
-    try:
-        tn = telnetlib.Telnet(host, port, timeout=1)
-        tn.read_until(b"Username: ", timeout=1)
-        tn.write(username.encode('utf-8') + b"\n")
-        tn.read_until(b"Password: ", timeout=1)
-        tn.write(password.encode('utf-8') + b"\n")
+# def establish_telnet_connection(host, port, username, password):
+#     try:
+#         tn = telnetlib.Telnet(host, port, timeout=1)
+#         tn.read_until(b"Username: ", timeout=1)
+#         tn.write(username.encode('utf-8') + b"\n")
+#         tn.read_until(b"Password: ", timeout=1)
+#         tn.write(password.encode('utf-8') + b"\n")
         
-        tn.read_until(b">", timeout=1)
-        logger.info("Telnet connection established.")
-        return tn
-    except Exception as e:
-        logger.error(f"Failed to establish Telnet connection: {str(e)}")
-        return None
+#         tn.read_until(b">", timeout=1)
+#         logger.info("Telnet connection established.")
+#         return tn
+#     except Exception as e:
+#         logger.error(f"Failed to establish Telnet connection: {str(e)}")
+#         return None
 
 
-def send_telnet_command(tn, command):
-    try:
-        tn.write(command.encode('utf-8') + b"\n")
-        index, match, response = tn.expect([b'[>#]'])
-        response = response.decode('utf-8', errors='replace')
-        if index == -1:
-            logger.error(f"Failed to match the expected pattern: [>#]")
-            return None
-        logger.info(f'Sent command: {command}\nResponse: {response}')
-        return response
-    except Exception as e:
-        logger.error(f"Error while sending Telnet command: {str(e)}")
-        return None
+# def send_telnet_command(tn, command):
+#     try:
+#         tn.write(command.encode('utf-8') + b"\n")
+#         index, match, response = tn.expect([b'[>#]'])
+#         response = response.decode('utf-8', errors='replace')
+#         if index == -1:
+#             logger.error(f"Failed to match the expected pattern: [>#]")
+#             return None
+#         logger.info(f'Sent command: {command}\nResponse: {response}')
+#         return response
+#     except Exception as e:
+#         logger.error(f"Error while sending Telnet command: {str(e)}")
+#         return None
 
-def extract_transceiver_info(output, interface_name):
-    transceiver_info = []
+# def extract_transceiver_info(output, interface_name):
+#     transceiver_info = []
 
-    transceiver_sections = re.findall(rf'{interface_name} transceiver information:[\s\S]*?(?=(?:\nInterface Name|$))', output)
-    for section in transceiver_sections:
-        info = {}
-        info['Interface Name'] = re.search(r'(\S+) transceiver information:', section).group(1)
-        vendor_match = re.search(r'Vendor Name\s+:(.*?)\n', section)
-        rx_power_match = re.search(r'RX Power\(dBM\)\s+:(.*?)\n', section)
-        tx_power_match = re.search(r'TX Power\(dBM\)\s+:(.*?)\n', section)
-        info['Vendor Name'] = vendor_match.group(1).strip() if vendor_match else "N/A"
-        info['RX Power (dBm)'] = rx_power_match.group(1).strip() if rx_power_match else "N/A"
-        info['TX Power (dBm)'] = tx_power_match.group(1).strip() if tx_power_match else "N/A"
-        transceiver_info.append(info)
+#     transceiver_sections = re.findall(rf'{interface_name} transceiver information:[\s\S]*?(?=(?:\nInterface Name|$))', output)
+#     for section in transceiver_sections:
+#         info = {}
+#         info['Interface Name'] = re.search(r'(\S+) transceiver information:', section).group(1)
+#         vendor_match = re.search(r'Vendor Name\s+:(.*?)\n', section)
+#         rx_power_match = re.search(r'RX Power\(dBM\)\s+:(.*?)\n', section)
+#         tx_power_match = re.search(r'TX Power\(dBM\)\s+:(.*?)\n', section)
+#         info['Vendor Name'] = vendor_match.group(1).strip() if vendor_match else "N/A"
+#         info['RX Power (dBm)'] = rx_power_match.group(1).strip() if rx_power_match else "N/A"
+#         info['TX Power (dBm)'] = tx_power_match.group(1).strip() if tx_power_match else "N/A"
+#         transceiver_info.append(info)
 
-    return transceiver_info
+#     return transceiver_info
 
 
-def get_required_transceiver_info(ip, port, username, password, interface_name):
-    try:
-        tn = establish_telnet_connection(ip, port, username, password)
-        if tn:
-            output = send_telnet_command(tn, f"display transceiver interface {interface_name} verbose")
-            tn.write(b"quit\n")
-            tn.close()
+# def get_required_transceiver_info(ip, port, username, password, interface_name):
+#     try:
+#         tn = establish_telnet_connection(ip, port, username, password)
+#         if tn:
+#             output = send_telnet_command(tn, f"display transceiver interface {interface_name} verbose")
+#             tn.write(b"quit\n")
+#             tn.close()
 
-            if output:
-                transceiver_info = extract_transceiver_info(output, interface_name)
-                if transceiver_info:
-                    return transceiver_info[0]  # Return the first element of the list as a dictionary
-                else:
-                    logger.error("Failed to retrieve transceiver info.")
-            else:
-                logger.error("Failed to retrieve transceiver info.")
-        else:
-            logger.error("Error: Failed to establish a Telnet connection.")
-    except Exception as e:
-        logger.error(f"Error: {str(e)}")
-    return {}
+#             if output:
+#                 transceiver_info = extract_transceiver_info(output, interface_name)
+#                 if transceiver_info:
+#                     return transceiver_info[0]  # Return the first element of the list as a dictionary
+#                 else:
+#                     logger.error("Failed to retrieve transceiver info.")
+#             else:
+#                 logger.error("Failed to retrieve transceiver info.")
+#         else:
+#             logger.error("Error: Failed to establish a Telnet connection.")
+#     except Exception as e:
+#         logger.error(f"Error: {str(e)}")
+#     return {}
 
 
 class SNMPUpdater:
@@ -187,28 +187,28 @@ class SNMPUpdater:
             self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID,
         )
 
-        result = get_required_transceiver_info(self.device_ip, port, username, password, interface_name)
+        # result = get_required_transceiver_info(self.device_ip, port, username, password, interface_name)
 
-        if 'TX Power (dBm)' in result:
-            TX_SIGNAL = result['TX Power (dBm)']
-        else:
-            self.logger.error("TX Power (dBm) not found in the result dictionary.")
-            TX_SIGNAL = None
+        # if 'TX Power (dBm)' in result:
+        #     TX_SIGNAL = result['TX Power (dBm)']
+        # else:
+        #     self.logger.error("TX Power (dBm) not found in the result dictionary.")
+        #     TX_SIGNAL = None
 
-        if 'RX Power (dBm)' in result:
-            RX_SIGNAL = result['RX Power (dBm)']
-        else:
-            self.logger.error("RX Power (dBm) not found in the result dictionary.")
-            RX_SIGNAL = None
+        # if 'RX Power (dBm)' in result:
+        #     RX_SIGNAL = result['RX Power (dBm)']
+        # else:
+        #     self.logger.error("RX Power (dBm) not found in the result dictionary.")
+        #     RX_SIGNAL = None
 
-        if 'Vendor Name' in result:
-            SFP_VENDOR = result['Vendor Name']
-        else:
-            self.logger.error("Vendor Name not found in the result dictionary.")
-            SFP_VENDOR = None
+        # if 'Vendor Name' in result:
+        #     SFP_VENDOR = result['Vendor Name']
+        # else:
+        #     self.logger.error("Vendor Name not found in the result dictionary.")
+        #     SFP_VENDOR = None
 
-        # Assuming 'PART_NUMBER' is a key in the result dictionary
-        PART_NUMBER = result.get('PART_NUMBER', None)
+        # # Assuming 'PART_NUMBER' is a key in the result dictionary
+        # PART_NUMBER = result.get('PART_NUMBER', None)
 
         try:
             if '3500' in self.model:

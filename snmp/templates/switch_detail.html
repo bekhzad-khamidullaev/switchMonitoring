@@ -14,12 +14,15 @@
           <th scope="col" class="text-center px-2 py-2 sortable" data-column="model">Model</th>
           <th scope="col" class="text-center px-2 py-2 sortable" data-column="status">Status</th>
           <th scope="col" class="text-center px-2 py-2 sortable" data-column="status">Uptime</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">Optical info<br>Vendor | Part № | RX | TX</th>
+          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP Vendor</th>
+          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP Part #</th>
+          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP RX value</th>
+          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP TX value</th>
           <!-- <th scope="col" class="text-center px-2 py-2">Actions</th> -->
         </tr>
       </thead>
       <tbody>
-        <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600">
+        <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
           <td class="text-center px-2 py-1">
            {{ switch.pk }}
           </td>
@@ -32,20 +35,31 @@
           <td class="text-center px-2 py-1">
             {{ switch.device_model_local }}</a>
           </td>
-          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {% if switch.status %}UP{% else %}DOWN{% endif %}</a>
+          <td id="switch-status-{{ switch.pk }}" class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+            {% if switch.status %}UP{% else %}DOWN{% endif %}
           </td>
+          <!-- <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+            {% if switch.status %}UP{% else %}DOWN{% endif %}</a>
+          </td> -->
           <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            
-            {% if switch.status %}<a href="{% url 'switch_detail' switch.pk %}">{% endif %}{{ switch.uptime }}</a>
+            {{ switch.uptime }}
           </td>
           <td class="text-center px-2 py-1">
-            {% if 'No Such' in switch.sfp_vendor  or 'No Such' in switch.part_number or switch.rx_signal is None %}Not available{% else %}
-            {{ switch.sfp_vendor }} | {{ switch.part_number }} | {{ switch.rx_signal }} | {{ switch.tx_signal }}
+            {% if 'No Such' in switch.sfp_vendor %}Not available{% else %}
+            {{ switch.sfp_vendor }}
             {% endif %}
+          </td>
+          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ switch.part_number }}
+          </td>
+          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ switch.rx_signal }}
             {% if switch.rx_signal >= 10 %}
             <a href="#" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
             {% endif %}
+          </td>
+          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ switch.tx_signal }}
           </td>
           <!-- <td class="text-center px-2 py-1">
             <div class="flex justify-center space-x-2">

@@ -69,6 +69,8 @@ class Command(BaseCommand):
                 selected_switches = Switch.objects.filter(status=True)
                 vendors = Vendor.objects.all()
                 models = SwitchModel.objects.all()
+                selected_switches = selected_switches.order_by('pk')
+
 
                 for selected_switch in selected_switches:
                     vendor_name = None

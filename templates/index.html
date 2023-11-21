@@ -6,51 +6,47 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="{% static 'checkbox.js' %}"></script>
-  <script src="{% static 'kanban.js' %}"></script>
   <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
   <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet" type="text/css">
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- Add the JavaScript script tag after your HTML content -->
-  <script>
-    $(document).ready(function() {
-      // Click event handler for sortable columns
-      $('.sortable').click(function() {
-        var column = $(this).data('column');
-        var order = $(this).hasClass('asc') ? 'desc' : 'asc';
-    
-        // Remove 'asc' and 'desc' classes from all columns except the current one
-        $('.sortable').not(this).removeClass('asc desc');
-        
-        // Add 'asc' or 'desc' class to the current column header
-        $(this).addClass(order);
-    
-        // Sort the table rows based on the selected column
-        var rows = $('tbody > tr').get();
-        rows.sort(function(a, b) {
-          var keyA = $(a).find('.' + column).text();
-          var keyB = $(b).find('.' + column).text();
-          if (order === 'asc') {
-            return keyA.localeCompare(keyB);
-          } else {
-            return keyB.localeCompare(keyA);
-          }
-        });
-    
-        // Reorder the rows in the table
-        $.each(rows, function(index, row) {
-          $('tbody').append(row);
-        });
-      });
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script>
+  function updateSwitchStatus() {
+    $.ajax({
+      url: `/snmp/switches00/switch_status/${switchId}/`,
+      method: 'GET',
+      dataType: 'json',
+      success: function(data) {
+        // Update the status in the DOM
+        const switchStatusElement = $("#switch-status-{{ switch.pk }}");
+        switchStatusElement.text(data.status);
+
+        // You can customize the styling based on the status (UP or DOWN)
+        if (data.status === 'UP') {
+          switchStatusElement.removeClass('text-red-600').addClass('text-green-600');
+        } else {
+          switchStatusElement.removeClass('text-green-600').addClass('text-red-600');
+        }
+      },
+      error: function(error) {
+        console.error('Error updating switch status:', error);
+      }
     });
-  </script>
+  }
+  
+  $(document).ready(function() {
+    updateSwitchStatus();
+
+    setInterval(function() {
+      updateSwitchStatus();
+    }, 3000);
+  });
+</script>
   
 </head>
-  <body class="text-neutral-900 dark:text-white bg-white dark:bg-neutral-800">
+  <body class="text-neutral-900 dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-800">
   {% if user.is_authenticated %}
       {% include 'navbar.html' %}
-      <div class="rounded-lg shadow-md">
+      <!-- <div class="rounded-lg shadow-md"> -->
         {% block content %}
         {% endblock %}
       </div>
