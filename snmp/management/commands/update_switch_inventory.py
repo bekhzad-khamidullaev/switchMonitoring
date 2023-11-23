@@ -97,7 +97,10 @@ class Command(BaseCommand):
                     logger.info(response)
 
                     if device_model in response:
-                        selected_switch.device_model.device_model = model
+                        if selected_switch.device_model is None:
+                            selected_switch.device_model = model
+                        else:
+                            selected_switch.device_model.device_model = model
                         selected_switch.save()
                         logger.info(f"Updated device_model for switch {selected_switch.device_hostname} to {device_model}")
                         break
