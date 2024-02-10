@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Switch, Olt
-from .forms import SwitchForm, OltForm
+from .models import Switch
+from .forms import SwitchForm
 from django.core.paginator import Paginator
 from django.shortcuts import render
 from django.db.models import Q
@@ -22,9 +22,9 @@ def switches(request):
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query) |
-            Q(device_hostname__icontains=search_query) |
-            Q(device_ip__icontains=search_query) |
-            Q(device_model__icontains=search_query) |
+            Q(hostname__icontains=search_query) |
+            Q(ip__icontains=search_query) |
+            Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
             Q(sfp_vendor__icontains=search_query) |
             Q(part_number__icontains=search_query) |
@@ -72,41 +72,3 @@ def switch_delete(request, pk):
         switch.delete()
         return redirect('switch_list')
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
-
-# Similar views for Olt model
-
-def olts(request):
-    olts = Olt.objects.all()
-    return render(request, 'olt_list.html', {'olts': olts})
-
-def olt_detail(request, pk):
-    olt = get_object_or_404(Olt, pk=pk)
-    return render(request, 'olt_detail.html', {'olt': olt})
-
-def olt_create(request):
-    if request.method == 'POST':
-        form = OltForm(request.POST)
-        if form.is_valid():
-            olt = form.save()
-            return redirect('olt_detail', pk=olt.pk)
-    else:
-        form = OltForm()
-    return render(request, 'olt_form.html', {'form': form})
-
-def olt_update(request, pk):
-    olt = get_object_or_404(Olt, pk=pk)
-    if request.method == 'POST':
-        form = OltForm(request.POST, instance=olt)
-        if form.is_valid():
-            olt = form.save()
-            return redirect('olt_detail', pk=olt.pk)
-    else:
-        form = OltForm(instance=olt)
-    return render(request, 'olt_form.html', {'form': form})
-
-def olt_delete(request, pk):
-    olt = get_object_or_404(Olt, pk=pk)
-    if request.method == 'POST':
-        olt.delete()
-        return redirect('olt_list')
-    return render(request, 'olt_confirm_delete.html', {'olt': olt})

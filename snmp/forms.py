@@ -1,12 +1,8 @@
 from django import forms
-from .models import Switch, Olt
+from .models import Switch
 
 class SwitchForm(forms.ModelForm):
     class Meta:
         model = Switch
-        fields = ['device_model', 'device_ip', 'uplink']
+        fields = ['model', 'ip', 'uplink']
 
-class OltForm(forms.ModelForm):
-    class Meta:
-        model = Olt
-        fields = ['device_model_local', 'device_hostname', 'device_ip', 'device_snmp_community', 'sysdescr_oid']

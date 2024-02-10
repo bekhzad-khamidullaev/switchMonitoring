@@ -56,22 +56,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 DATABASES = {
-    'sqlite': {
+    'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'snmp',
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        'HOST': '10.10.225.35',
-        'PORT': '',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': 'snmp',
+#         'USER': 'admin',
+#         'PASSWORD': 'admin',
+#         'HOST': '10.10.225.35',
+#         'PORT': '',
+#     }
+# }
 
 AUTH_PASSWORD_VALIDATORS = [
     {

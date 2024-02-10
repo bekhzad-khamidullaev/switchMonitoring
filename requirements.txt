@@ -14,3 +14,4 @@ pysmi ==0.3.4
 ply ==3.11
 ping3
 psycopg2
+django-simple-history

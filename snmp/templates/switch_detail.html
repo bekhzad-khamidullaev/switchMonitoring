@@ -8,72 +8,60 @@
     <table class="w-full text-xs text-left text-neutral-500 dark:text-neutral-400">
       <thead class="text-xs uppercase">
         <tr class="bg-neutral-600 text-white dark:text-neutrall-300">
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="id">ID</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="hostname">Hostname</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="ip">IP</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="model">Model</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="status">Status</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="status">Uptime</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP Vendor</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP Part #</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP RX value</th>
-          <th scope="col" class="text-center px-2 py-2 sortable" data-column="signal">SFP TX value</th>
+          <th class="border px-2 py-1">ID</th>
+          <th class="border px-2 py-1">Status</th>        
+          <th class="border px-2 py-1">Vendor</th>
+          <th class="border px-2 py-1">Model</th>
+          <th class="border px-2 py-1">Hostname</th>
+          <th class="border px-2 py-1">IP</th>        
+          <th class="border px-2 py-1">Uptime</th>
+          <th class="border px-2 py-1">SFP Vendor</th>
+          <th class="border px-2 py-1">SFP Part #</th>
+          <th class="border px-2 py-1">SFP RX value</th>
+          <th class="border px-2 py-1">SFP TX value</th>
           <!-- <th scope="col" class="text-center px-2 py-2">Actions</th> -->
         </tr>
       </thead>
       <tbody>
         <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
-          <td class="text-center px-2 py-1">
-           {{ switch.pk }}
-          </td>
-          <td class="text-center border-1 font-medium text-neutral-50 px-2 py-1 {% if switch.status %}bg-green-600{% else %}bg-red-600{% endif %}">
-            {{ switch.device_hostname }}</a>
-          </td>
-          <td class="text-center px-2 py-1">
-            {{ switch.device_ip }}</a>
-          </td>
-          <td class="text-center px-2 py-1">
-            {{ switch.device_model_local }}</a>
-          </td>
-          <td id="switch-status-{{ switch.pk }}" class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {% if switch.status %}UP{% else %}DOWN{% endif %}
-          </td>
-          <!-- <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {% if switch.status %}UP{% else %}DOWN{% endif %}</a>
-          </td> -->
-          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ switch.uptime }}
-          </td>
-          <td class="text-center px-2 py-1">
-            {% if 'No Such' in switch.sfp_vendor %}Not available{% else %}
-            {{ switch.sfp_vendor }}
-            {% endif %}
-          </td>
-          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ switch.part_number }}
-          </td>
-          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ switch.rx_signal }}
-            {% if switch.rx_signal <= -11 %}
-            <a href="#" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600">High</button>
-            {% endif %}
-          </td>
-          <td class="text-center px-2 py-1 font-medium {% if switch.status %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ switch.tx_signal }}
-          </td>
-          <!-- <td class="text-center px-2 py-1">
-            <div class="flex justify-center space-x-2">
-              <a href="{% url 'switch_detail' switch.pk %}" class="btn btn-info text-blue-600">
-                Details
-              </a>
-              <a href="{% url 'switch_update' switch.pk %}" class="btn btn-warning">
-                Edit
-              </a>
-              <a href="{% url 'switch_delete' switch.pk %}" class="btn btn-danger text-red-600">
-                Delete
-              </a>
-            </div>
-          </td> -->
+          <td class="border px-2 py-1">
+            {{ switch.pk }}
+            </td>
+            <td class="text-center border-1 font-medium text-neutral-50 px-2 py-1 {% if switch.status %}bg-green-600{% else %}bg-red-600{% endif %}">
+              {% if switch.status %}UP{% else %}DOWN{% endif %}
+            </td>        
+            <td class="border px-2 py-1">
+              {{ switch.model.vendor.name }}</a>
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.model.device_model }}</a>
+            </td>        
+            <td class="border px-2 py-1">
+              {{ switch.hostname }}</a>
+            </td>        
+            <td class="border px-2 py-1">
+              {{ switch.ip }}</a>
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.uptime }}
+            </td>
+            <td class="border px-2 py-1">
+              {% if 'No Such' in switch.sfp_vendor %}Not available{% else %}
+              {{ switch.sfp_vendor }}
+              {% endif %}
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.part_number }}
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.rx_signal }}
+              {% if switch.rx_signal <= -11 %}
+              <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">High</button>
+              {% endif %}
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.tx_signal }}
+            </td>
         </tr>
       </tbody>
     </table>
