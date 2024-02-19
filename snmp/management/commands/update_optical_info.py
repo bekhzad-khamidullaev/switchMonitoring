@@ -1,9 +1,9 @@
+from django.core.paginator import Paginator
 import concurrent.futures
 import asyncio
-# import time
 import logging
 from django.core.management.base import BaseCommand
-from snmp.models import Switch, SwitchOID
+from snmp.models import Switch, SwitchModel
 from pysnmp.hlapi import getCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity
 import math
 
@@ -40,17 +40,17 @@ def process_signals(model, tx_signal, rx_signal):
 class SNMPUpdater:
     def __init__(self, selected_switch, snmp_community):
         self.selected_switch = selected_switch
-        if selected_switch.device_model:
-            self.model = selected_switch.device_model.device_model
+        if selected_switch.model:
+            self.model = selected_switch.model.device_model  # Accessing device_model through the model field
         else:
             self.model = None
-        self.device_ip = selected_switch.device_ip
+        self.device_ip = selected_switch.ip
         self.snmp_community = snmp_community
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
         self.logger = logging.getLogger("SNMP RESPONSE")
 
     def get_snmp_oids(self):
-        switch_oid = SwitchOID.objects.filter(switch_model__device_model=self.model).first()
+        switch_oid = SwitchModel.objects.filter(device_model=self.model).first()
         if switch_oid:
             return (
                 switch_oid.tx_oid,
@@ -143,15 +143,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         snmp_community = "snmp2netread"
+        switches_per_page = 100  # You can adjust this based on your needs
+
         while True:
             selected_switches = Switch.objects.filter(status=True).order_by('-pk')
+            paginator = Paginator(selected_switches, switches_per_page)
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
                 futures = []
 
-                for selected_switch in selected_switches:
-                    snmp_updater = SNMPUpdater(selected_switch, snmp_community)
-                    futures.append(executor.submit(asyncio.run, snmp_updater.update_switch_data_async()))
+                for page_number in range(1, paginator.num_pages + 1):
+                    switches_page = paginator.page(page_number)
+                    for selected_switch in switches_page:
+                        snmp_updater = SNMPUpdater(selected_switch, snmp_community)
+                        futures.append(executor.submit(asyncio.run, snmp_updater.update_switch_data_async()))
 
                 # Wait for all threads to complete
                 concurrent.futures.wait(futures, timeout=None, return_when=concurrent.futures.ALL_COMPLETED)

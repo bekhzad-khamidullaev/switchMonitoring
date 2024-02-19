@@ -92,7 +92,7 @@
           {{ switch.pk }}
           </td>
           <td id="switch-status-{{ switch.pk }}" class="border px-2 py-1 text-white">
-            {% if switch.status %}UP{% else %}DOWN{% endif %}
+            {% comment %} {% if switch.status %}UP{% else %}DOWN{% endif %} {% endcomment %}
           </td>        
           <td class="border px-2 py-1">
             {{ switch.model.vendor.name }}</a>

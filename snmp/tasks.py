@@ -1,10 +1,6 @@
-from snmp import update_switch_status, update_switch_inventory
 from celery import shared_task
+from django.core.management import call_command
 
 @shared_task
-def run_update_switch_status_task():
-    update_switch_status.main()
-    
-@shared_task
-def run_update_switch_status_task():
-    update_switch_inventory.main()
+def update_switch_status_task():
+    call_command('update_switch_status')
