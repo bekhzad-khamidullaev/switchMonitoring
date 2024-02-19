@@ -9,12 +9,12 @@
         </div>
         <div class="hidden sm:ml-6 sm:block">
           <div class="flex space-x-4">
-            <a href="{% url 'switches' %}" class="text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 {% if request.path == '/switches/' %}active{% endif %}">SWITCHES</a>
+            <a href="{% url 'switches' %}" class="shadow-md shadow-blue-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 {% if request.path == '/switches/' %}active{% endif %}">SWITCHES</a>
           </div>
         </div>
       </div>
       <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
-        <a href="{% url 'logout' %}" class="rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
+        <a href="{% url 'logout' %}" class="shadow-md shadow-red-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
           Logout
         </a>
       </div>

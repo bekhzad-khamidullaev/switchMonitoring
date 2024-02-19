@@ -1,4 +1,4 @@
-#!C:\Git\SNMP\.venv\Scripts\python.exe
+#!C:\Users\atxmutb02\Git\snmp\.venv\Scripts\python.exe
 #
 # This file is part of pysmi software.
 #

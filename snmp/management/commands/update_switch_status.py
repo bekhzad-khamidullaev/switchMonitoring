@@ -15,14 +15,14 @@ class Command(BaseCommand):
         while True:
             host_alive = ping(ip)
             # logger.info(host_alive)
-            switches = Switch.objects.filter(device_ip=ip)
+            switches = Switch.objects.filter(ip=ip)
             for switch in switches:
                 status = True if host_alive is not None else False
                 switch.status = status
                 switch.save()
 
     async def handle_async(self, *args, **options):
-        ip_addresses = await sync_to_async(list)(Switch.objects.values_list('-device_ip', flat=True))
+        ip_addresses = await sync_to_async(list)(Switch.objects.values_list('ip', flat=True))
         tasks = [self.update_switch_status(ip) for ip in ip_addresses]
         await asyncio.gather(*tasks)
 

@@ -16,7 +16,7 @@ def switches(request):
     items = Switch.objects.all()
 
 
-    items = items.order_by('pk')
+    items = items.order_by('status')
 
     search_query = request.GET.get('search')
     if search_query:
