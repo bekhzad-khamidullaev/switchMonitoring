@@ -55,7 +55,7 @@ class SNMPUpdater:
             return (
                 switch_oid.tx_oid,
                 switch_oid.rx_oid,
-                switch_oid.vendor_oid,
+                switch_oid.sfp_vendor_oid,  # Adjust the field name based on your SwitchModel
                 switch_oid.part_num_oid,
             )
         else:
