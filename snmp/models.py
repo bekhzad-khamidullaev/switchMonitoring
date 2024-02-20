@@ -46,14 +46,11 @@ class Switch(models.Model):
     sfp_vendor_uplink = models.CharField(max_length=200, null=True, blank=True)
     part_number_uplink = models.CharField(max_length=200, null=True, blank=True)
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, blank=True, null=True)
-    high_signal_value = models.FloatField(default='11', blank=True, null=True)
+    high_signal_value = models.FloatField(default='-11', blank=True, null=True)
     physical = models.CharField(max_length=200, null=True, blank=True)
     soft_version = models.CharField(max_length=80, blank=True, null=True)
-    serial_number = models.CharField(unique=True, max_length=40, null=True, blank=True)
+    serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
     vendor = models.CharField(max_length=30, blank=True, null=True)
-
-
-
     history = HistoricalRecords()
     
     
