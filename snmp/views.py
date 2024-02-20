@@ -16,20 +16,21 @@ def switches(request):
     items = Switch.objects.all()
 
 
-    items = items.order_by('ip')
+    items = items.order_by('pk')
 
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query) |
+            # Q(model__vendor___name__icontains=search_query) |
             Q(hostname__icontains=search_query) |
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(sfp_vendor_uplink__icontains=search_query) |
+            Q(part_number_uplink__icontains=search_query) |
+            Q(rx_signal_uplink__icontains=search_query) |
+            Q(tx_signal_uplink__icontains=search_query)
         )
 
     paginator = Paginator(items, 25)

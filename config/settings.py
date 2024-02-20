@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from celery.schedules import crontab
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,9 +19,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'celery',
     'snmp',
     'users',
     'background_task',
+    'django_celery_results',
+
 ]
 
 MIDDLEWARE = [
@@ -68,7 +72,7 @@ DATABASES = {
         'NAME': 'snmp',
         'USER': 'snmp',
         'PASSWORD': 'admin',
-        'HOST': '10.10.137.120',
+        'HOST': '127.0.0.1',
         'PORT': '',
     }
 }
@@ -99,7 +103,7 @@ USE_TZ = True
 
 
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -107,22 +111,40 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
+
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
 
-# CELERY_TIMEZONE = 'UTC'
-# CELERY_APP_NAME = 'config'
-# CELERY_IMPORTS = ('snmp.tasks',)
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
 
-# CELERY_BEAT_SCHEDULE = {
-#     'update_switch_status': {
-#         'task': 'snmp.tasks.run_update_switch_status_task',
-#         'schedule': timedelta(days=1),  # Run once per day
-#     },
-# }
+CELERY_TIMEZONE = 'Asia/Tashkent'
 
-# CELERY_TRACK_STARTED = True
 
+CELERY_IMPORTS = ('snmp.tasks',)
+
+
+CELERY_TRACK_STARTED = True
+
+CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(BASE_DIR, 'celerybeat-schedule.db')
+
+
+CELERY_BEAT_SCHEDULE = {
+    'update-switch-status': {
+        'task': 'snmp.tasks.update_switch_status_task',
+        'schedule': crontab(minute='*/30'),  # Every 30 minutes
+    },
+    'update-optical-info-first': {
+        'task': 'snmp.tasks.update_optical_info_task',
+        'schedule': crontab(minute=0, hour=4),  # 04:00 AM
+    },
+    'update-optical-info-second': {
+        'task': 'snmp.tasks.update_optical_info_task',
+        'schedule': crontab(minute=0, hour=18),  # 06:00 PM
+    },
+    'update-switch-inventory': {
+        'task': 'snmp.tasks.update_switch_inventory_task',
+        'schedule': crontab(minute=0, hour=3),  # 03:00 AM
+    },
+}

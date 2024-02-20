@@ -75,6 +75,10 @@
           <th class="border px-2 py-1">SFP Part #</th>
           <th class="border px-2 py-1">SFP RX value</th>
           <th class="border px-2 py-1">SFP TX value</th>
+          <th class="border px-2 py-1">Serial number</th>
+          <th class="border px-2 py-1">Mac address</th>
+          <th class="border px-2 py-1">Last update</th>
+          <th class="border px-2 py-1">Physical</th>
           <th class="border px-2 py-1">Actions</th>
         </tr>
       </thead>
@@ -111,20 +115,32 @@
           </td>
           <td class="border px-2 py-1">
             {% if 'No Such' in switch.sfp_vendor %}Not available{% else %}
-            {{ switch.sfp_vendor }}
+            {{ switch.sfp_vendor_uplink }}
             {% endif %}
           </td>
           <td class="border px-2 py-1">
-            {{ switch.part_number }}
+            {{ switch.part_number_uplink }}
           </td>
           <td class="border px-2 py-1">
-            {{ switch.rx_signal }}
+            {{ switch.rx_signal_uplink }}
             {% if switch.rx_signal <= -11 %}
             <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">High</button>
             {% endif %}
           </td>
           <td class="border px-2 py-1">
-            {{ switch.tx_signal }}
+            {{ switch.tx_signal_uplink }}
+          </td>
+          <td class="border px-2 py-1">
+            {{ switch.serial_number }}
+          </td>
+          <td class="border px-2 py-1">
+            {{ switch.mac }}</a>
+          </td>        
+          <td class="border px-2 py-1">
+            {{ switch.last_update }}</a>
+          </td>        
+          <td class="border px-2 py-1">
+            {{ switch.physical }}</a>
           </td>
           <td class="border px-2 py-1">
             <div class="flex justify-center space-x-2">

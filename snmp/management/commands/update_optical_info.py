@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel
 from pysnmp.hlapi import getCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity
 import math
+from tasks import update_optical_info_task  
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
@@ -91,6 +92,7 @@ class SNMPUpdater:
             SFP_VENDOR = None
             PART_NUMBER = None
 
+
         switch = self.selected_switch
         try:
             switch.tx_signal, switch.rx_signal = process_signals(self.model, TX_SIGNAL, RX_SIGNAL)
@@ -103,6 +105,8 @@ class SNMPUpdater:
         switch.part_number = PART_NUMBER if PART_NUMBER is not None else None
 
         switch.save()
+        await update_optical_info_task.delay(switch.id)
+
         loop.close()
 
     def perform_snmpwalk(self, oid):

@@ -1,0 +1,58 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Virtual environment
+venv/
+env/
+Pipfile.lock
+Pipfile
+
+# IDE (example: VSCode)
+.vscode/
+.idea/
+
+# Database
+db.sqlite3
+
+# Static files
+/staticfiles/
+
+# Media files
+/media/
+
+# Environment variables
+.env
+
+# Compiled Python files
+*.pyc
+*.pyo
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Temporary files
+*.log
+*.tmp
+
+# Caches
+__pycache__/
+
+# Django specific
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+
+# Dependency directories
+/.venv/
+/pip/
