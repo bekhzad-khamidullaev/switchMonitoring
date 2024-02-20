@@ -4,9 +4,6 @@ from django.core.management.base import BaseCommand
 from snmp.models import Switch
 from ping3 import ping
 from asgiref.sync import sync_to_async
-from snmp.tasks import update_switch_status_task
-
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
@@ -22,7 +19,7 @@ class Command(BaseCommand):
         if ip is None:
             self.stdout.write(self.style.ERROR("IP address is None. Skipping update."))
             return
-        host_alive = ping(ip)
+        host_alive = ping(ip, unit='ms', size=32, timeout=2, interface='ens192')
         self.stdout.write(self.style.SUCCESS(f"{host_alive} host ip {ip}"))
         switches = await sync_to_async(list)(Switch.objects.filter(ip=ip))
         for switch in switches:
@@ -31,7 +28,7 @@ class Command(BaseCommand):
             await self.save_switch(switch)
 
     async def handle_async(self, *args, **options):
-        switches_per_batch = 100
+        switches_per_batch = 10
         switches_count = await sync_to_async(Switch.objects.count)()
 
         for offset in range(0, switches_count, switches_per_batch):
@@ -42,4 +39,5 @@ class Command(BaseCommand):
             await asyncio.gather(*tasks)
 
     def handle(self, *args, **options):
-        asyncio.run(self.handle_async(*args, **options))
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.handle_async(*args, **options))
