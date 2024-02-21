@@ -5,9 +5,11 @@
 {% block content %}
   <div class="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
     <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white mb-4">Switch Details</h2>
-    <table class="w-full text-xs text-left text-neutral-500 dark:text-neutral-400">
+
+    <!-- General Switch Information Table -->
+    <table class="w-full text-xs text-center text-neutral-500 dark:text-neutral-400 mb-4">
       <thead class="text-xs uppercase">
-        <tr class="bg-neutral-600 text-white dark:text-neutrall-300">
+        <tr class="bg-neutral-600 text-white dark:text-neutral-300">
           <th class="border px-2 py-1">ID</th>
           <th class="border px-2 py-1">Status</th>        
           <th class="border px-2 py-1">Vendor</th>
@@ -15,86 +17,70 @@
           <th class="border px-2 py-1">Hostname</th>
           <th class="border px-2 py-1">IP</th>        
           <th class="border px-2 py-1">Uptime</th>
-          <th class="border px-2 py-1">SFP Vendor</th>
-          <th class="border px-2 py-1">SFP Part #</th>
-          <th class="border px-2 py-1">SFP RX value</th>
-          <th class="border px-2 py-1">SFP TX value</th>
-          <th class="border px-2 py-1">Physical name</th>
-          <th class="border px-2 py-1">Serial_number</th>
+          <th class="border px-2 py-1">Serial Number</th>
           <th class="border px-2 py-1">Mac</th>
-          <th class="border px-2 py-1">Last update</th>
-          <!-- <th scope="col" class="text-center px-2 py-2">Actions</th> -->
+          <th class="border px-2 py-1">Last Update</th>
         </tr>
       </thead>
       <tbody>
         <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
-          <td class="border px-2 py-1">
-            {{ switch.pk }}
-            </td>
-            <td class="text-center border-1 font-medium text-neutral-50 px-2 py-1 {% if switch.status %}bg-green-600{% else %}bg-red-600{% endif %}">
-              {% if switch.status %}UP{% else %}DOWN{% endif %}
-            </td>        
-            <td class="border px-2 py-1">
-              {{ switch.model.vendor.name }}</a>
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.model.device_model }}</a>
-            </td>        
-            <td class="border px-2 py-1">
-              {{ switch.hostname }}</a>
-            </td>        
-            <td class="border px-2 py-1">
-              {{ switch.ip }}</a>
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.uptime }}
-            </td>
-            <td class="border px-2 py-1">
-              {% if 'No Such' in switch.sfp_vendor %}Not available{% else %}
-              {{ switch.sfp_vendor_uplink }}
-              {% endif %}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.part_number_uplink }}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.rx_signal_uplink }}
-              {% if switch.rx_signal <= -11 %}
-              <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">High</button>
-              {% endif %}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.tx_signal_uplink }}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.physical }}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.serial_number }}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.mac }}
-            </td>
-            <td class="border px-2 py-1">
-              {{ switch.last_update }}
-            </td>
+          <td class="border px-2 py-1">{{ switch.pk }}</td>
+          <td class="text-center border-1 font-medium {% if switch.status %}text-green-600 bg-green-100{% else %}text-red-600 bg-red-100{% endif %}">
+            {% if switch.status %}UP{% else %}DOWN{% endif %}
+          </td>        
+          <td class="border px-2 py-1">{{ switch.model.vendor.name }}</a></td>
+          <td class="border px-2 py-1">{{ switch.model.device_model }}</a></td>        
+          <td class="border px-2 py-1">{{ switch.hostname }}</a></td>        
+          <td class="border px-2 py-1">{{ switch.ip }}</a></td>
+          <td class="border px-2 py-1">{{ switch.uptime }}</td>
+          <td class="border px-2 py-1">{{ switch.serial_number | default:"N/A" }}</td>
+          <td class="border px-2 py-1">{{ switch.mac | default:"N/A" }}</td>
+          <td class="border px-2 py-1">{{ switch.last_update }}</td>
         </tr>
       </tbody>
     </table>
 
-    <div class="mt-4">
-      <a href="{% url 'switch_update' switch.pk %}" class="text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-yellow-600 hover:bg-yellow-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 form-control">
+    <!-- Switch Ports Information Table -->
+    <table class="w-full text-xs text-center text-neutral-500 dark:text-neutral-400 mb-4">
+      <thead class="text-xs uppercase">
+        <tr class="bg-neutral-600 text-white dark:text-neutral-300">
+          <th class="border px-2 py-1">Port Name</th>
+          <th class="border px-2 py-1">Port</th>
+          <th class="border px-2 py-1">Port Speed</th>
+          <th class="border px-2 py-1">SFP Vendor Name</th>
+          <th class="border px-2 py-1">SFP Part Number</th>
+          <th class="border px-2 py-1">Rx Signal Value</th>
+          <th class="border px-2 py-1">Tx Signal Value</th>
+        </tr>
+      </thead>
+      <tbody>
+
+          <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.name | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.port | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.speed | default:"N/A"  }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.sfp_vendor | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.part_number | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.rx_signal | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.tx_signal | default:"N/A" }}</td>
+          </tr>
+
+      </tbody>
+    </table>
+
+    <!-- Action Buttons -->
+    <div class="mt-4 space-x-2">
+      <a href="{% url 'switch_update' switch.pk %}" class="btn-edit">
         Edit
       </a>
       
-      <a href="{% url 'switch_delete' switch.pk %}" class="text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 form-control">
+      <a href="{% url 'switch_delete' switch.pk %}" class="btn-delete">
         Delete
       </a>
       
-      <a href="{% url 'switches' %}" class="text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
+      <a href="{% url 'switches' %}" class="btn-back">
         Back to List
       </a>
-      
     </div>
   </div>
 {% endblock %}

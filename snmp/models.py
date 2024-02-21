@@ -30,29 +30,30 @@ class SwitchModel(models.Model):
 
 
 class Switch(models.Model):
+    # id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
     model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
     last_update = models.DateTimeField(auto_now=True, null=True, blank=True)
     hostname = models.CharField(max_length=200, null=True, blank=True)
     ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
-    mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
-    snmp_community_ro = models.CharField(max_length=20, default='snmp2netread')
-    snmp_community_rw = models.CharField(max_length=20, default='netman')
-    sysdescr_oid = models.CharField(max_length=200, default='1.3.6.1.2.1.1.1.0')
+    switch_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
+    snmp_community_ro = models.CharField(max_length=20, default='snmp2netread', null=True, blank=True)
+    snmp_community_rw = models.CharField(max_length=20, default='netman', null=True, blank=True)
     status = models.BooleanField(default=False, null=True, blank=True)
-    uplink = models.ForeignKey("Switch", on_delete=models.SET_NULL, blank=True, null=True)
-    rx_signal_uplink = models.FloatField(null=True, blank=True)
-    tx_signal_uplink = models.FloatField(null=True, blank=True)
-    sfp_vendor_uplink = models.CharField(max_length=200, null=True, blank=True)
-    part_number_uplink = models.CharField(max_length=200, null=True, blank=True)
+    neighbor = models.ForeignKey("SwitchesNeighbors", on_delete=models.SET_NULL, blank=True, null=True)
+    port = models.ForeignKey("SwitchesPorts", on_delete=models.SET_NULL, blank=True, null=True, related_name='switch_ports')
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, blank=True, null=True)
-    high_signal_value = models.FloatField(default='-11', blank=True, null=True)
-    physical = models.CharField(max_length=200, null=True, blank=True)
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
-    vendor = models.CharField(max_length=30, blank=True, null=True)
     history = HistoricalRecords()
     
+    class Meta:
+        managed = True
+        db_table = 'switches'
+        unique_together = (('hostname', 'ip'),)
+        indexes = [
+            models.Index(fields=['status'])
+        ]
     
     def save(self, *args, **kwargs):
         self.last_update = timezone.now()
@@ -63,8 +64,8 @@ class Switch(models.Model):
     
     
 class SwitchesPorts(models.Model):
-    id = models.AutoField(primary_key=True)
-    switch = models.ForeignKey(Switch, models.DO_NOTHING, db_column='switch', blank=False, null=False, default=0, related_name='ports')
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
+    switch = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
     port = models.SmallIntegerField(blank=False)
     speed = models.IntegerField()
     duplex = models.SmallIntegerField()
@@ -88,14 +89,18 @@ class SwitchesPorts(models.Model):
     alias = models.CharField(max_length=80)
     oct_in = models.BigIntegerField()
     oct_out = models.BigIntegerField()
-
+    rx_signal = models.FloatField(null=True, blank=True)
+    tx_signal = models.FloatField(null=True, blank=True)
+    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
+    part_number = models.CharField(max_length=50, null=True, blank=True)
+    mac_on_port = models.ForeignKey("Mac", models.DO_NOTHING, blank=False, null=False, default=0)
+    
     class Meta:
         managed = True
         db_table = 'switches_ports'
         unique_together = (('switch', 'port'),)
         
 class SwitchesNeighbors(models.Model):
-    #id = models.AutoField(primary_key=True)
     mac1 = models.CharField(max_length=17)
     port1 = models.SmallIntegerField()
     mac2 = models.CharField(max_length=17)
@@ -107,14 +112,11 @@ class SwitchesNeighbors(models.Model):
         unique_together = (('mac1', 'port1', 'mac2'),)
 
 class Mac(models.Model):
-    # id = models.IntegerField(primary_key=True)
-    # id = models.AutoField(primary_key=True, auto_created=True)
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, db_column='switch', blank=False, null=False, default=0,
-                               related_name='mac_switch')
+    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0)
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
-    port = models.SmallIntegerField()
+    port = models.ForeignKey("SwitchesPorts", models.DO_NOTHING, blank=False, null=False, default=0)
     vlan = models.SmallIntegerField()
-    ip = models.CharField(max_length=15, blank=True, null=True)
+    ip =  models.GenericIPAddressField(protocol='both', null=True, blank=True)
     data = models.DateTimeField(auto_now_add=True, blank=False)
 
     class Meta:
@@ -126,7 +128,7 @@ class ListMacHistory(models.Model):
     """
     Read-only class. The mat_listMacHistory is a materialized view to speed up searches upon mac history
     """
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, db_column='switch', blank=False, null=False, default=0, related_name='hist_switch')
+    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0, related_name='hist_switch')
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
     port = models.SmallIntegerField()
     vlan = models.SmallIntegerField()

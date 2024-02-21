@@ -8,14 +8,14 @@
     <p class="mt-4">Are you sure you want to delete the Switch "{{ switch.device_model }}"?</p>
     <form method="post" class="mt-4">
       {% csrf_token %}
-      <button type="submit" class="btn btn-danger bg-red-500 hover:bg-red-600 focus:ring focus:ring-red-300">
+      <button type="submit" class="bg-red-500 hover:bg-red-600 focus:ring focus:ring-red-300 text-white font-bold py-2 px-4 rounded">
         <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
         Delete
       </button>
       
-      <a href="{% url 'switch_detail' switch.pk %}" class="btn btn-secondary bg-neutral-500 hover:bg-neutral-600 focus:ring focus:ring-neutral-300">
+      <a href="{% url 'switch_detail' switch.pk %}" class="bg-neutral-500 hover:bg-neutral-600 focus:ring focus:ring-neutral-300 text-white font-bold py-2 px-4 rounded ml-2">
         <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
         </svg>

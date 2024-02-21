@@ -1,11 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Switch
+from .models import Switch, SwitchesPorts
 from .forms import SwitchForm
 from django.core.paginator import Paginator
-from django.shortcuts import render
 from django.db.models import Q
 from django.http import JsonResponse
-
 
 def switch_status(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
@@ -13,24 +11,20 @@ def switch_status(request, pk):
     return JsonResponse({'status': status})
 
 def switches(request):
-    items = Switch.objects.all()
-
-
-    items = items.order_by('pk')
+    items = Switch.objects.all().order_by('pk')
 
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query) |
-            # Q(model__vendor___name__icontains=search_query) |
             Q(hostname__icontains=search_query) |
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor_uplink__icontains=search_query) |
-            Q(part_number_uplink__icontains=search_query) |
-            Q(rx_signal_uplink__icontains=search_query) |
-            Q(tx_signal_uplink__icontains=search_query)
+            Q(switch_ports_reverse__sfp_vendor__icontains=search_query) |
+            Q(switch_ports_reverse__part_number__icontains=search_query) |
+            Q(switch_ports_reverse__rx_signal__icontains=search_query) |
+            Q(switch_ports_reverse__tx_signal__icontains=search_query)
         )
 
     paginator = Paginator(items, 25)
@@ -38,9 +32,6 @@ def switches(request):
     page_items = paginator.get_page(page_number)
 
     return render(request, 'switch_list.html', {'switches': page_items})
-
-
-
 
 def switch_detail(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
@@ -71,5 +62,5 @@ def switch_delete(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
     if request.method == 'POST':
         switch.delete()
-        return redirect('switch_list')
+        return redirect('switches')
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
