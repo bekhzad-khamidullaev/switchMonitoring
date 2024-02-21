@@ -1,16 +1,17 @@
 from django.core.paginator import Paginator
 import concurrent.futures
-import asyncio
-import logging
 from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel
-from pysnmp.hlapi import getCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity
 import math
-from tasks import update_optical_info_task  
+from snmp.tasks import update_optical_info_task  
+import asyncio
+import logging
+from django.db.models import ObjectDoesNotExist
+from pysnmp.hlapi import getCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity
+from snmp.models import SwitchModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
-
 
 def mw_to_dbm(mw):
     if mw > 0:
@@ -21,15 +22,12 @@ def mw_to_dbm(mw):
     else:
         return None
 
-
 def process_signals(model, tx_signal, rx_signal):
     if '3500' in model or 'GS3700' in model:
         factor = 100.0
     elif 'Quidway' in model or 'T2600G' in model:
-        logger.info(f":::::::TX SIGNAL BEFORE={tx_signal}, RX SIGNAL BEFORE={rx_signal}:::::::")
         tx_signal = mw_to_dbm(float(tx_signal))
         rx_signal = mw_to_dbm(float(rx_signal))
-        logger.info(f":::::::TX SIGNAL={tx_signal}, RX SIGNAL={rx_signal}:::::::")
         factor = 1.0
     else:
         factor = 1000.0
@@ -37,12 +35,11 @@ def process_signals(model, tx_signal, rx_signal):
     return round(float(tx_signal), 2) / factor if tx_signal is not None else None, \
            round(float(rx_signal), 2) / factor if rx_signal is not None else None
 
-
 class SNMPUpdater:
     def __init__(self, selected_switch, snmp_community):
         self.selected_switch = selected_switch
         if selected_switch.model:
-            self.model = selected_switch.model.device_model  # Accessing device_model through the model field
+            self.model = selected_switch.model.device_model
         else:
             self.model = None
         self.device_ip = selected_switch.ip
@@ -51,16 +48,24 @@ class SNMPUpdater:
         self.logger = logging.getLogger("SNMP RESPONSE")
 
     def get_snmp_oids(self):
-        switch_oid = SwitchModel.objects.filter(device_model=self.model).first()
-        if switch_oid:
-            return (
-                switch_oid.tx_oid,
-                switch_oid.rx_oid,
-                switch_oid.sfp_vendor_oid,  # Adjust the field name based on your SwitchModel
-                switch_oid.part_num_oid,
-            )
-        else:
+        try:
+            if self.selected_switch.model:
+                switch_model = SwitchModel.objects.get(vendor=self.selected_switch.model.vendor,
+                                                    device_model=self.selected_switch.model.device_model)
+                return (
+                    switch_model.tx_oid,
+                    switch_model.rx_oid,
+                    switch_model.sfp_vendor_oid,
+                    switch_model.part_num_oid,
+                )
+            else:
+                return (None, None, None, None)
+        except ObjectDoesNotExist:
             return (None, None, None, None)
+
+
+
+
 
     async def update_switch_data_async(self):
         loop = asyncio.get_event_loop()
@@ -92,7 +97,6 @@ class SNMPUpdater:
             SFP_VENDOR = None
             PART_NUMBER = None
 
-
         switch = self.selected_switch
         try:
             switch.tx_signal, switch.rx_signal = process_signals(self.model, TX_SIGNAL, RX_SIGNAL)
@@ -109,46 +113,12 @@ class SNMPUpdater:
 
         loop.close()
 
-    def perform_snmpwalk(self, oid):
-        try:
-            snmp_walk = getCmd(
-                SnmpEngine(),
-                CommunityData(self.snmp_community),
-                UdpTransportTarget((self.device_ip, 161), timeout=2, retries=2),
-                ContextData(),
-                ObjectType(ObjectIdentity(oid)),
-            )
-
-            snmp_response = []
-            for (errorIndication, errorStatus, errorIndex, varBinds) in snmp_walk:
-                if errorIndication:
-                    self.logger.error(f"SNMP error: {errorIndication}")
-                    continue
-                if varBinds:
-                    for varBind in varBinds:
-                        snmp_response.append(str(varBind))
-            return snmp_response
-        except TimeoutError:
-            self.logger.warning(f"SNMP timeout for IP address: {self.device_ip}")
-            return []
-        except Exception as e:
-            self.logger.error(f"Error during SNMP walk: {e}")
-            return []
-
-    def extract_value(self, snmp_response):
-        if snmp_response and len(snmp_response) > 0:
-            value_str = snmp_response[0].split('=')[-1].strip()
-            return value_str if value_str != 'None' else None
-        return None
-
-
 class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
         snmp_community = "snmp2netread"
-        switches_per_page = 100  # You can adjust this based on your needs
-
+        switches_per_page = 5
         while True:
             selected_switches = Switch.objects.filter(status=True).order_by('-pk')
             paginator = Paginator(selected_switches, switches_per_page)
@@ -162,5 +132,5 @@ class Command(BaseCommand):
                         snmp_updater = SNMPUpdater(selected_switch, snmp_community)
                         futures.append(executor.submit(asyncio.run, snmp_updater.update_switch_data_async()))
 
-                # Wait for all threads to complete
+
                 concurrent.futures.wait(futures, timeout=None, return_when=concurrent.futures.ALL_COMPLETED)

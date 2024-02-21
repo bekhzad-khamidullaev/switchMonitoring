@@ -47,6 +47,7 @@
           <th class="border px-2 py-1">Port Name</th>
           <th class="border px-2 py-1">Port</th>
           <th class="border px-2 py-1">Port Speed</th>
+          <th class="border px-2 py-1">Description</th>
           <th class="border px-2 py-1">SFP Vendor Name</th>
           <th class="border px-2 py-1">SFP Part Number</th>
           <th class="border px-2 py-1">Rx Signal Value</th>
@@ -59,6 +60,7 @@
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.name | default:"N/A" }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.port | default:"N/A" }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.speed | default:"N/A"  }}</td>
+            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.description | default:"N/A"  }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.sfp_vendor | default:"N/A" }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.part_number | default:"N/A" }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.rx_signal | default:"N/A" }}</td>

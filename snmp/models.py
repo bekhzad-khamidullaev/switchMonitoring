@@ -67,6 +67,7 @@ class SwitchesPorts(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
     switch = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
     port = models.SmallIntegerField(blank=False)
+    description = models.CharField(max_length=200, default='')
     speed = models.IntegerField()
     duplex = models.SmallIntegerField()
     admin = models.SmallIntegerField()
