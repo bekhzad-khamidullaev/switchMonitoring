@@ -155,3 +155,6 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0, hour=3),  # 03:00 AM
     },
 }
+
+
+AUTH_USER_MODEL = 'users.CustomUser'

@@ -45,6 +45,10 @@ class Switch(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, blank=True, null=True)
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
+    rx_signal = models.FloatField(null=True, blank=True)
+    tx_signal = models.FloatField(null=True, blank=True)
+    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
+    part_number = models.CharField(max_length=50, null=True, blank=True)
     history = HistoricalRecords()
     
     class Meta:

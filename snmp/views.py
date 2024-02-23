@@ -1,9 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Switch, SwitchesPorts
+from .models import Switch, SwitchesPorts, SwitchesNeighbors
 from .forms import SwitchForm
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .update_signal_info import SNMPUpdater
+from django.views.decorators.cache import cache_control
 
 def switch_status(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
@@ -11,20 +14,21 @@ def switch_status(request, pk):
     return JsonResponse({'status': status})
 
 def switches(request):
-    items = Switch.objects.all().order_by('pk')
+    items = Switch.objects.all().order_by('-pk')
 
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query) |
+            Q(model__vendor__name__icontains=search_query) |
             Q(hostname__icontains=search_query) |
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(switch_ports_reverse__sfp_vendor__icontains=search_query) |
-            Q(switch_ports_reverse__part_number__icontains=search_query) |
-            Q(switch_ports_reverse__rx_signal__icontains=search_query) |
-            Q(switch_ports_reverse__tx_signal__icontains=search_query)
+            Q(sfp_vendor__icontains=search_query) |
+            Q(part_number__icontains=search_query) |
+            Q(rx_signal__icontains=search_query) |
+            Q(tx_signal__icontains=search_query)
         )
 
     paginator = Paginator(items, 25)
@@ -64,3 +68,33 @@ def switch_delete(request, pk):
         switch.delete()
         return redirect('switches')
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
+
+
+def neighbor_switches_map(request):
+    switches = Switch.objects.all()
+    neighbors = SwitchesNeighbors.objects.all()
+
+    context = {
+        'switches': switches,
+        'neighbors': neighbors,
+    }
+
+    return render(request, 'neighbor_switches_map.html', context)
+
+@csrf_exempt
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def update_optical_info(request, pk):
+    snmp_community = 'snmp2netread'
+    try:
+        switch = Switch.objects.get(pk=pk)
+        snmp_updater = SNMPUpdater(switch, snmp_community)
+        snmp_updater.update_switch_data()
+
+        return JsonResponse({
+            'rx_signal': switch.rx_signal,
+            'tx_signal': switch.tx_signal,
+            'sfp_vendor': switch.sfp_vendor,
+            'part_number': switch.part_number
+        })
+    except Exception as e:
+        return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)

@@ -1,31 +1,64 @@
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
-class Jobt(models.Model):
-    name = models.CharField(max_length=255)
-    address = models.TextField(blank=True, null=True)
-    website = models.URLField(blank=True, null=True)
+class CustomUserManager(BaseUserManager):
+    def create_user(self, username, password=None, **extra_fields):
+        if not username:
+            raise ValueError('The username field must be set')
+        user = self.model(username=username, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        return self.create_user(username, password, **extra_fields)
+
+
+class CustomUser(AbstractBaseUser, PermissionsMixin):
+    phone_number = models.CharField(max_length=15, unique=True)
+    username = models.CharField(max_length=30, unique=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_moderator = models.BooleanField(default=False)
+    is_view_only_user = models.BooleanField(default=False)
+
+    objects = CustomUserManager()
+
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = []
+
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='customuser_set',
+        related_query_name='customuser',
+        blank=True,
+    )
+    
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='customuser_set',
+        related_query_name='customuser',
+        blank=True,
+    )
 
     def __str__(self):
-        return self.name
+        return self.username
 
-    class Meta:
-        ordering = ['name']
+    def has_perm(self, perm, obj=None):
+        if self.is_superuser:
+            return True
+        # Adjust the logic based on your requirements
+        if self.is_moderator and perm == "snmp.switch":
+            return True
+        return False
 
-class Users(models.Model):
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50, blank=True, null=True)
-    email = models.EmailField(max_length=100, unique=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
-    company = models.ForeignKey(Jobt, on_delete=models.CASCADE, related_name='contacts', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        if self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        else:
-            return self.first_name
-
-    class Meta:
-        ordering = ['first_name', 'last_name']
-
+    def has_module_perms(self, app_label):
+        if self.is_superuser:
+            return True
+        # Adjust the logic based on your requirements
+        if self.is_moderator and app_label == "snmp":
+            return True
+        return False

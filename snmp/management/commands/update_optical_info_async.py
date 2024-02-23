@@ -6,8 +6,6 @@ from django.core.management.base import BaseCommand
 from snmp.models import Switch
 from pysnmp.hlapi import *
 import math
-from django.core.paginator import Paginator
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
@@ -134,6 +132,30 @@ class SNMPUpdater:
         else:
             return (None, None, None, None)
 
+    # def perform_snmpwalk(self, oid):
+    #     try:
+    #         snmp_walk = getCmd(
+    #             SnmpEngine(),
+    #             CommunityData(self.snmp_community),
+    #             UdpTransportTarget((self.ip, 161), timeout=2, retries=2),
+    #             ContextData(),
+    #             ObjectType(ObjectIdentity(oid)),
+    #         )
+
+    #         snmp_response = []
+    #         for (errorIndication, errorStatus, errorIndex, varBinds) in snmp_walk:
+    #             if errorIndication:
+    #                 self.logger.error(f"SNMP error: {errorIndication}")
+    #                 continue
+    #             for varBind in varBinds:
+    #                 snmp_response.append(str(varBind))
+    #         return snmp_response
+    #     except TimeoutError:
+    #         self.logger.warning(f"SNMP timeout for IP address: {self.ip}")
+    #         return []
+    #     except Exception as e:
+    #         self.logger.error(f"Error during SNMP walk: {e}")
+    #         return []
     def perform_snmpwalk(self, oid):
         try:
             snmp_walk = getCmd(
@@ -161,6 +183,52 @@ class SNMPUpdater:
             return []
 
 
+    # def update_switch_data(self):
+    #     TX_SIGNAL_raw = self.perform_snmpwalk(self.TX_SIGNAL_OID)
+    #     RX_SIGNAL_raw = self.perform_snmpwalk(self.RX_SIGNAL_OID)
+
+    #     self.logger.info(f"TX_SIGNAL_raw: {TX_SIGNAL_raw}")
+    #     self.logger.info(f"RX_SIGNAL_raw: {RX_SIGNAL_raw}")
+
+    #     TX_SIGNAL = self.extract_value(TX_SIGNAL_raw)
+    #     RX_SIGNAL = self.extract_value(RX_SIGNAL_raw)
+
+    #     self.logger.info(f"TX_SIGNAL: {TX_SIGNAL}")
+    #     self.logger.info(f"RX_SIGNAL: {RX_SIGNAL}")
+        
+    #     if self.SFP_VENDOR_OID and self.PART_NUMBER_OID is not None:
+    #         SFP_VENDOR = self.extract_value(self.perform_snmpwalk(self.SFP_VENDOR_OID))
+    #         PART_NUMBER = self.extract_value(self.perform_snmpwalk(self.PART_NUMBER_OID))
+    #     else:
+    #         SFP_VENDOR = None
+    #         PART_NUMBER = None
+
+
+    #     switch = self.selected_switch
+    #     try:
+    #         if '3500' in self.model:
+    #             switch.tx_signal = float(TX_SIGNAL) / 100.0 if TX_SIGNAL is not None else None
+    #             switch.rx_signal = float(RX_SIGNAL) / 100.0 if RX_SIGNAL is not None else None
+                
+    #         elif 'Quidway' in self.model:
+    #             Tx_SIGNAL = mw_to_dbm(float(TX_SIGNAL) / -1000.0)
+    #             Rx_SIGNAL = mw_to_dbm(float(RX_SIGNAL) / -1000.0)
+    #             logger.info(f":::::::TX SIGNAL={Tx_SIGNAL}, RX SIGNAL={Rx_SIGNAL}:::::::")
+           
+    #             switch.tx_signal = Tx_SIGNAL
+    #             switch.rx_signal = Rx_SIGNAL
+
+    #         else:
+    #             switch.tx_signal = float(TX_SIGNAL) / 1000.0 if TX_SIGNAL is not None else None
+    #             switch.rx_signal = float(RX_SIGNAL) / 1000.0 if RX_SIGNAL is not None else None
+                
+    #     except (ValueError, TypeError):
+    #         self.logger.error("Invalid values for TX_SIGNAL or RX_SIGNAL")
+            
+    #     switch.sfp_vendor = SFP_VENDOR if SFP_VENDOR is not None else None
+    #     switch.part_number = PART_NUMBER if PART_NUMBER is not None else None
+
+    #     switch.save()
 
     def update_switch_data(self):
         loop = asyncio.get_event_loop()
@@ -255,22 +323,15 @@ class Command(BaseCommand):
         snmp_community = "snmp2netread"
         loop = asyncio.get_event_loop()
 
-        items_per_page = 5
+        while True:
+            selected_switches = Switch.objects.filter(status=True).order_by('pk')
 
-        selected_switches = Switch.objects.filter(status=True).order_by('-pk')
-
-        paginator = Paginator(selected_switches, items_per_page)
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
-            for page_number in range(1, paginator.num_pages + 1):
-                page_switches = paginator.page(page_number)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 futures = []
 
-                for selected_switch in page_switches:
+                for selected_switch in selected_switches:
                     snmp_updater = SNMPUpdater(selected_switch, snmp_community)
                     futures.append(executor.submit(loop.run_until_complete, snmp_updater.update_switch_data_async()))
 
+                # Wait for all threads to complete
                 concurrent.futures.wait(futures, timeout=None, return_when=concurrent.futures.ALL_COMPLETED)
-
-                time.sleep(1)
-

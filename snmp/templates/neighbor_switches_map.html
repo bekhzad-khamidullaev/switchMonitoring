@@ -1,0 +1,30 @@
+{% extends "index.html" %}
+{% load static %}
+{% block title %}Switch List{% endblock %}
+
+{% block content %}
+<body>
+    <h1>Neighbor Switches Map</h1>
+
+
+    <ul>
+        {% for switch in switches %}
+            <li>
+                {{ switch.hostname }}
+                <ul>
+                    {% for neighbor in neighbors %}
+                        {% if switch.switch_mac == neighbor.mac1 %}
+                            <li>{{ neighbor.mac2 }} on port {{ neighbor.port2 }}</li>
+                        {% elif switch.switch_mac == neighbor.mac2 %}
+                            <li>{{ neighbor.mac1 }} on port {{ neighbor.port1 }}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
+
+
+
+</body>
+{% endblock %}

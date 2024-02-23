@@ -61,10 +61,10 @@
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.port | default:"N/A" }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.speed | default:"N/A"  }}</td>
             <td class="border px-2 py-1">{{ switch.switch_ports_reverse.description | default:"N/A"  }}</td>
-            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.sfp_vendor | default:"N/A" }}</td>
-            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.part_number | default:"N/A" }}</td>
-            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.rx_signal | default:"N/A" }}</td>
-            <td class="border px-2 py-1">{{ switch.switch_ports_reverse.tx_signal | default:"N/A" }}</td>
+            <td class="border px-2 py-1">{{ switch.sfp_vendor }}</td>
+            <td class="border px-2 py-1">{{ switch.part_number }}</td>
+            <td class="border px-2 py-1">{{ switch.rx_signal }}</td>
+            <td class="border px-2 py-1">{{ switch.tx_signal }}</td>
           </tr>
 
       </tbody>

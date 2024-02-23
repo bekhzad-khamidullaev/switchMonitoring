@@ -4,41 +4,68 @@
 
 {% block content %}
   <div class="flex justify-between">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script>
-      $(document).ready(function() {
+      $(document).ready(function () {
         function updateSwitchStatus(switchId) {
           $.ajax({
             url: `/snmp/switches/switch_status/${switchId}/`,
             method: 'GET',
             dataType: 'json',
-            success: function(data) {
-              // Update the status in the DOM for the specific switch
+            success: function (data) {
               const switchStatusElement = $("#switch-status-" + switchId);
               switchStatusElement.text(data.status);
     
-              // Customize the styling based on the status (UP or DOWN)
               if (data.status === 'UP') {
                 switchStatusElement.removeClass('bg-red-600 text-neutral-950 animate-pulse').addClass('bg-green-600 text-white');
               } else {
                 switchStatusElement.removeClass('bg-green-600 text-white').addClass('bg-red-600 text-neutral-950 animate-pulse');
               }
             },
-            error: function(error) {
+            error: function (error) {
               console.error('Error updating switch status:', error);
             }
           });
         }
-
-        
-
+    
+        function updateOpticalInfo(switchId) {
+          $.ajax({
+            url: `/snmp/switches/update_optical_info/${switchId}/`,
+            method: 'POST',
+            dataType: 'json',
+            cache: false,
+            success: function (data) {
+              console.log('Optical info updated successfully:', data);
+              // Trigger switch status update after optical info update
+              updateSwitchStatus(switchId);
+              $('#sfp-vendor-' + switchId).text(data.sfpVendor);
+              $('#part-number-' + switchId).text(data.partNumber);
+              $('#rx-signal-' + switchId).text(data.rxSignal);
+              $('#tx-signal-' + switchId).text(data.txSignal);
+            },
+            error: function (error) {
+              console.error('Error updating optical info:', error);
+            }
+          });
+        }
+    
         // Set up an interval to update switch statuses every 3000 milliseconds (3 seconds)
-        setInterval(function() {
+        setInterval(function () {
           {% for switch in switches %}
             updateSwitchStatus('{{ switch.pk }}');
           {% endfor %}
-        }, 500);
+        }, 5000);  // Adjust the interval as needed
+    
+        // Add event listener for update optical info button
+        $('.update-optical-info').on('click', function () {
+          const switchId = $(this).data('switch-id');
+          updateOpticalInfo(switchId);
+        });
       });
     </script>
+    
+
+
     <div class="px-2">
       <a href="{% url 'switch_create' %}" class="shadow-md shadow-emerald-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
         Create New Switch
@@ -72,6 +99,10 @@
           <th class="border px-2 py-1">IP</th>        
           <th class="border px-2 py-1">Uptime</th>
           <th class="border px-2 py-1">Last update</th>
+          <th class="border px-2 py-1">SFP Vendor Name</th>
+          <th class="border px-2 py-1">SFP Part Number</th>
+          <th class="border px-2 py-1">Rx Signal Value</th>
+          <th class="border px-2 py-1">Tx Signal Value</th>
           <th class="border px-2 py-1">Actions</th>
         </tr>
       </thead>
@@ -99,6 +130,9 @@
           </td>        
           <td class="text-neutral-950 dark:text-neutral-200 border px-2 py-1">
             {{ switch.hostname }}</a>
+            {% if switch.rx_signal <= -11 %}
+              <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">{{ switch.rx_signal }}</button>
+            {% endif %}
           </td>        
           <td class="border px-2 py-1">
             {{ switch.ip }}</a>
@@ -108,7 +142,12 @@
           </td>
           <td class="border px-2 py-1">
             {{ switch.last_update }}</a>
-          </td>   
+          </td>
+          <td id="sfp-vendor-{{ switch.pk }}" class="border px-2 py-1">{{ switch.sfp_vendor }}</td>
+          <td id="part-number-{{ switch.pk }}" class="border px-2 py-1">{{ switch.part_number }}</td>
+          <td id="rx-signal-{{ switch.pk }}" class="border px-2 py-1">{{ switch.rx_signal }}</td>
+          <td id="tx-signal-{{ switch.pk }}" class="border px-2 py-1">{{ switch.tx_signal }}</td>
+          
           <td class="border px-2 py-1">
             <div class="flex justify-center space-x-2">
               {% if switch.status %}
@@ -126,6 +165,10 @@
               <a href="{% url 'switch_delete' switch.pk %}" class="btn btn-danger text-red-600">
                 Delete
               </a>
+              <button class="update-optical-info px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.id }}">
+                Update Optical Info
+              </button>
+
             </div>
           </td>
         </tr>
