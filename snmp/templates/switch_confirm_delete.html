@@ -3,24 +3,21 @@
 {% block title %}Confirm Switch Deletion{% endblock %}
 
 {% block content %}
+<div class="flex justify-center items-center">
   <div class="bg-white dark:bg-neutral-900 p-4 rounded-lg shadow-md">
     <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white">Confirm Deletion</h2>
     <p class="mt-4">Are you sure you want to delete the Switch "{{ switch.device_model }}"?</p>
-    <form method="post" class="mt-4">
+    <form method="post" class="mt-4 flex justify-center items-center">
       {% csrf_token %}
-      <button type="submit" class="bg-red-500 hover:bg-red-600 focus:ring focus:ring-red-300 text-white font-bold py-2 px-4 rounded">
-        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
+      <button type="submit" class="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900">
         Delete
       </button>
-      
-      <a href="{% url 'switch_detail' switch.pk %}" class="bg-neutral-500 hover:bg-neutral-600 focus:ring focus:ring-neutral-300 text-white font-bold py-2 px-4 rounded ml-2">
-        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-        </svg>
-        Cancel
+      <a href="{% url 'switch_detail' switch.pk %}">
+        <button class="focus:outline-none text-white bg-yellow-400 hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:focus:ring-yellow-900">
+          Cancel
+        </button>
       </a>
     </form>
   </div>
+</div>
 {% endblock %}

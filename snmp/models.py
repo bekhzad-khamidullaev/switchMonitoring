@@ -24,6 +24,14 @@ class SwitchModel(models.Model):
     tx_oid = models.CharField(max_length=200, null=True, blank=True)
     part_num_oid = models.CharField(max_length=200, null=True, blank=True)
     sfp_vendor = models.CharField(max_length=200, null=True, blank=True)
+    port_num_oid = models.CharField(max_length=200, null=True, blank=True)
+    max_ports_oid = models.CharField(max_length=200, null=True, blank=True)
+    description_oid = models.CharField(max_length=200, null=True, blank=True)
+    speed_oid = models.CharField(max_length=200, null=True, blank=True)
+    duplex_oid = models.CharField(max_length=200, null=True, blank=True)
+    admin_state_oid = models.CharField(max_length=200, null=True, blank=True)
+    oper_state_oid = models.CharField(max_length=200, null=True, blank=True)
+    
     
     def __str__(self):
         return self.device_model
@@ -56,7 +64,7 @@ class Switch(models.Model):
         db_table = 'switches'
         unique_together = (('hostname', 'ip'),)
         indexes = [
-            models.Index(fields=['status'])
+            models.Index(fields=['status', 'hostname', 'ip', 'rx_signal', 'tx_signal']),
         ]
     
     def save(self, *args, **kwargs):
@@ -79,12 +87,6 @@ class SwitchesPorts(models.Model):
     lastchange = models.BigIntegerField()
     discards_in = models.BigIntegerField()
     discards_out = models.BigIntegerField()
-    stp_admin = models.SmallIntegerField()
-    stp_state = models.SmallIntegerField()
-    poe_admin = models.SmallIntegerField()
-    poe_detection = models.SmallIntegerField()
-    poe_class = models.SmallIntegerField()
-    poe_mpower = models.SmallIntegerField()
     mac_count = models.SmallIntegerField()
     pvid = models.SmallIntegerField()
     port_tagged = models.CharField(max_length=2000)

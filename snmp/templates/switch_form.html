@@ -5,44 +5,88 @@
 {% endblock %}
 
 {% block content %}
-  <div class="bg-white dark:bg-neutral-900 p-4 rounded-lg flex justify-center shadow-md p-4 m-8">
-    <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white p-4 m-8">
-      {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
-    </h2>
-    <form method="post" class="p-4 m-8">
-      {% csrf_token %}
-      
-      <div class="mb-4">
-        <label for="{{ form.device_model.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Switch Model</label>
-        <select name="{{ form.device_model.name }}" id="{{ form.device_model.id_for_label }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
-            {% for choice in form.device_model.field.choices %}
-                <option value="{{ choice.0 }}" {% if choice.0 == form.device_model.value %}selected{% endif %}>{{ choice.1 }}</option>
-            {% endfor %}
-        </select>
-      </div>
-    
-      
-      <div class="mb-4">
-        <label for="{{ form.ip.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">IP Address</label>
-        <input type="text" name="{{ form.ip.name }}" id="{{ form.ip.id_for_label }}" value="{{ form.ip.value }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
-      </div>
-    
-      
-      <div class="mb-4">
-        <label for="{{ form.hostname.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Hostname</label>
-        <input type="{{ form.hostname.field.widget.input_type }}" name="{{ form.hostname.name }}" id="{{ form.hostname.id_for_label }}" value="{{ form.hostname.value }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
-      </div>
-      
-      <div class="mt-4">
-        <button type="submit" class="rounded-md px-4 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
-          {% if form.instance.pk %}Update{% else %}Create{% endif %}
-        </button>
-        
-        <a href="{% url 'switches' %}" class="rounded-md px-4 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
-          Cancel
-        </a>
-      </div>
-    </form>
+<div class="flex justify-center">
+  {% if error_message %}
+  <div id="default-modal" tabindex="-1" aria-hidden="true" class="overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    Error Message
+                </h3>
+                <button id="error-modal-button" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="default-modal">
+                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close</span>
+                </button>
+            </div>
+            <div class="p-4 md:p-5 space-y-4">
+                <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                    {{ error_message }}
+                </p>
+            </div>
+        </div>
+    </div>
   </div>
+  {% endif %}
 </div>
+
+<div class="bg-white dark:bg-neutral-900 p-4 rounded-lg flex justify-center shadow-md p-4 m-8">
+    <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white p-4 m-8">
+        {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
+    </h2>
+    <form method="post" class="p-4 m-8 ">
+        {% csrf_token %}
+        <!-- <div class="mb-4">
+            <label for="{{ form.device_model.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Switch Model</label>
+            <select name="{{ form.device_model.name }}" id="{{ form.device_model.id_for_label }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
+                {% for choice in form.device_model.field.choices %}
+                    <option value="{{ choice.0 }}" {% if choice.0 == form.device_model.value %}selected{% endif %}>{{ choice.1 }}</option>
+                {% endfor %}
+            </select>
+        </div> -->
+
+
+        <div class="mb-4">
+            <label for="{{ form.ip.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">IP Address</label>
+            <input type="text" name="{{ form.ip.name }}" id="{{ form.ip.id_for_label }}" value="{{ form.ip.value }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
+        </div>
+
+
+        <div class="mb-4">
+            <label for="{{ form.hostname.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Hostname</label>
+            <input type="{{ form.hostname.field.widget.input_type }}" name="{{ form.hostname.name }}" id="{{ form.hostname.id_for_label }}" value="{{ form.hostname.value }}" class="border w-full p-2 rounded-md text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800">
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="rounded-md px-4 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
+                {% if form.instance.pk %}Update{% else %}Create{% endif %}
+            </button>
+
+            <a href="{% url 'switches' %}" class="rounded-md px-4 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var errorModal = document.getElementById('default-modal');
+        var errorButton = document.getElementById('error-modal-button');
+
+        // Check if the error message exists
+        var errorMessage = "{{ error_message }}";
+        if (errorMessage) {
+            errorModal.classList.remove('hidden');
+        }
+
+        // Close the modal when the close button is clicked
+        var closeButton = errorModal.querySelector('[data-modal-hide="default-modal"]');
+        closeButton.addEventListener('click', function () {
+            errorModal.classList.add('hidden');
+        });
+    });
+</script>
 {% endblock %}

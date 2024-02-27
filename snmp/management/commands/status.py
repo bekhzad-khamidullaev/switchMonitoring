@@ -1,10 +1,88 @@
+# import asyncio
+# import logging
+# from django.core.management.base import BaseCommand
+# from snmp.models import Switch
+# from ping3 import ping
+# from asgiref.sync import sync_to_async
+# import time
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger("ICMP RESPONSE")
+
+# class Command(BaseCommand):
+#     help = 'Update switch data'
+
+#     @sync_to_async
+#     def save_switch(self, switch):
+#         switch.save()
+
+#     async def update_switch_status(self, ip):
+#         try:
+#             if ip is None:
+#                 return
+
+#             start_time = time.time()
+
+#             host_alive = ping(ip, unit='ms', size=32, timeout=2, interface='ens192')
+            
+#             elapsed_time = time.time() - start_time
+
+#             switch = await sync_to_async(Switch.objects.filter(ip=ip).first)()
+
+#             if switch is None:
+#                 status = False
+#                 logger.info(status)
+#                 switch.status = status
+#                 await self.save_switch(switch)
+#             else:
+#                 status = bool(host_alive)
+#                 logger.info(host_alive)
+#                 switch.status = status
+#                 await self.save_switch(switch)
+
+#         except Exception as e:
+#             logger.info(f"Error updating switch status for {ip}: {e}")
+
+#     async def handle_async(self, *args, **options):
+#         total_start_time = time.time()
+#         switches_per_batch = 5
+
+#         while True:
+#             switches_count = await sync_to_async(Switch.objects.count)()
+
+#             for offset in range(0, switches_count, switches_per_batch):
+#                 ip_addresses = await sync_to_async(list)(
+#                     Switch.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
+#                 )
+
+#                 batch_start_time = time.time()
+
+#                 tasks = [self.update_switch_status(ip) for ip in ip_addresses]
+#                 await asyncio.gather(*tasks)
+
+#                 batch_elapsed_time = time.time() - batch_start_time
+#                 logger.info(f"Batch processed in {batch_elapsed_time:.2f} seconds")
+
+#             # Introduce a delay between iterations
+#             await asyncio.sleep(5)  # Adjust the delay as needed (e.g., 60 seconds)
+
+#             total_elapsed_time = time.time() - total_start_time
+#             logger.info(f"Total elapsed time: {total_elapsed_time:.2f} seconds")
+
+#     def handle(self, *args, **options):
+#         loop = asyncio.get_event_loop()
+#         try:
+#             loop.run_until_complete(self.handle_async(*args, **options))
+#         except KeyboardInterrupt:
+#             # Allow the program to be terminated gracefully with Ctrl+C
+#             pass
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
 from snmp.models import Switch
 from ping3 import ping
 from asgiref.sync import sync_to_async
-from snmp.tasks import update_switch_status_task
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
@@ -19,36 +97,63 @@ class Command(BaseCommand):
     async def update_switch_status(self, ip):
         try:
             if ip is None:
-                logger.error("IP address is None. Skipping update.")
                 return
 
-            host_alive = ping(ip)
-            logger.info(f"{host_alive} host ip {ip}")
+            start_time = time.time()
 
-            switches = await sync_to_async(list)(Switch.objects.filter(ip=ip))
-            for switch in switches:
+            host_alive = ping(ip, unit='ms', size=32, timeout=2, interface='ens192')
+            
+            elapsed_time = time.time() - start_time
+
+            switch = await sync_to_async(Switch.objects.filter(ip=ip).first)()
+
+            if switch is None:
+                status = False
+                logger.info(f"Switch with IP {ip} not found.")
+            else:
                 status = bool(host_alive)
+                logger.info(f"Switch {ip} is {'alive' if status else 'down'}")
                 switch.status = status
                 await self.save_switch(switch)
 
-                # Integrate the Celery task here
-                result = update_switch_status_task.apply_async(args=[switch.id])
-                await result.get()  # Wait for the task to complete
-
         except Exception as e:
-            logger.error(f"Error while processing {ip}: {e}")
+            logger.error(f"Error updating switch status for {ip}: {e}")
 
     async def handle_async(self, *args, **options):
-        switches_per_batch = 100
-        switches_count = await sync_to_async(Switch.objects.count)()
+        total_start_time = time.time()
+        switches_per_batch = 5
 
-        for offset in range(0, switches_count, switches_per_batch):
-            ip_addresses = await sync_to_async(list)(
-                Switch.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
-            )
+        try:
+            while True:
+                switches_count = await sync_to_async(Switch.objects.count)()
 
-            # Use parallel execution with asyncio.gather
-            await asyncio.gather(*[self.update_switch_status(ip) for ip in ip_addresses])
+                for offset in range(0, switches_count, switches_per_batch):
+                    ip_addresses = await sync_to_async(list)(
+                        Switch.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
+                    )
+
+                    batch_start_time = time.time()
+                    logger.info(f"Processing batch with {len(ip_addresses)} switches.")
+
+                    tasks = [self.update_switch_status(ip) for ip in ip_addresses]
+                    await asyncio.gather(*tasks)
+
+                    batch_elapsed_time = time.time() - batch_start_time
+                    logger.info(f"Batch processed in {batch_elapsed_time:.2f} seconds")
+
+                # Introduce a delay between iterations
+                await asyncio.sleep(0.5)  # Adjust the delay as needed (e.g., 60 seconds)
+
+                total_elapsed_time = time.time() - total_start_time
+                logger.info(f"Total elapsed time: {total_elapsed_time:.2f} seconds")
+
+        except KeyboardInterrupt:
+            logger.info("Received KeyboardInterrupt. Stopping the update process.")
 
     def handle(self, *args, **options):
-        asyncio.run(self.handle_async(*args, **options))
+        loop = asyncio.get_event_loop()
+        try:
+            loop.run_until_complete(self.handle_async(*args, **options))
+        except KeyboardInterrupt:
+            # Allow the program to be terminated gracefully with Ctrl+C
+            pass

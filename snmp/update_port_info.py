@@ -1,6 +1,11 @@
 from pysnmp.hlapi import *
 import math
 from django.core.paginator import Paginator
+from .models import Switch, SwitchesPorts, SwitchesNeighbors, Mac
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def mw_to_dbm(mw):
     if mw > 0:
@@ -22,14 +27,14 @@ class SNMPUpdater:
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
 
     def get_snmp_oids(self):
-        if self.model == 'MES2428':
+        if self.model == 'MES2428B':
             return (
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.4.1',
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.5.1',
                 'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.25',
                 'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.25',
             )
-        elif self.model == 'MES2408':
+        elif self.model == 'MES2408B':
             return (
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.4.1',
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.5.1',
@@ -37,6 +42,13 @@ class SNMPUpdater:
                 'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.9',
             )
         elif self.model == 'MES3500-24':
+            return (
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.4',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.5',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.3.25',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.4.25',
+            )
+        elif self.model == 'MES3500-24S':
             return (
                 'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.4',
                 'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.5',
@@ -57,7 +69,7 @@ class SNMPUpdater:
                 'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.2.25',
                 'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.3.28',
             )
-        elif self.model == 'MES1124':
+        elif self.model == 'MES1124MB':
             return (
                 'iso.3.6.1.4.1.89.90.1.2.1.3.49.8',
                 'iso.3.6.1.4.1.89.90.1.2.1.3.49.9',
@@ -100,14 +112,14 @@ class SNMPUpdater:
                 '',
                 '',
             )
-        elif self.model == 'Quidway S3328TP-SI':
+        elif self.model == 'S3328TP-SI':
             return (
                 'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.67240014',
                 'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.67240014',
                 '',
                 '',
             )
-        elif self.model == 'Quidway S3328TP-EI':
+        elif self.model == 'S3328TP-EI':
             return (
                 'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.67240014',
                 'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.67240014',
@@ -165,21 +177,17 @@ class SNMPUpdater:
             if '3500' in self.model or 'GS3700' in self.model or 'MGS3520-28' in self.model:
                 switch.tx_signal = round(float(TX_SIGNAL), 2) / 100.0 if TX_SIGNAL is not None else None
                 switch.rx_signal = round(float(RX_SIGNAL), 2) / 100.0 if RX_SIGNAL is not None else None
-
-            elif 'Quidway' in self.model or 'T2600G' in self.model:
+            elif '3328' in self.model or 'T2600G' in self.model:
                 Tx_SIGNAL = mw_to_dbm(float(TX_SIGNAL))
                 Rx_SIGNAL = mw_to_dbm(float(RX_SIGNAL))
-                switch.tx_signal = round(Tx_SIGNAL, 2)
-                switch.rx_signal = round(Rx_SIGNAL, 2)
-
+                switch.tx_signal = round(Tx_SIGNAL, 2) if TX_SIGNAL is not None else None
+                switch.rx_signal = round(Rx_SIGNAL, 2) if RX_SIGNAL is not None else None
             elif 'SNR' in self.model:
-                switch.tx_signal = round(float(TX_SIGNAL), 2)
-                switch.rx_signal = round(float(RX_SIGNAL), 2)
-
+                switch.tx_signal = round(float(TX_SIGNAL), 2) if TX_SIGNAL is not None else None
+                switch.rx_signal = round(float(RX_SIGNAL), 2) if RX_SIGNAL is not None else None
             else:
                 switch.tx_signal = round(float(TX_SIGNAL), 2) / 1000.0 if TX_SIGNAL is not None else None
                 switch.rx_signal = round(float(RX_SIGNAL), 2) / 1000.0 if RX_SIGNAL is not None else None
-
         except (ValueError, TypeError):
             switch.tx_signal = None
             switch.rx_signal = None
@@ -190,10 +198,136 @@ class SNMPUpdater:
         try:
             switch.save()
         except Exception as e:
-            pass
+            print(f"Error saving switch data: {e}")
 
     def extract_value(self, snmp_response):
         if snmp_response and len(snmp_response) > 0:
             value_str = snmp_response[0].split('=')[-1].strip()
             return value_str if value_str != 'None' else None
         return None
+    
+class PortsInfo():
+    
+    def snmp_get(self, ip, community, oid):
+        try:
+            logger.debug(f"Performing SNMP get for OID: {oid}")
+            errorIndication, errorStatus, errorIndex, varBinds = next(
+                getCmd(SnmpEngine(),
+                    CommunityData(community),
+                    UdpTransportTarget((ip, 161)),
+                    ContextData(),
+                    ObjectType(ObjectIdentity(oid)))
+            )
+
+            if errorIndication:
+                logger.error(f"SNMP Get Error: {errorIndication}")
+                return None
+            elif errorStatus:
+                if isinstance(errorStatus, error.InconsistentValueError):
+                    logger.warning(f"SNMP Get Warning: {errorStatus}")
+                    # Handle InconsistentValueError gracefully, e.g., skip this OID
+                    return None
+                else:
+                    logger.error(f"SNMP Get Status: {errorStatus.prettyPrint()}, Index: {errorIndex}")
+                    return None
+            else:
+                value = varBinds[0][1].prettyPrint()
+                logger.debug(f"SNMP Get Response - Value: {value}")
+                return value
+        except Exception as e:
+            logger.exception(f"Error during SNMP Get: {e}")
+            return None
+
+
+    def create_switch_ports(self, switch):
+        ip = switch.ip
+        community = switch.snmp_community_ro
+
+        # Replace the following with the actual SNMP OIDs for port information
+        port_oids = {
+            'speed': '.1.3.6.1.2.1.2.2.1.5',
+            'duplex': '.1.3.6.1.2.1.10.7.2.1.19',
+            # Add more port-related OIDs as needed
+        }
+
+        max_ports = switch.model.max_ports
+
+        for port_num in range(1, max_ports + 1):
+            port_speed_oid = f'{port_oids["speed"]}.{port_num}'
+            port_duplex_oid = f'{port_oids["duplex"]}.{port_num}'
+
+            # Perform SNMP queries for port information
+            speed = self.snmp_get(ip, community, port_speed_oid)
+            duplex = self.snmp_get(ip, community, port_duplex_oid)
+
+            # Set default values for speed if SNMP data is not available
+            speed = int(speed) if speed is not None else 0  # Adjust this default value as needed
+
+            # Create SwitchesPorts instance with retrieved data
+            SwitchesPorts.objects.create(
+                switch=switch,
+                port=port_num,
+                speed=speed,
+                duplex=int(duplex) if duplex is not None else None,
+                # Add other port fields here
+            )
+            switch.save()
+            
+    def update_port_data(self, switch):
+        # Get all ports for the given switch
+        ports = SwitchesPorts.objects.filter(switch=switch)
+
+        for port in ports:
+            self.update_port_info_from_snmp(switch, port)
+
+    def update_port_info_from_snmp(self, switch, port):
+        ip = switch.ip
+        community = switch.snmp_community_ro
+
+        # Define SNMP OIDs for various port information
+        port_oids = {
+            'speed': f'.1.3.6.1.2.1.2.2.1.5.{port.port}',
+            'admin_status': f'.1.3.6.1.2.1.2.2.1.7.{port.port}',
+            'oper_status': f'.1.3.6.1.2.1.2.2.1.8.{port.port}',
+            'vlan_membership': f'.1.3.6.1.2.1.17.7.1.4.3.1.2.{port.port}',
+            'mac_addresses': f'.1.3.6.1.2.1.17.7.1.2.2.1.2.{port.port}',
+            'discards_in': f'.1.3.6.1.2.1.2.2.1.13.{port.port}',
+            'discards_out': f'.1.3.6.1.2.1.2.2.1.19.{port.port}',
+        }
+
+        # Perform SNMP queries for port information
+        speed = self.snmp_get(ip, community, port_oids['speed'])
+        admin_status = self.snmp_get(ip, community, port_oids['admin_status'])
+        oper_status = self.snmp_get(ip, community, port_oids['oper_status'])
+        vlan_membership = self.snmp_get(ip, community, port_oids['vlan_membership'])
+        mac_addresses = self.snmp_get(ip, community, port_oids['mac_addresses'])
+        discards_in = self.snmp_get(ip, community, port_oids['discards_in'])
+        discards_out = self.snmp_get(ip, community, port_oids['discards_out'])
+
+        # Update port data in the database
+        port.speed = int(speed) if speed else None
+        port.admin = int(admin_status) if admin_status else None
+        port.oper = int(oper_status) if oper_status else None
+        port.discards_in = int(discards_in) if discards_in else None
+        port.discards_out = int(discards_out) if discards_out else None
+
+
+        port.duplex = 0
+
+        # Extract VLAN information and MAC addresses
+        if vlan_membership:
+            port.port_tagged = vlan_membership.split(',')
+        if mac_addresses:
+            # Assuming MAC addresses are separated by commas
+            mac_list = mac_addresses.split(',')
+            for mac_address in mac_list:
+                # Check if the MAC address already exists in the database
+                mac, created = Mac.objects.get_or_create(
+                    switch=switch,
+                    mac=mac_address,
+                    vlan=port.pvid,
+                )
+                if created:
+                    print(f"New MAC address discovered: {mac_address}")
+
+        port.save()

@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'users',
     'background_task',
     'django_celery_results',
+    # 'celery_admin',
 
 ]
 
@@ -57,7 +58,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-
+# APPEND_SLASH=False
 
 # DATABASES = {
 #     'default': {
@@ -126,8 +127,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache'
+# CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_TIMEZONE = 'Asia/Tashkent'
 CELERY_IMPORTS = ('snmp.tasks',)
 CELERY_TRACK_STARTED = True
@@ -140,15 +141,11 @@ CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULE = {
     'update-switch-status': {
         'task': 'snmp.tasks.update_switch_status_task',
-        'schedule': crontab(minute='*/1'),  # Every 30 minutes
+        'schedule': 300,
     },
-    'update-optical-info-first': {
+    'update-optical-info': {
         'task': 'snmp.tasks.update_optical_info_task',
-        'schedule': crontab(minute=0, hour=4),  # 04:00 AM
-    },
-    'update-optical-info-second': {
-        'task': 'snmp.tasks.update_optical_info_task',
-        'schedule': crontab(minute=0, hour=18),  # 06:00 PM
+        'schedule': 600,
     },
     'update-switch-inventory': {
         'task': 'snmp.tasks.update_switch_inventory_task',

@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
 from django.db import models
 
 class CustomUserManager(BaseUserManager):
@@ -43,22 +43,37 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         related_query_name='customuser',
         blank=True,
     )
+    
 
     def __str__(self):
         return self.username
 
     def has_perm(self, perm, obj=None):
+        # Allow superusers access to all permissions
         if self.is_superuser:
             return True
-        # Adjust the logic based on your requirements
+
+        # Allow moderators access to specific permission
         if self.is_moderator and perm == "snmp.switch":
             return True
+
         return False
 
     def has_module_perms(self, app_label):
+        # Allow superusers access to all modules
         if self.is_superuser:
             return True
-        # Adjust the logic based on your requirements
+
+        # Allow moderators access to specific module
         if self.is_moderator and app_label == "snmp":
             return True
+
         return False
+
+
+
+    class Meta:
+        permissions = [
+            ("change_custommodel", "Can change Custom Model"),
+            # Add other permissions if needed
+        ]

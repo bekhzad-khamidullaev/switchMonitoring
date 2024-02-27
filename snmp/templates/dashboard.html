@@ -1,0 +1,42 @@
+{% extends 'index.html' %}
+{% block content %}
+<main>
+  <div class="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
+
+
+      <div class="bg-green-600 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'switches' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ up_count }}
+            </h4>
+            <span class="text-2xl font-bold text-white">Total switches UP</span>
+          </a>
+        </div>
+      </div>
+      
+      <div class="bg-red-600 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'offline' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ down_count }}
+            </h4>
+            <span class="text-2xl font-bold text-white">Total switches DOWN</span>
+          </a>
+        </div>
+      </div>
+      
+      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'switches_high_sig' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ high_sig_sw }}
+            </h4>
+            <span class="text-2xl font-bold text-white">Switches with a signal level less than or equal to -11 dBm.</span>
+          </a>
+        </div>
+      </div>
+      
+
+{% endblock %}
