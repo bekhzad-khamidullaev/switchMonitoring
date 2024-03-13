@@ -15,6 +15,8 @@ def mw_to_dbm(mw):
     else:
         return float('nan')
 
+
+
 class SNMPUpdater:
     def __init__(self, selected_switch, snmp_community):
         self.selected_switch = selected_switch
@@ -27,7 +29,14 @@ class SNMPUpdater:
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
 
     def get_snmp_oids(self):
-        if self.model == 'MES2428B':
+        if self.model == 'MES3500-24S':
+            return (
+                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.4',
+                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.5',
+                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.2.25',
+                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.4.25',
+            )
+        elif self.model == 'MES2428B':
             return (
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.4.1',
                 'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.5.1',
@@ -151,6 +160,7 @@ class SNMPUpdater:
             return []
         except Exception as e:
             return []
+    
 
     def update_switch_data(self):
         TX_SIGNAL_raw = self.perform_snmpwalk(self.TX_SIGNAL_OID)

@@ -96,6 +96,8 @@
               </div>
           </th>
           <th class="border px-2 py-1">ID</th>
+          <th class="border px-2 py-1">Branch</th>
+          <th class="border px-2 py-1">ATS</th>
           <th class="border px-2 py-1">Status</th>        
           <th class="border px-2 py-1">Vendor</th>
           <th class="border px-2 py-1">Model</th>
@@ -123,6 +125,12 @@
           <td class="border px-2 py-1">
           {{ switch.pk }}
           </td>
+          <td class="border px-2 py-1">
+            {{ switch.ats.branch.name }}
+            </td>
+            <td class="border px-2 py-1">
+              {{ switch.ats.name }}
+            </td>
           <td class="text-center border font-medium {% if switch.status %}text-green-600 bg-green-100{% else %}text-red-600 bg-red-100{% endif %}">
             {% if switch.status %}UP{% else %}DOWN{% endif %}
           </td>      

@@ -91,17 +91,19 @@
 
     setInterval(function () {
       updateSwitchStatus('{{ switch.pk }}');
+
     }, 3000);
 
-    $('.update-switch-status').on('click', function () {
-      const switchId = $(this).data('switch-id');
-      updateSwitchStatus(switchId);
-      if (data.status === 'UP') {
-            switchStatusElement.removeClass('bg-red-600 text-neutral-950 animate-pulse').addClass('bg-green-600 text-white');
-          } else {
-            switchStatusElement.removeClass('bg-green-600 text-white').addClass('bg-red-600 text-neutral-950 animate-pulse');
-          }
-    });
+    // $('.update-switch-status').on('click', function () {
+    //   const switchId = $(this).data('switch-id');
+
+    //   updateSwitchStatus(switchId);
+    //   if (data.status === 'UP') {
+    //         switchStatusElement.removeClass('bg-red-600 text-neutral-950 animate-pulse').addClass('bg-green-600 text-white');
+    //       } else {
+    //         switchStatusElement.removeClass('bg-green-600 text-white').addClass('bg-red-600 text-neutral-950 animate-pulse');
+    //       }
+    // });
   });
 </script>
   <div class="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
@@ -138,14 +140,16 @@
           <td class="border px-2 py-1">{{ switch.mac | default:"N/A" }}</td>
           <td class="border px-2 py-1">{{ switch.last_update }}</td>
           <td class="border px-2 py-1">
-          <button class="update-switch-status px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.pk }}">
-              Update switch status
+          <a href="{% url 'update_switch_inventory' switch.pk %}">
+            <button class="update-switch-status px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.pk }}">
+                Update switch status
             </button>
-            <a href="{% url 'update_switch_inventory' switch.pk %}">
+          </a>
+          <a href="{% url 'update_switch_inventory' switch.pk %}">
             <button class="update-switch-status px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.pk }}">
               Update switch inventory
             </button>
-            </a>
+          </a>
           </td>
           </tr>
       </tbody>

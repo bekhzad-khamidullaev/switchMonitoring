@@ -1,79 +1,63 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
+from django.contrib.auth.models import User, Group
 from django.db import models
+from django.utils import timezone
+import json
+import uuid
 
-class CustomUserManager(BaseUserManager):
-    def create_user(self, username, password=None, **extra_fields):
-        if not username:
-            raise ValueError('The username field must be set')
-        user = self.model(username=username, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, username, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-
-        return self.create_user(username, password, **extra_fields)
-
-
-class CustomUser(AbstractBaseUser, PermissionsMixin):
-    phone_number = models.CharField(max_length=15, unique=True)
-    username = models.CharField(max_length=30, unique=True)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_moderator = models.BooleanField(default=False)
-    is_view_only_user = models.BooleanField(default=False)
-
-    objects = CustomUserManager()
-
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = []
-
-    groups = models.ManyToManyField(
-        'auth.Group',
-        related_name='customuser_set',
-        related_query_name='customuser',
-        blank=True,
-    )
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    date_of_birth = models.DateField(null=True, blank=True)
+    bio = models.TextField(max_length=500, null=True, blank=True)
+    location = models.CharField(max_length=100, null=True, blank=True)
+    social_media_links = models.URLField(max_length=200, null=True, blank=True)
+    preferences_theme = models.CharField(max_length=50, null=True, blank=True)
+    preferences_notifications = models.BooleanField(default=True)
+    preferences_language = models.CharField(max_length=20, null=True, blank=True)
+    last_login = models.DateTimeField(auto_now=True, null=True, blank=True)
+    last_active = models.DateTimeField(null=True, blank=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    email_verified = models.BooleanField(default=False)
+    two_factor_enabled = models.BooleanField(default=False)
+    api_token = models.CharField(max_length=100, null=True, blank=True)
     
-    user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        related_name='customuser_set',
-        related_query_name='customuser',
-        blank=True,
-    )
-    
+    def update_last_active(self):
+        self.last_active = timezone.now()
+        self.save()
+
+    def generate_api_token(self):
+        self.api_token = str(uuid.uuid4())  # Generate a UUID for the API token
+        self.save()
+        return self.api_token
+
+    def export_data(self):
+        user_data = {
+            'username': self.user.username,
+            'email': self.user.email,
+            'date_of_birth': self.date_of_birth.isoformat() if self.date_of_birth else None,
+            'bio': self.bio,
+            # Add more fields as needed
+        }
+        return json.dumps(user_data)
 
     def __str__(self):
-        return self.username
+        return self.user.username
 
-    def has_perm(self, perm, obj=None):
-        # Allow superusers access to all permissions
-        if self.is_superuser:
-            return True
+    def set_role(self, role_name):
+        # Set role for the user
+        group, created = Group.objects.get_or_create(name=role_name)
+        if created:
+            # If the group doesn't exist, create it
+            group.save()
+        self.user.groups.add(group)
 
-        # Allow moderators access to specific permission
-        if self.is_moderator and perm == "snmp.switch":
-            return True
+    def remove_role(self, role_name):
+        # Remove role for the user
+        try:
+            group = Group.objects.get(name=role_name)
+            self.user.groups.remove(group)
+        except Group.DoesNotExist:
+            pass
 
-        return False
-
-    def has_module_perms(self, app_label):
-        # Allow superusers access to all modules
-        if self.is_superuser:
-            return True
-
-        # Allow moderators access to specific module
-        if self.is_moderator and app_label == "snmp":
-            return True
-
-        return False
-
-
-
-    class Meta:
-        permissions = [
-            ("change_custommodel", "Can change Custom Model"),
-            # Add other permissions if needed
-        ]
+    def has_role(self, role_name):
+        # Check if the user has the specified role
+        return self.user.groups.filter(name=role_name).exists()

@@ -12,14 +12,14 @@ logger = logging.getLogger("SNMP DISCOVERY")
 class Command(BaseCommand):
     help = 'Auto-discover switches within multiple /25 subnets of 10.101.0.0/16 range using nmap'
 
-    def check_host_reachability(self, ip_address):
+    def check_host_reachability(self, ip):
         try:
             nm = nmap.PortScanner()
-            nm_args = f'-sn {ip_address}'
-            nm.scan(hosts=ip_address, arguments=nm_args)
-            return nm[ip_address].state() == 'up'
+            nm_args = f'-sn {ip}'
+            nm.scan(hosts=ip, arguments=nm_args)
+            return nm[ip].state() == 'up'
         except Exception as e:
-            logger.error(f"Error while checking host {ip_address} reachability: {e}")
+            logger.error(f"Error while checking host {ip} reachability: {e}")
             return False
 
     async def handle_subnet(self, subnet, models):
@@ -29,7 +29,7 @@ class Command(BaseCommand):
             is_reachable = self.check_host_reachability(ip_address)
 
             if is_reachable:
-                switch, created = Switch.objects.get_or_create(device_ip=ip_address)
+                switch, created = Switch.objects.get_or_create(ip=ip_address)
 
                 logger.info(f"Processing switch at IP: {ip_address}")
 

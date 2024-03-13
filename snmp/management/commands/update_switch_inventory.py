@@ -75,7 +75,7 @@ class Command(BaseCommand):
 
                     try:
                         response_description = str(snmp_response_description[0]).strip().split()
-                        logger.info(f"Response description for {selected_switch.ip}: {response_description}")
+                        # logger.info(f"Response description for {selected_switch.ip}: {response_description}")
 
                         # Retrieve the SwitchModel instance based on your model relationships
                         db_model_instance = SwitchModel.objects.get(pk=selected_switch.model.id)
