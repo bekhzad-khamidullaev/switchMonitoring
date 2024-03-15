@@ -1,4 +1,5 @@
 from pysnmp.hlapi import *
+from pysnmp import error
 import math
 from django.core.paginator import Paginator
 from .models import Switch, SwitchesPorts, SwitchesNeighbors, Mac

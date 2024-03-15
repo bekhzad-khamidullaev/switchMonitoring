@@ -24,7 +24,9 @@
         </div>
       </div>
       <div class="absolute text-sm font-serif text-neutral-200 inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+        <button class="rounded-md border-0 px-4 py-1 bg-neutral-200 text-black">
           {{ user.get_full_name }}
+        </button>
       </div>
       <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
         <a href="{% url 'logout' %}" class="shadow-md shadow-gray-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 hover:bg-red-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
@@ -36,9 +38,11 @@
 </nav>
 <div class="flex flex-col md:flex-row justify-between">
   <div class="md:px-2 mb-2">
+    {% if perms.snmp.change_switch %}
     <a href="{% url 'switch_create' %}" class="shadow-md shadow-emerald-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 md:dark:focus:ring-cyan-800">
       Create New Switch
     </a>
+    {% endif %}
   </div>
 
   <form method="get" class="md:flex">

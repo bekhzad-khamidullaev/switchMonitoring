@@ -4,15 +4,16 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
-from .models import Switch, SwitchModel, SwitchesNeighbors, SwitchesPorts
+from .models import Switch, SwitchModel, SwitchesNeighbors, Branch
 from .forms import SwitchForm
 from .update_port_info import SNMPUpdater, PortsInfo
 import time, re
 import logging
 from ping3 import ping
 from django.db import transaction
-
 from .management.commands.snmp import perform_snmpwalk
+
+
 
 SNMP_COMMUNITY = "snmp2netread"
 OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
@@ -29,9 +30,24 @@ def convert_uptime_to_human_readable(uptime_in_hundredths):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
 
+
+def get_permitted_branches(user):
+    # Implement your logic to determine the branches the user is allowed to view
+    # For example, if the user has a specific permission related to branches
+    branches = Branch.objects.all()
+    permitted_branches = []
+    # Example: Check if the user has permission to view a specific branch
+    for branch in branches:
+        if user.has_perm(f'snmp.view_{branch.name.lower().replace(" ", "_")}'):
+            permitted_branches.append(branch)      
+    return permitted_branches
+
+
+
 @login_required
 def switches_offline(request):
-    switches_offline = Switch.objects.filter(status=False).order_by('-last_update')
+    user_permitted_branches = get_permitted_branches(request.user)
+    switches_offline = Switch.objects.filter(status=False, branch__in=user_permitted_branches).order_by('ats')
     search_query = request.GET.get('search')
     if search_query:
         switches_offline = switches_offline.filter(
@@ -56,7 +72,8 @@ def switches_offline(request):
 
 @login_required
 def switches_high_sig(request):
-    switches_high_sig = Switch.objects.filter(rx_signal__lte=-11).order_by('rx_signal')
+    user_permitted_branches = get_permitted_branches(request.user)
+    switches_high_sig = Switch.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).order_by('rx_signal')
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -174,19 +191,21 @@ def update_switch_inventory(request, pk):
 
 @login_required
 def switches_updown(request):
-    sw_online = Switch.objects.filter(status=True).count()
-    sw_offline = Switch.objects.filter(status=False).count()
-    high_signal_sw = Switch.objects.filter(rx_signal__lte=-11).count()
+    user_permitted_branches = get_permitted_branches(request.user)
+    sw_online = Switch.objects.filter(status=True, branch__in=user_permitted_branches).count()
+    sw_offline = Switch.objects.filter(status=False, branch__in=user_permitted_branches).count()
+    high_signal_sw = Switch.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).count()
     return render(request, 'dashboard.html', {
         'up_count': sw_online,
         'down_count': sw_offline,
         'high_sig_sw': high_signal_sw
     })
 
+
 @login_required
 def switches(request):
-    items = Switch.objects.all().order_by('hostname')
-
+    user_permitted_branches = get_permitted_branches(request.user)
+    items = Switch.objects.filter(branch__in=user_permitted_branches).order_by('ats')
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(

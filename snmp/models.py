@@ -3,7 +3,35 @@ from simple_history.models import HistoricalRecords
 from django.utils import timezone
 from ipaddress import ip_address, IPv4Network
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.signals import post_migrate
+from django.dispatch import receiver
+from django.contrib.auth.models import Group
 
+@receiver(post_migrate)
+def create_branch_permissions(sender, **kwargs):
+    # This function creates custom permissions for each branch after migration
+
+    # Get the content type for the Branch model
+    content_type = ContentType.objects.get_for_model(Branch)
+
+    # Define the branches for which you want to create permissions
+    branches = Branch.objects.all()
+
+    # Create a permission for each branch
+    for branch in branches:
+        codename = f'view_{branch.name.lower().replace(" ", "_")}'
+        name = f'Can view switches in {branch.name}'
+        permission, created = Permission.objects.get_or_create(
+            codename=codename,
+            name=name,
+            content_type=content_type,
+        )
+
+        # Optionally, assign the permission to a specific group
+        # For example, if you have a group named "Branch Managers"
+        # group = Group.objects.get(name='Branch Managers')
+        # group.permissions.add(permission)
 
 
 
@@ -198,5 +226,3 @@ class ListMacHistory(models.Model):
         managed = False
         db_table = 'mat_listmachistory'
 
-
-view_switch_permission = Permission.objects.get(codename='view_switch')
