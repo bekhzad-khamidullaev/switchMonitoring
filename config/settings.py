@@ -145,11 +145,15 @@ CELERY_BEAT_SCHEDULE = {
     },
     'update-optical-info': {
         'task': 'snmp.tasks.update_optical_info_task',
-        'schedule': 600,
+        'schedule': 14400,
     },
     'update-switch-inventory': {
         'task': 'snmp.tasks.update_switch_inventory_task',
-        'schedule': crontab(minute=0, hour=3),  # 03:00 AM
+        'schedule': crontab(minute=0, hour=9),  # 09:00 AM
+    },
+    'subnet_discovery': {
+        'task': 'snmp.tasks.subnet_discovery_task',
+        'schedule': crontab(minute=0, hour=3),  # 04:00 AM
     },
 }
 

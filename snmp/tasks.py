@@ -14,5 +14,8 @@ def update_optical_info_task():
     
 @shared_task
 def update_switch_inventory_task():
-    call_command('update_switch_inventory_task')
-    
+    call_command('update_switch_inventory')
+
+@shared_task
+def subnet_discovery_task():
+    call_command('subnet_discovery')
