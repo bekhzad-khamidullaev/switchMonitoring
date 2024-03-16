@@ -205,7 +205,7 @@ def switches_updown(request):
 @login_required
 def switches(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = Switch.objects.filter(branch__in=user_permitted_branches).order_by('ats')
+    items = Switch.objects.filter(branch__in=user_permitted_branches).order_by('pk')
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(

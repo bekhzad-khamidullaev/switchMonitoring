@@ -37,9 +37,11 @@ class Command(BaseCommand):
 
         for subnet_str in ats_subnets:
             subnet = IPv4Network(subnet_str)
-            subnets = list(subnet.subnets(new_prefix=25))
+            # Change the new_prefix to a value larger than the original prefix (e.g., 26)
+            subnets = list(subnet.subnets(new_prefix=26))
             for sub in subnets:
                 self.handle_subnet(sub, models)
+
 
     def handle(self, *args, **options):
         logger.info("Starting SNMP discovery process...")
