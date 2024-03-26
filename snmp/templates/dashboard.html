@@ -33,7 +33,27 @@
             <h4 class="text-2xl font-bold text-white">
               {{ high_sig_sw }}
             </h4>
-            <span class="text-2xl font-bold text-white">Switches with a signal level less than or equal to -11 dBm.</span>
+            <span class="text-2xl font-bold text-white">Switches with a signal level less than or equal to -20 dBm.</span>
+          </a>
+        </div>
+      </div>
+      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'switches_high_sig_15' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ high_sig_sw_15 }}
+            </h4>
+            <span class="text-2xl font-bold text-white">Switches with a signal level less than -15 dBm and greater then -20 dBm.</span>
+          </a>
+        </div>
+      </div>
+      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'switches_high_sig_10' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ high_sig_sw_10 }}
+            </h4>
+            <span class="text-2xl font-bold text-white">Switches with a signal level less than -10 dBm and greater then -15 dBm.</span>
           </a>
         </div>
       </div>

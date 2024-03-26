@@ -25,7 +25,6 @@ INSTALLED_APPS = [
     'background_task',
     'django_celery_results',
     'rest_framework',
-
 ]
 
 MIDDLEWARE = [

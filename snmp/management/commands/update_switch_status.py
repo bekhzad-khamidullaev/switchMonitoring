@@ -20,13 +20,9 @@ class Command(BaseCommand):
         try:
             if ip is None:
                 return
-
             start_time = time.time()
-
             host_alive = ping(ip, unit='ms', size=32, timeout=2, interface='ens192')
-            
             elapsed_time = time.time() - start_time
-
             switch = await sync_to_async(Switch.objects.filter(ip=ip).first)()
 
             if switch is None:

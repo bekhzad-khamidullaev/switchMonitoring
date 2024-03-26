@@ -73,7 +73,7 @@ def switches_offline(request):
 @login_required
 def switches_high_sig(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_high_sig = Switch.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).order_by('rx_signal')
+    switches_high_sig = Switch.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).order_by('rx_signal')
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -194,7 +194,7 @@ def switches_updown(request):
     user_permitted_branches = get_permitted_branches(request.user)
     sw_online = Switch.objects.filter(status=True, branch__in=user_permitted_branches).count()
     sw_offline = Switch.objects.filter(status=False, branch__in=user_permitted_branches).count()
-    high_signal_sw = Switch.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).count()
+    high_signal_sw = Switch.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).count()
     return render(request, 'dashboard.html', {
         'up_count': sw_online,
         'down_count': sw_offline,
