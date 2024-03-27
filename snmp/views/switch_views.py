@@ -80,7 +80,7 @@ def switch_delete(request, pk):
         return redirect('switches')
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
 
-@login_required
+# @login_required
 def switch_status(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
     status_response = update_switch_status(switch)

@@ -22,7 +22,7 @@ OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
 
-@login_required
+# @login_required
 def update_switch_status(switch):
     ip_addr = switch.ip
     try:
@@ -128,7 +128,7 @@ def switches_high_sig_15(request):
             Q(tx_signal__icontains=search_query)
         )
 
-    paginator = Paginator(switches_high_sig, 25)
+    paginator = Paginator(switches_high_sig, 100)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
     return render(request, 'switches_high_sig_15.html', {
@@ -139,7 +139,7 @@ def switches_high_sig_15(request):
 def switches_high_sig_10(request):
     user_permitted_branches = get_permitted_branches(request.user)
     switches_high_sig = Switch.objects.filter(
-        rx_signal__lte=-10.5, rx_signal__gt=-15, branch__in=user_permitted_branches
+        rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_branches
     ).order_by('rx_signal')
     search_query = request.GET.get('search')
     if search_query:
@@ -156,7 +156,7 @@ def switches_high_sig_10(request):
             Q(tx_signal__icontains=search_query)
         )
 
-    paginator = Paginator(switches_high_sig, 25)
+    paginator = Paginator(switches_high_sig, 100)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
     return render(request, 'switches_high_sig_15.html', {

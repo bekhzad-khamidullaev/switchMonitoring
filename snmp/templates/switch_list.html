@@ -49,24 +49,17 @@
     }
 
     function updateSwitchDetails(switchId) {
-      updateOpticalInfo(switchId);
+      // updateOpticalInfo(switchId);
       updateSwitchStatus(switchId);
     }
 
     // Set up an interval to update switch statuses every 3000 milliseconds (3 seconds)
     setInterval(function () {
       {% for switch in switches %}
-        updateSwitchStatus('{{ switch.pk }}');
+        updateSwitchDetails('{{ switch.pk }}');
       {% endfor %}
-    }, 500);  // Adjust the interval as needed
+    }, 3000);  // Adjust the interval as needed
 
-    $('.update-optical-info').on('click', function () {
-      const switchId = $(this).data('switch-id');
-
-    });
-
-
-    updateSwitchDetails('{{ switch.pk }}');
   });
 </script>
 
