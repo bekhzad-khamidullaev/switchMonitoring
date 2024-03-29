@@ -12,14 +12,14 @@
             <a href="{% url 'switches' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">SWITCHES</a>
           </div>
         </div>
-        <div class="hidden sm:ml-6 sm:block">
+        <!-- <div class="hidden sm:ml-6 sm:block">
           <div class="flex space-x-2">
             <a href="{% url 'offline' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-rose-600 dark:bg-red-600 hover:bg-rose-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Offline switches</a>
           </div>
-        </div>
-        <div class="hidden sm:ml-6 sm:block">
+        </div> -->
+        <div class="hidden sm:ml-2 sm:block">
           <div class="flex space-x-2">
-            <a href="{% url 'dashboard' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-cyan-600 dark:bg-syan-600 hover:bg-cyan-900 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Dashboard</a>
           </div>
         </div>
       </div>
@@ -37,7 +37,7 @@
   </div>
 </nav>
 <div class="flex flex-col md:flex-row justify-between">
-  <div class="md:px-2 mb-2">
+  <div class="md:px-1 m-1">
     {% if perms.snmp.change_switch %}
     <a href="{% url 'switch_create' %}" class="shadow-md shadow-emerald-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 md:dark:focus:ring-cyan-800">
       Create New Switch
@@ -46,7 +46,7 @@
   </div>
   
   <form method="get" class="md:flex">
-    <div class="form-group px-2 mb-2 md:mb-0">
+    <div class="form-group px-1 m-1 md:mb-0">
       <input type="text" name="search" id="search" value="{{ request.GET.search }}" class="shadow-sm placeholder:italic placeholder:text-neutral-200 block rounded-md px-2 py-2 font-bold text-center inline-flex items-center text-xs text-white bg-gray-400 hover:bg-gray-600 text-sky-primary invalid:text-gray-400 form-control" placeholder="search query">
       <button type="submit" class="shadow-md shadow-blue-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-sky-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 md:dark:focus:ring-cyan-800">Search</button>
     </div>

@@ -5,6 +5,7 @@ from django.core.paginator import Paginator
 from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel, Ats
 from .snmp import perform_snmpwalk
+from django.db.models import Count
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
@@ -35,6 +36,7 @@ class Command(BaseCommand):
             for page_number in range(1, paginator.num_pages + 1):
                 selected_switches = paginator.page(page_number)
                 ats = Ats.objects.all()
+                duplicate_ips = Switch.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
                 for selected_switch in selected_switches:
                     SNMP_COMMUNITY = "snmp2netread"
                     snmp_response_hostname = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, SNMP_COMMUNITY)
@@ -71,12 +73,21 @@ class Command(BaseCommand):
                     snmp_response_description = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_DESCRIPTION, SNMP_COMMUNITY)
                     if not snmp_response_description:
                         continue
+                    for duplicate_ip in duplicate_ips:
+                        ip = duplicate_ip['ip']
+                        
+                        # Retrieve duplicate hosts with the same IP
+                        duplicate_hosts = Switch.objects.filter(ip=ip).order_by('-id')[1:]
 
+                        # Keep the first instance and delete the duplicates
+                        for duplicate_host in duplicate_hosts:
+                            duplicate_host.delete()
                     try:
                         response_description = str(snmp_response_description[0]).strip().split()
                         # logger.info(f"Response description for {selected_switch.ip}: {response_description}")
 
                         # Retrieve the SwitchModel instance based on your model relationships
+                        
                         switch_models = SwitchModel.objects.all()
                         for db_model_instance in switch_models:
                             db_model = db_model_instance.device_model

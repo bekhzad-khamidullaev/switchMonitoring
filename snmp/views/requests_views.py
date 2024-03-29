@@ -1,11 +1,14 @@
 from django.http import JsonResponse
 from snmp.models import Switch
-
+from django.shortcuts import redirect
 import requests
 from urllib3.exceptions import InsecureRequestWarning
+from django.contrib.auth.decorators import login_required
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
+@login_required
 def sync_hosts_from_zabbix(request):
     # Zabbix API token and endpoint
     zabbix_url = 'https://monitoring.tshtt.uz/api_jsonrpc.php'
@@ -74,8 +77,8 @@ def sync_hosts_from_zabbix(request):
                         switch = Switch.objects.create(hostname=hostname, ip=ip_address)
                         # You can perform additional operations here if needed
 
-            return JsonResponse({'success': True, 'message': 'Hosts synchronized successfully'})
+            return redirect('dashboard')
         else:
-            return JsonResponse({'success': False, 'error': 'Failed to fetch hosts from Zabbix'})
+            return redirect('dashboard')
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return redirect('dashboard')

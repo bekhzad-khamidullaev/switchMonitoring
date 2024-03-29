@@ -5,21 +5,34 @@
   <div class="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
+
       <div>
         <a href="{% url 'export_high_sig_switches_to_excel' %}">
         <button
-            class="py-4 px-4 ml-2 bg-blue-500 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
+            class="py-4 px-4 ml-2 mb-2 bg-violet-500 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
             <i class="fa-solid fa-download mr-3"></i>
             Export switches with
             low signal levels
         </button>
       </a>
       </div>
+
+      <div>
+      <a href="{% url 'sync_zbx' %}">
+        <button id="sync"
+            class="py-4 px-4 ml-2 bg-sky-600 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
+            <i class="fa-solid fa-rotate"></i>
+            Sync with TSHTT Zabbix server
+        </button>
+      </a>
+      </div>
+
       <div class="bg-green-600 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
         <div class="m-4 flex justify-between">
           <a href="{% url 'switches' %}">
             <h4 class="text-2xl font-bold text-white">
               {{ up_count }}
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
             </h4>
             <span class="text-2xl font-bold text-white">Total switches UP</span>
           </a>
@@ -31,6 +44,7 @@
           <a href="{% url 'offline' %}">
             <h4 class="text-2xl font-bold text-white">
               {{ down_count }}
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
             </h4>
             <span class="text-2xl font-bold text-white">Total switches DOWN</span>
           </a>
@@ -42,6 +56,7 @@
           <a href="{% url 'switches_high_sig' %}">
             <h4 class="text-2xl font-bold text-white">
               {{ high_sig_sw }}
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
             </h4>
             <span class="text-2xl font-bold text-white">Switches with a signal level less than or equal to -20 dBm.</span>
           </a>
@@ -52,6 +67,7 @@
           <a href="{% url 'switches_high_sig_15' %}">
             <h4 class="text-2xl font-bold text-white">
               {{ high_sig_sw_15 }}
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
             </h4>
             <span class="text-2xl font-bold text-white">Switches with a signal level less than -15 dBm and greater then -20 dBm.</span>
           </a>
@@ -62,11 +78,21 @@
           <a href="{% url 'switches_high_sig_10' %}">
             <h4 class="text-2xl font-bold text-white">
               {{ high_sig_sw_10 }}
-            </h4>
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
             <span class="text-2xl font-bold text-white">Switches with a signal level less than -10 dBm and greater then -15 dBm.</span>
           </a>
         </div>
       </div>
+      <script>
+        // Wrap the script inside a DOMContentLoaded event listener to ensure it runs after the DOM has loaded
+        document.addEventListener("DOMContentLoaded", function() {
+          // Add event listener to the sync button
+          document.getElementById("sync").addEventListener("click", function() {
+            // Reload the page when the button is clicked
+            location.reload();
+          });
+        });
+      </script>
       
 
 {% endblock %}
