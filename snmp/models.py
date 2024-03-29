@@ -111,6 +111,7 @@ class SwitchModel(models.Model):
 
 
 class Switch(models.Model):
+    created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
     last_update = models.DateTimeField(auto_now=True, null=True, blank=True)

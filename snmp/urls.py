@@ -3,7 +3,9 @@ from django.urls import path
 from .views.switch_views import *
 from .views.dashboard_views import *
 from .views.update_views import *
-
+from .views.requests_views import *
+from .views.export import *
+    
 urlpatterns = [
     path('', switches, name='switches'),
     path('switches/', switches, name='switches'),
@@ -20,7 +22,9 @@ urlpatterns = [
     path('switches/switches_high_sig_10/', switches_high_sig_10, name='switches_high_sig_10'),
     path('dashboard/', switches_updown, name='dashboard'),
     path('switches/update_switch_ports_data/<int:pk>/', update_switch_ports_data, name='update_switch_ports_data'),
-    path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory')
+    path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory'),
+    path('switches/synch_zbx/', sync_hosts_from_zabbix, name='sync_zbx'),
+    path('switches/export/high_sig', export_high_sig_switches_to_excel, name='export_high_sig_switches_to_excel'),
 
     # path('switches/online_switches/', views.online_switches, name='online_switches'),
 ]

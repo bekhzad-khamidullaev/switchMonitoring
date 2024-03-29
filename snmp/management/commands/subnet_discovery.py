@@ -28,17 +28,19 @@ class Command(BaseCommand):
                 switch, created = Switch.objects.get_or_create(ip=ip_address)
                 logger.info(f"Processing switch at IP: {ip_address}")
                 switch.save()
+                if switch.save:
+                    logger.info(f"Save switch with IP: {ip_address}")
             else:
                 logger.warning(f"Host {ip_address} is not reachable.")
 
     def process_subnets(self):
-        ats_subnets = Ats.objects.values_list('subnet', flat=True)
+        ats_subnets = Ats.objects.values_list('subnet', flat=True).order_by('-pk')
         models = SwitchModel.objects.all()
 
         for subnet_str in ats_subnets:
             subnet = IPv4Network(subnet_str)
             # Change the new_prefix to a value larger than the original prefix (e.g., 26)
-            subnets = list(subnet.subnets(new_prefix=26))
+            subnets = list(subnet.subnets(new_prefix=25))
             for sub in subnets:
                 self.handle_subnet(sub, models)
 
