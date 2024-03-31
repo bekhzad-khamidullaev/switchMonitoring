@@ -153,15 +153,18 @@
             <div class="flex justify-center space-x-2">
               <a href="{% url 'switch_detail' switch.pk %}" class="btn btn-info text-blue-600">
                 Details
+                <i class="fa-solid fa-circle-info"></i>
               </a>
               {% if perms.snmp.change_switch %}
               {% if switch.status %}
               <a href="{% url 'switch_update' switch.pk %}" class="btn btn-warning">
                 Edit
+                <i class="fa-solid fa-user-pen"></i>
               </a>
               {% endif %}
-              <a href="{% url 'switch_delete' switch.pk %}" class="btn btn-danger text-red-600">
+              <a href="{% url 'switch_confirm_delete' switch.pk %}" class="btn btn-danger text-red-600">
                 Delete
+                <i class="fa-solid fa-trash"></i>
               </a>
               {% endif %}
             </div>

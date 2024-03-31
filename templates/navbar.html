@@ -9,7 +9,9 @@
         </div>
         <div class="hidden sm:ml-6 sm:block">
           <div class="flex space-x-2">
-            <a href="{% url 'switches' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">SWITCHES</a>
+            <a href="{% url 'switches' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">SWITCHES 
+            <br>  <i class="fa-solid fa-network-wired"></i>
+            </a>
           </div>
         </div>
         <!-- <div class="hidden sm:ml-6 sm:block">
@@ -19,13 +21,15 @@
         </div> -->
         <div class="hidden sm:ml-2 sm:block">
           <div class="flex space-x-2">
-            <a href="{% url 'dashboard' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-cyan-600 dark:bg-syan-600 hover:bg-cyan-900 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-cyan-600 dark:bg-syan-600 hover:bg-cyan-900 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">Dashboard
+            </a>
+          
           </div>
         </div>
       </div>
-      <div class="absolute text-sm font-serif text-neutral-200 inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+      <div class="absolute text-sm font-bold text-neutral-200 inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
         <button class="rounded-md border-0 px-4 py-1 bg-neutral-200 text-black">
-          {{ user.get_full_name }}
+          <i class="fa-solid fa-user"></i> {{ user.get_full_name }}
         </button>
       </div>
       <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">

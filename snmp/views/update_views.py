@@ -40,7 +40,7 @@ def update_switch_status(switch):
             sw_status = 'UP' if switch.status else 'DOWN'
             return JsonResponse({'status': sw_status})
         else:
-            return HttpResponse(status=500)
+            return redirect('switch_detail', switch.pk)
     except Exception as e:
         logger.info(f"Error updating switch status for {ip_addr}: {e}")
         return HttpResponse(status=500)

@@ -6,7 +6,7 @@ from snmp.models import Switch
 from snmp.forms import SwitchForm
 import logging
 from .qoshimcha import get_permitted_branches
-from .update_views import update_switch_status
+from .update_views import update_switch_status, update_switch_inventory
 
 
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +50,8 @@ def switch_create(request):
         form = SwitchForm(request.POST)
         if form.is_valid():
             switch = form.save()
+            update_switch_status(switch)
+            # update_switch_inventory(switch.pk)
             return redirect('switch_detail', pk=switch.pk)
         else:
             error_message = "Please correct the errors below."
@@ -78,6 +80,11 @@ def switch_delete(request, pk):
     if request.method == 'POST':
         switch.delete()
         return redirect('switches')
+    return render(request, 'switch_confirm_delete.html', {'switch': switch})
+
+@login_required
+def switch_confirm_delete(request, pk):
+    switch = get_object_or_404(Switch, pk=pk)
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
 
 # @login_required

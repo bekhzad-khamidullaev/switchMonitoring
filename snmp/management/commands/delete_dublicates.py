@@ -9,13 +9,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         duplicate_ips = Switch.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
+        duplicate_hostname = Switch.objects.values('hostname').annotate(count=Count('hostname')).filter(count__gt=1)
 
         # Iterate over duplicate IPs
-        for duplicate_ip in duplicate_ips:
-            ip = duplicate_ip['ip']
+        for hostname in duplicate_hostname:
+            hostname = hostname['hostname']
             
             # Retrieve duplicate hosts with the same IP
-            duplicate_hosts = Switch.objects.filter(ip=ip).order_by('-id')[1:]
+            duplicate_hosts = Switch.objects.filter(hostname=hostname).order_by('-hostname')[1:]
 
             # Keep the first instance and delete the duplicates
             for duplicate_host in duplicate_hosts:

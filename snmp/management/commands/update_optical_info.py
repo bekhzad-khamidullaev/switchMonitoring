@@ -134,7 +134,10 @@ class SNMPUpdater:
                 '',
             )
         else:
-            return (None, None, None, None)
+            return ('iso.3.6.1.4.1.2011.5.14.6.4.1.4.234881088',
+                    'iso.3.6.1.4.1.2011.5.14.6.4.1.5.234881088',
+                    None,
+                    None)
 
     def perform_snmpwalk(self, oid):
         try:
