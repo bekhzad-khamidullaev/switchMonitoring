@@ -9,8 +9,8 @@
         </div>
         <div class="hidden sm:ml-6 sm:block">
           <div class="flex space-x-2">
-            <a href="{% url 'switches' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">SWITCHES 
-            <br>  <i class="fa-solid fa-network-wired"></i>
+            <a href="{% url 'switches' %}" class="shadow-md shadow-gray-900 text-neutral-200 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-sky-600 dark:bg-blue-600 hover:bg-blue-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800">
+            Switches list
             </a>
           </div>
         </div>
@@ -43,8 +43,8 @@
 <div class="flex flex-col md:flex-row justify-between">
   <div class="md:px-1 m-1">
     {% if perms.snmp.change_switch %}
-    <a href="{% url 'switch_create' %}" class="shadow-md shadow-emerald-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 md:dark:focus:ring-cyan-800">
-      Create New Switch
+    <a href="{% url 'switch_create' %}" class="shadow-md flex justify-between shadow-emerald-900 rounded-md px-2 py-2 font-medium text-center inline-flex items-center text-xs text-white bg-emerald-600 hover:bg-emerald-800 focus:ring-2 focus:outline-none focus:ring-cyan-300 md:dark:focus:ring-cyan-800">
+     <i class="fa-solid fa-plus">Add new switch</i>      
     </a>
     {% endif %}
   </div>
