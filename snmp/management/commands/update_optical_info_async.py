@@ -4,7 +4,7 @@ import time
 import logging
 from django.core.management.base import BaseCommand
 from snmp.models import Switch
-from snmp.update_port_info import SNMPUpdater
+from snmp.lib.update_port_info import SNMPUpdater
 from pysnmp.hlapi import *
 import math
 

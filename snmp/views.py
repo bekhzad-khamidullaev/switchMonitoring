@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from .models import Switch, SwitchModel, SwitchesNeighbors, Branch
 from .forms import SwitchForm
-from .update_port_info import SNMPUpdater, PortsInfo
+from .lib.update_port_info import SNMPUpdater, PortsInfo
 import time, re
 import logging
 from ping3 import ping

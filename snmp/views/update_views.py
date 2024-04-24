@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from snmp.models import Switch, SwitchModel
-from snmp.update_port_info import SNMPUpdater, PortsInfo
+from snmp.lib.update_port_info import SNMPUpdater, PortsInfo
 from django.views.decorators.csrf import csrf_exempt
 from snmp.management.commands.snmp import perform_snmpwalk
 import re
