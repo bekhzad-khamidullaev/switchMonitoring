@@ -21,6 +21,7 @@ urlpatterns = [
     path('switches/switches_high_sig/', switches_high_sig, name='switches_high_sig'),
     path('switches/switches_high_sig_15/', switches_high_sig_15, name='switches_high_sig_15'),
     path('switches/switches_high_sig_10/', switches_high_sig_10, name='switches_high_sig_10'),
+    path('switches/switches_high_sig_11/', switches_high_sig_11, name='switches_high_sig_11'),
     path('dashboard/', switches_updown, name='dashboard'),
     path('switches/update_switch_ports_data/<int:pk>/', update_switch_ports_data, name='update_switch_ports_data'),
     path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory'),

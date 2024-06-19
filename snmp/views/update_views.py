@@ -248,3 +248,32 @@ def update_switch_inventory(request, pk):
             return JsonResponse({'error': f'An error occurred during switch model request: {str(e)}'}, status=500)
 
         return redirect('switch_detail', pk=pk)
+
+
+@login_required
+def switches_high_sig_11(request):
+    user_permitted_branches = get_permitted_branches(request.user)
+    switches_high_sig = Switch.objects.filter(
+        rx_signal__lte=-11, branch__in=user_permitted_branches
+    ).order_by('rx_signal')
+    search_query = request.GET.get('search')
+    if search_query:
+        switches_high_sig = switches_high_sig.filter(
+            Q(pk__icontains=search_query) |
+            Q(model__vendor__name__icontains=search_query) |
+            Q(hostname__icontains=search_query) |
+            Q(ip__icontains=search_query) |
+            Q(model__device_model__icontains=search_query) |
+            Q(status__icontains=search_query) |
+            Q(sfp_vendor__icontains=search_query) |
+            Q(part_number__icontains=search_query) |
+            Q(rx_signal__icontains=search_query) |
+            Q(tx_signal__icontains=search_query)
+        )
+
+    paginator = Paginator(switches_high_sig, 100)
+    page_number = request.GET.get('page')
+    page_items = paginator.get_page(page_number)
+    return render(request, 'switches_high_sig_11.html', {
+        'switches_high_sig': page_items
+    })

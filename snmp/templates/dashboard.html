@@ -83,6 +83,16 @@
           </a>
         </div>
       </div>
+      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div class="m-4 flex justify-between">
+          <a href="{% url 'switches_high_sig_11' %}">
+            <h4 class="text-2xl font-bold text-white">
+              {{ high_sig_sw_11 }}
+              <i class="fa-sharp fa-solid fa-ethernet"></i>
+            <span class="text-2xl font-bold text-white">Switches with a signal level less than -11 dBm.</span>
+          </a>
+        </div>
+      </div>
       <script>
         // Wrap the script inside a DOMContentLoaded event listener to ensure it runs after the DOM has loaded
         document.addEventListener("DOMContentLoaded", function() {
