@@ -12,7 +12,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def sync_hosts_from_zabbix(request):
     # Zabbix API token and endpoint
     zabbix_url = 'https://monitoring.tshtt.uz/api_jsonrpc.php'
-    zabbix_token = '39b84fbcd4ee3a905aecc6ff1b90cc75c40d62757505765d2efdc38e7bd3b2cb'
+    zabbix_token = '208730c662a7a17c8dffb6952a0b10a58f53365095792159bbd3956b81403ed9'
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {zabbix_token}'

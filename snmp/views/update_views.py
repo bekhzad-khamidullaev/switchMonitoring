@@ -46,7 +46,7 @@ def update_switch_status(switch):
         return HttpResponse(status=500)
 
 
-@login_required
+# @login_required
 @csrf_exempt
 def update_optical_info(request, pk):
     if request.method == 'POST':
@@ -65,6 +65,7 @@ def update_optical_info(request, pk):
             return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)
     else:
         return HttpResponse(status=405)
+    
 
 @login_required
 @csrf_exempt
@@ -248,6 +249,74 @@ def update_switch_inventory(request, pk):
             return JsonResponse({'error': f'An error occurred during switch model request: {str(e)}'}, status=500)
 
         return redirect('switch_detail', pk=pk)
+
+# @login_required
+# def update_switch_inventory(request, pk):
+#         try:
+#             selected_switch = Switch.objects.get(pk=pk)
+#         except Switch.DoesNotExist:
+#             return
+#         try:
+#             snmp_response_hostname = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, SNMP_COMMUNITY)
+#             snmp_response_uptime = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_UPTIME, SNMP_COMMUNITY)
+            
+#             if not snmp_response_hostname or not snmp_response_uptime:
+#                 snmp_response_hostname = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, 'public')
+#                 snmp_response_uptime = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_UPTIME, 'public')
+#             else:
+#                 logger.error({'error': f'An error occurred during switch uptime and hostname request'}, status=500)
+#         except Exception as e:
+#             logger.error(f"Error processing for {selected_switch.ip}: {e}")
+
+
+#         try:
+#             match_hostname = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', snmp_response_hostname[0])
+#             if match_hostname:
+#                 selected_switch.hostname = match_hostname.group(1).strip()
+#                 selected_switch.save()
+
+#             else:
+#                 return JsonResponse({'error': f'An error occurred during switch hostname request: {str(e)}'}, status=500)
+            
+#         except Exception as e:
+#             logger.error(f"Error processing hostname for {selected_switch.ip}: {e}")
+
+
+#         try:
+#             match_uptime = re.search(r'SNMPv2-MIB::sysUpTime.0\s*=\s*(\d+)', snmp_response_uptime[0])
+#             if match_uptime:
+#                 selected_switch.uptime = convert_uptime_to_human_readable(match_uptime.group(1).strip())
+#                 selected_switch.save()
+#             else:
+#                 return JsonResponse({'error': f'An error occurred during switch uptime request: {str(e)}'}, status=500)
+#         except Exception as e:
+#             pass
+
+
+#         snmp_response_description = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_DESCRIPTION, SNMP_COMMUNITY)
+#         if not snmp_response_description:
+#             snmp_response_description = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_DESCRIPTION, 'public')
+#         else:
+#             return JsonResponse({'error': f'An error occurred during switch description request'}, status=500)
+
+#         try:
+#             response_description = str(snmp_response_description[0]).strip().split()
+#             with transaction.atomic():
+#                 if not selected_switch.model:  # If switch is not associated with any model
+#                     db_model_instance = SwitchModel.objects.filter(device_model__in=response_description).first()
+#                     if db_model_instance:
+#                         selected_switch.model = db_model_instance
+#                         selected_switch.save()
+#                 elif selected_switch.model.device_model not in response_description:  # If associated model not found in response
+#                     db_model_instance = SwitchModel.objects.filter(device_model__in=response_description).first()
+#                     if db_model_instance:
+#                         selected_switch.model = db_model_instance
+#                         selected_switch.save()
+        
+#         except Exception as e:
+#             return JsonResponse({'error': f'An error occurred during switch model request: {str(e)}'}, status=500)
+
+#         return redirect('switch_detail', pk=pk)
 
 
 @login_required

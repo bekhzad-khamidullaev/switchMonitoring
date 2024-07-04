@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-q_c2d9*79bojtl-_la-50e*3b!rqg!gd^@tl@dxe2!dygp6@+%'
 
 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*','ddm.tshtt.uz','10.10.137.120']
 
@@ -25,6 +25,13 @@ INSTALLED_APPS = [
     'background_task',
     'django_celery_results',
     'rest_framework',
+    'compressor',
+    'tailwind',
+    'theme',
+    'olt_monitoring',
+    'vendors',
+    'zabbixapp',
+
 ]
 
 MIDDLEWARE = [
@@ -105,7 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'uz-UZ'
 
 TIME_ZONE = 'Asia/Tashkent'
 
@@ -116,10 +123,12 @@ USE_TZ = True
 
 
 STATIC_URL = '/static/'
-
-
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static_files"),
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -159,3 +168,16 @@ CELERY_BEAT_SCHEDULE = {
 
 
 LOGIN_REDIRECT_URL = '/snmp/switches/'
+
+COMPRESS_ROOT = BASE_DIR / 'static'
+ 
+COMPRESS_ENABLED = True
+ 
+STATICFILES_FINDERS = ('compressor.finders.CompressorFinder',)
+
+
+TAILWIND_APP_NAME = 'theme'
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]

@@ -15,12 +15,13 @@ def index(request):
         else:
             messages.error(request, "Invalid credentials. Please try again!")
             return redirect('index')
-
     else:
         return render(request, 'index.html', {})
+    
 
 def login_user(request):
     return redirect('index')
+
 
 def logout_user(request):
     logout(request)

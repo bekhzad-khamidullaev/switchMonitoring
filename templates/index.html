@@ -1,7 +1,11 @@
+{% load compress %}
+{% load static tailwind_tags %}
 {% load static %}
 <!doctype html>
 <html>
 <head>
+  {% tailwind_css %}
+
   <title>{% block title %}{% endblock %}</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

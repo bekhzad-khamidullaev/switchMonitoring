@@ -1,5 +1,10 @@
 {
   "devDependencies": {
     "tailwindcss": "^3.4.4"
+  },
+  "dependencies": {
+    "node": "^22.3.0",
+    "nvm": "^0.0.4",
+    "semver": "^7.6.2"
   }
 }

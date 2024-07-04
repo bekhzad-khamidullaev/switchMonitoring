@@ -39,7 +39,7 @@
           $('#part-number-' + switchId).text(data.partNumber);
           $('#rx-signal-' + switchId).text(data.rxSignal);
           $('#tx-signal-' + switchId).text(data.txSignal);
-          updateSwitchStatus(switchId);
+          // updateSwitchStatus(switchId);
           location.reload();
         },
         error: function (error) {
@@ -56,7 +56,7 @@
     // Set up an interval to update switch statuses every 3000 milliseconds (3 seconds)
     setInterval(function () {
       {% for switch in switches %}
-        updateSwitchDetails('{{ switch.pk }}');
+      updateSwitchStatus('{{ switch.pk }}');
       {% endfor %}
     }, 3000);  // Adjust the interval as needed
 

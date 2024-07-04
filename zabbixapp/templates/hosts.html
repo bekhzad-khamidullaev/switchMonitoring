@@ -1,0 +1,31 @@
+{% extends "index.html" %}
+{% load static %}
+{% block title %}Hosts List{% endblock %}
+
+{% block content %}
+
+<div class="bg-white dark:bg-neutral-800 p-2 rounded-lg shadow-md overflow-x-auto">
+  <table class="w-full text-xs text-left text-neutral-500 dark:text-neutral-400">
+    <thead class='uppercase'>
+      <tr class="text-xs font-sans text-center whitespace-nowrap bg-neutral-600 text-white dark:text-neutral-300">
+          <th class="border px-2 py-1">HOSTNAME</th>
+
+        </tr>
+      </thead>
+      <tbody>
+        {% for host in hosts %}
+
+        <tr class="text-xs font-medium font-sans text-center whitespace-nowrap hover:bg-neutral-400 dark:hover:bg-neutral-600">
+          <td class="border px-2 py-1">
+            <li><a href="{% url 'metrics'  host.hostid %}">{{ host.name }}</a></li>
+
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+
+
+{% endblock %}
