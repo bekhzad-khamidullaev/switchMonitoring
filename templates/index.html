@@ -1,10 +1,9 @@
 {% load compress %}
-{% load static tailwind_tags %}
 {% load static %}
 <!doctype html>
 <html>
 <head>
-  {% tailwind_css %}
+  {% comment %}{% tailwind_css %}{% endcomment %}
 
   <title>{% block title %}{% endblock %}</title>
   <meta charset="UTF-8">

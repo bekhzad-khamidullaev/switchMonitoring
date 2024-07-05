@@ -90,7 +90,7 @@ DATABASES = {
         'NAME': 'snmp',
         'USER': 'snmp',
         'PASSWORD': 'admin',
-        'HOST': '127.0.0.1',
+        'HOST': '10.10.137.120',
         'PORT': '',
     }
 }
