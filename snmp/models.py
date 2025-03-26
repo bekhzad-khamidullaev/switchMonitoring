@@ -118,7 +118,7 @@ class Switch(models.Model):
     hostname = models.CharField(max_length=200, null=True, blank=True)
     ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
     switch_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
-    snmp_community_ro = models.CharField(max_length=20, default='snmp2netread', null=True, blank=True)
+    snmp_community_ro = models.CharField(max_length=20, default='eriwpirt', null=True, blank=True)
     snmp_community_rw = models.CharField(max_length=20, default='netman', null=True, blank=True)
     status = models.BooleanField(default=False, null=True, blank=True)
     neighbor = models.ForeignKey("SwitchesNeighbors", on_delete=models.SET_NULL, blank=True, null=True)

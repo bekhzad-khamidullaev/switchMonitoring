@@ -1,3 +1,4 @@
+
 from django.http import JsonResponse
 from snmp.models import Switch
 from django.shortcuts import redirect
@@ -12,7 +13,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def sync_hosts_from_zabbix(request):
     # Zabbix API token and endpoint
     zabbix_url = 'https://monitoring.tshtt.uz/api_jsonrpc.php'
-    zabbix_token = '208730c662a7a17c8dffb6952a0b10a58f53365095792159bbd3956b81403ed9'
+    zabbix_token = '89296f0cae9f7d302495371e27be491100d516196608be0caace979572467cf7'
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {zabbix_token}'

@@ -273,7 +273,7 @@ class Command(BaseCommand):
         snmp_community = "snmp2netread"
 
         while True:
-            selected_switches = Switch.objects.filter(status=True).order_by('pk')
+            selected_switches = Switch.objects.filter(status=True).order_by('-pk')
 
             for selected_switch in selected_switches:
                 snmp_updater = SNMPUpdater(selected_switch, snmp_community)

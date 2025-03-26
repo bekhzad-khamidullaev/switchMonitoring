@@ -27,8 +27,8 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
-        switches_per_page = 10  # Adjust as needed
-        delay_seconds = 1  # Adjust as needed
+        switches_per_page = 10
+        delay_seconds = 1
 
         while True:
             paginator = Paginator(Switch.objects.filter(status=True).order_by('-pk'), switches_per_page)

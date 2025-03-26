@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'compressor',
     'tailwind',
     'theme',
-    'olt_monitoring',
+    # 'olt_monitoring',
     'vendors',
     'zabbixapp',
 
@@ -90,7 +90,7 @@ DATABASES = {
         'NAME': 'snmp',
         'USER': 'snmp',
         'PASSWORD': 'admin',
-        'HOST': '10.10.137.120',
+        'HOST': '127.0.0.1',
         'PORT': '',
     }
 }

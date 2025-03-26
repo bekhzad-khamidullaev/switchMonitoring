@@ -8,6 +8,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('users.urls')),
     path('snmp/', include('snmp.urls')),
-    path('outsource/', include('zabbixapp.urls')),
-    path('olt/', include('olt_monitoring.urls')),
+    # path('outsource/', include('zabbixapp.urls')),
+    # path('olt/', include('olt_monitoring.urls')),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

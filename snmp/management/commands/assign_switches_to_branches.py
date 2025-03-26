@@ -12,7 +12,7 @@ class Command(BaseCommand):
             switch_ip = switch.ip
             for branch in ats:
                 if branch.contains_ip(switch_ip):
-                    switch.branch = branch.branch  # Assigning Ats instance
+                    switch.branch = branch.branch
                     switch.ats = branch
                     switch.save()
                     self.stdout.write(self.style.SUCCESS(f'Switch {switch.id} assigned to branch {branch.name}'))
