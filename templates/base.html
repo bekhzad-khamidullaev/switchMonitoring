@@ -1,13 +1,26 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>{% block title %}{% endblock %}</title>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="{% static 'css/tailwind.css' %}"></script>
+  <title>{% block title %}SNMP Monitoring{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-  <body class="bg-gray-100 dark:bg-gray-700">
-      {% block content %}
-      {% endblock %}
-  </body>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-white shadow p-4 mb-6">
+    <div class="container mx-auto">
+      <h1 class="text-2xl font-semibold">SNMP Monitoring System</h1>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center text-sm text-gray-500 mt-8 py-4">
+    &copy; {% now "Y" %} SNMP Monitoring
+  </footer>
+</body>
 </html>

@@ -1,16 +1,22 @@
 from pathlib import Path
-import os
-from celery.schedules import crontab
 
-
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-q_c2d9*79bojtl-_la-50e*3b!rqg!gd^@tl@dxe2!dygp6@+%'
 
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-#g0v2kru+0sb5959jmf8&j3qo=)i-16#a3ej9rlim!6*6%ef7q'
+
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*','ddm.tshtt.uz','10.10.137.120']
+ALLOWED_HOSTS = ["*"]
+
+
+# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -19,19 +25,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'celery',
+    'rest_framework',
+    'django_celery_results',
+    'django_celery_beat',
+    'tailwind',
+    'django_htmx',
+    # 'theme',
     'snmp',
     'users',
-    'background_task',
-    'django_celery_results',
-    'rest_framework',
-    'compressor',
-    'tailwind',
-    'theme',
-    # 'olt_monitoring',
-    'vendors',
-    'zabbixapp',
-
 ]
 
 MIDDLEWARE = [
@@ -49,7 +50,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -64,37 +65,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# APPEND_SLASH=False
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': 'snmp',
-#         'USER': 'snmp',
-#         'PASSWORD': 'admin',
-#         'HOST': '127.0.0.1',
-#         'PORT': '',
-#     }
-# }
+# Database
+# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'snmp_dev',
-        'USER': 'snmp',
-        'PASSWORD': 'admin',
-        'HOST': '127.0.0.1',
-        'PORT': '',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
+
+# Password validation
+# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -112,72 +96,32 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-LANGUAGE_CODE = 'uz-UZ'
+# Internationalization
+# https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-TIME_ZONE = 'Asia/Tashkent'
+LANGUAGE_CODE = 'en-us'
+
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
 USE_TZ = True
 
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = 'static/'
 
-
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static_files"),
-]
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-# CELERY_RESULT_BACKEND = 'django-db'
-# CELERY_CACHE_BACKEND = 'django-cache'
-CELERY_TIMEZONE = 'Asia/Tashkent'
-CELERY_IMPORTS = ('snmp.tasks',)
-CELERY_TRACK_STARTED = True
-CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(BASE_DIR, 'celerybeat-schedule.db')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ENABLE_UTC = True
-
-CELERY_BEAT_SCHEDULE = {
-    'update-switch-status': {
-        'task': 'snmp.tasks.update_switch_status_task',
-        'schedule': 300,
-    },
-    'update-optical-info': {
-        'task': 'snmp.tasks.update_optical_info_task',
-        'schedule': 14400,
-    },
-    'update-switch-inventory': {
-        'task': 'snmp.tasks.update_switch_inventory_task',
-        'schedule': crontab(minute=0, hour=9),  # 09:00 AM
-    },
-    'subnet_discovery': {
-        'task': 'snmp.tasks.subnet_discovery_task',
-        'schedule': crontab(minute=0, hour=3),  # 04:00 AM
-    },
-}
-
-
-
-LOGIN_REDIRECT_URL = '/snmp/switches/'
-
-COMPRESS_ROOT = BASE_DIR / 'static'
- 
-COMPRESS_ENABLED = True
- 
-STATICFILES_FINDERS = ('compressor.finders.CompressorFinder',)
-
-
-TAILWIND_APP_NAME = 'theme'
-
-INTERNAL_IPS = [
-    "127.0.0.1",
-]
+CELERY_RESULT_BACKEND = 'django-db'  # или redis
+CELERY_TIMEZONE = 'Asia/Tashkent'

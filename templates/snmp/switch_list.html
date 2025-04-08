@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bg-white p-6 rounded-xl shadow-md">
+  <h2 class="text-2xl font-semibold text-gray-800 mb-4">Список коммутаторов</h2>
+
+  <div class="overflow-x-auto rounded-lg border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
+      <thead class="bg-gray-100 text-gray-700 font-semibold uppercase">
+        <tr>
+          <th class="px-4 py-2">Hostname</th>
+          <th class="px-4 py-2">IP</th>
+          <th class="px-4 py-2">Node</th>
+          <th class="px-4 py-2">ATS</th>
+          <th class="px-4 py-2">Статус</th>
+          <th class="px-4 py-2">Действия</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        {% for switch in switches %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 font-medium text-blue-800">{{ switch.hostname|default:"—" }}</td>
+          <td class="px-4 py-2">{{ switch.ip }}</td>
+          <td class="px-4 py-2">{{ switch.ats.node.name }}</td>
+          <td class="px-4 py-2">{{ switch.ats.name }}</td>
+          <td class="px-4 py-2">
+            {% if switch.status %}
+              <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Online</span>
+            {% else %}
+              <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">Offline</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">
+            <a href="{% url 'switch_detail' switch.pk %}" class="text-blue-600 hover:underline">Подробнее</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

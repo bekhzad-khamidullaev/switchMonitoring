@@ -1,0 +1,24 @@
+<div class="p-4">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4">График скорости порта {{ port.port_index }}</h3>
+    <canvas id="traffic-chart"></canvas>
+    <script>
+        var ctx = document.getElementById('traffic-chart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ data.labels|safe }},
+                datasets: [{
+                    label: 'RX (Mbit)',
+                    data: {{ data.rx|safe }},
+                    borderColor: 'rgba(0, 123, 255, 0.7)',
+                    fill: false
+                }, {
+                    label: 'TX (Mbit)',
+                    data: {{ data.tx|safe }},
+                    borderColor: 'rgba(255, 99, 132, 0.7)',
+                    fill: false
+                }]
+            }
+        });
+    </script>
+</div>
