@@ -15,12 +15,16 @@ def poll_port_traffic():
         try:
             in_octets = snmp_get(ip, community, "IF-MIB", "ifInOctets", index)
             out_octets = snmp_get(ip, community, "IF-MIB", "ifOutOctets", index)
+            rx_signal = snmp_get(ip, community, "IF-MIB", "ifInUcastPkts", index)
+            tx_signal = snmp_get(ip, community, "IF-MIB", "ifOutUcastPkts", index)
 
             if in_octets and out_octets:
                 stats = SwitchPortStats.objects.create(
                     port=port,
                     octets_in=int(in_octets),
                     octets_out=int(out_octets),
+                    rx_signal=rx_signal,
+                    tx_signal=tx_signal,
                 )
                 logger.info(f"Saved RX/TX for port {port} on {ip}")
         except Exception as e:

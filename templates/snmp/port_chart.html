@@ -8,12 +8,12 @@
             data: {
                 labels: {{ data.labels|safe }},
                 datasets: [{
-                    label: 'RX (Mbit)',
+                    label: 'RX (dBm)',
                     data: {{ data.rx|safe }},
                     borderColor: 'rgba(0, 123, 255, 0.7)',
                     fill: false
                 }, {
-                    label: 'TX (Mbit)',
+                    label: 'TX (dBm)',
                     data: {{ data.tx|safe }},
                     borderColor: 'rgba(255, 99, 132, 0.7)',
                     fill: false

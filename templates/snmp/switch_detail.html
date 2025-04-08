@@ -1,9 +1,14 @@
 {% extends 'base.html' %}
-{% load custom_filters %}
+
+{% load static %}
+
+{% block customcss %}
+    <link rel="stylesheet" href="{% static 'css/switch-detail.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="bg-white p-6 rounded-xl shadow-md">
     <h2 class="text-2xl font-semibold text-gray-800 mb-4">Коммутатор: {{ switch.hostname }} ({{ switch.ip }})</h2>
-
     <div class="overflow-x-auto rounded-lg border border-gray-200">
         <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
             <thead class="bg-gray-100 text-gray-700 font-semibold uppercase">
@@ -21,17 +26,12 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-100">
                 {% for port in switch.ports.all %}
-                {% if not port.description|regex_search:'loopback|tunnel|null' %}
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-2 font-medium text-blue-800">{{ port.port_index }}</td>
                     <td class="px-4 py-2">{{ port.description }}</td>
                     <td class="px-4 py-2">{{ port.vlan_id|default:"-" }}</td>
                     <td class="px-4 py-2">
-                        {% if port.oper_state == '1' %}
-                            <span class="text-green-600">UP</span>
-                        {% else %}
-                            <span class="text-red-600">DOWN</span>
-                        {% endif %}
+                        {% if port.oper_state == '1' %}<span class="text-green-600">UP</span>{% else %}<span class="text-red-600">DOWN</span>{% endif %}
                     </td>
                     <td class="px-4 py-2">
                         {% if port.admin_state == '1' %}ENABLED{% else %}DISABLED{% endif %}
@@ -46,7 +46,6 @@
                         </div>
                     </td>
                 </tr>
-                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
