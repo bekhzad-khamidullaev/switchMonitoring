@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from snmp.models import Switch, SwitchesNeighbors
 from .qoshimcha import get_permitted_branches
@@ -34,3 +35,31 @@ def neighbor_switches_map(request):
     }
 
     return render(request, 'neighbor_switches_map.html', context)
+
+
+@login_required
+def network_map(request):
+    """Render a page with a network topology visualization."""
+    return render(request, 'network_map.html')
+
+
+@login_required
+def network_map_data(request):
+    """Return JSON data describing switches and their neighbor relations."""
+    switches = list(Switch.objects.all().values('hostname', 'switch_mac'))
+    neighbors = SwitchesNeighbors.objects.all()
+
+    nodes = []
+    node_lookup = {}
+    for sw in switches:
+        node = {'id': sw['switch_mac'], 'label': sw['hostname']}
+        nodes.append(node)
+        node_lookup[sw['switch_mac']] = node
+
+    edges = []
+    for n in neighbors:
+        if n.mac1 in node_lookup and n.mac2 in node_lookup:
+            edges.append({'source': n.mac1, 'target': n.mac2,
+                          'port1': n.port1, 'port2': n.port2})
+
+    return JsonResponse({'nodes': nodes, 'edges': edges})
