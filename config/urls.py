@@ -8,6 +8,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('users.urls')),
     path('snmp/', include('snmp.urls')),
+    path('api/v1/', include('snmp.urls.api_urls')),
     # path('outsource/', include('zabbixapp.urls')),
     # path('olt/', include('olt_monitoring.urls')),
 ]

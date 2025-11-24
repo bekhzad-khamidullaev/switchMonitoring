@@ -1,0 +1,17 @@
+# MIB files directory
+# Place vendor MIB files here for device discovery and monitoring
+
+# Directory structure:
+# mibs/
+# ├── cisco/
+# ├── huawei/
+# ├── h3c/
+# ├── juniper/
+# └── standard/
+
+# Standard MIBs that should be present:
+# - IF-MIB (interface monitoring)
+# - ENTITY-MIB (entity/component information)
+# - CISCO-OPTICAL-MONITOR-MIB (Cisco optical monitoring)
+# - HUAWEI-ENTITY-EXTENT-MIB (Huawei entity extensions)
+# - H3C-TRANSCEIVER-INFO-MIB (H3C transceiver information)

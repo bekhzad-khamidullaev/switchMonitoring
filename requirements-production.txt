@@ -1,0 +1,65 @@
+# Production requirements for SNMP Monitoring System
+# Include base requirements
+-r requirements.txt
+
+# Additional production dependencies
+gunicorn==21.2.0                # WSGI HTTP Server
+whitenoise==6.5.0               # Static file serving
+django-cors-headers==4.3.1      # CORS handling
+django-redis==5.3.0             # Redis cache backend
+redis==4.6.0                    # Redis client
+psycopg2-binary==2.9.7          # PostgreSQL adapter
+
+# MIB parsing and SNMP enhancements
+pysmi==0.3.4                    # MIB compiler
+pysnmp==4.4.12                  # SNMP library
+pyasn1==0.5.0                   # ASN.1 library
+
+# Monitoring and logging
+sentry-sdk[django]==1.32.0      # Error tracking
+django-health-check==3.17.0     # Health check endpoints
+structlog==23.1.0               # Structured logging
+python-json-logger==2.0.7       # JSON formatter
+
+# Security enhancements
+django-ratelimit==3.0.1         # Rate limiting
+django-csp==3.7                 # Content Security Policy
+django-security==0.18.0         # Security headers
+
+# API enhancements
+djangorestframework==3.15.1     # REST framework
+django-filter==23.2             # Filtering support
+djangorestframework-simplejwt==5.3.0  # JWT authentication
+drf-spectacular==0.26.4         # OpenAPI schema generation
+
+# Task queue and scheduling
+celery[redis]==5.3.1            # Task queue
+django-celery-beat==2.5.0       # Periodic tasks
+django-celery-results==2.5.0    # Task results
+
+# Network utilities
+netaddr==0.8.0                  # IP address manipulation
+dnspython==2.4.2               # DNS toolkit
+requests==2.31.0               # HTTP library
+
+# Data export and processing
+openpyxl==3.1.2                # Excel file handling
+xlsxwriter==3.1.2              # Excel writing
+pandas==2.0.3                  # Data analysis
+
+# Email and notifications
+django-anymail==10.1            # Email backend
+
+# Performance and optimization
+django-extensions==3.2.3        # Management command extensions
+django-debug-toolbar==4.2.0     # Debug toolbar (disable in production)
+
+# Time zone handling
+pytz==2023.3                    # Time zone library
+
+# Environment configuration
+python-dotenv==1.0.0           # Environment variables
+environs[django]==9.5.0        # Environment parsing
+
+# Backup and maintenance
+django-dbbackup==4.0.2         # Database backup

@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'snmp.middleware.LoggingMiddleware',  # Custom logging middleware
+    'snmp.middleware.HealthCheckMiddleware',  # Health check middleware
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -144,6 +145,30 @@ CELERY_BEAT_SCHEDULE = {
     'subnet_discovery': {
         'task': 'snmp.tasks.subnet_discovery_task',
         'schedule': crontab(minute=0, hour=3),  # 03:00 AM
+    },
+    'auto-discover-devices': {
+        'task': 'snmp.tasks.auto_discover_devices_task',
+        'schedule': crontab(minute=30, hour=2),  # 02:30 AM daily
+    },
+    'monitor-all-uplinks': {
+        'task': 'snmp.tasks.monitor_all_uplinks_task',
+        'schedule': 600,  # Every 10 minutes
+    },
+    'comprehensive-health-check': {
+        'task': 'snmp.tasks.comprehensive_health_check_task',
+        'schedule': crontab(minute=0, hour='*/4'),  # Every 4 hours
+    },
+    'cleanup-old-data': {
+        'task': 'snmp.tasks.cleanup_old_data_task',
+        'schedule': crontab(minute=0, hour=1),  # 01:00 AM daily
+    },
+    'generate-daily-report': {
+        'task': 'snmp.tasks.generate_daily_report_task',
+        'schedule': crontab(minute=0, hour=6),  # 06:00 AM daily
+    },
+    'task-health-check': {
+        'task': 'snmp.tasks.task_health_check',
+        'schedule': 300,  # Every 5 minutes
     },
 }
 
