@@ -9,7 +9,6 @@ SECRET_KEY = 'django-insecure-q_c2d9*79bojtl-_la-50e*3b!rqg!gd^@tl@dxe2!dygp6@+%
 
 
 DEBUG = True
-
 ALLOWED_HOSTS = ['*','ddm.tshtt.uz','10.10.137.120']
 
 INSTALLED_APPS = [
@@ -121,13 +120,15 @@ USE_I18N = True
 USE_TZ = True
 
 
-
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+# --- Файлы ---
+STATIC_URL = "/static/"
+# STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "static_files"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static_files"),
+    os.path.join(BASE_DIR, "staticfiles"),
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
