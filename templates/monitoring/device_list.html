@@ -1,0 +1,5 @@
+{% for device in devices %}
+    <p><a href="{{ device.get_absolute_url|default:'' }}">{{ device }}</a></p>
+{% empty %}
+    <p>No devices.</p>
+{% endfor %}

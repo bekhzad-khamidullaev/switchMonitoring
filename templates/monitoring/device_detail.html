@@ -1,0 +1,8 @@
+<h1>{{ device }}</h1>
+<ul>
+    {% for port in device.interfaces.all %}
+        <li>Port {{ port.index }} - speed: {{ port.speed }} status: {{ port.oper_status }}</li>
+    {% empty %}
+        <li>No ports</li>
+    {% endfor %}
+</ul>
