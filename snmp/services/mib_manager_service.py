@@ -11,14 +11,23 @@ from typing import Dict, List, Optional, Tuple, Any
 from django.conf import settings
 from django.core.cache import cache
 
-from pysmi import debug
-from pysmi.reader import FileReader
-from pysmi.searcher import FileSearcher
-from pysmi.parser import SmiV1Parser, SmiV2Parser
-from pysmi.codegen import PySnmpCodeGen
-from pysmi.compiler import MibCompiler
-from pysnmp.smi import builder, view, compiler
-from pysnmp import debug as pysnmp_debug
+# Optional MIB imports; system will work without them in production
+try:
+    from pysnmp.smi import builder, view
+except Exception:
+    builder = None
+    view = None
+
+# pysmi toolchain is optional; if missing, we skip compilation features
+try:
+    from pysmi import debug as pysmi_debug  # noqa: F401
+    from pysmi.parser import SmiV1Parser, SmiV2Parser  # noqa: F401
+    from pysmi.codegen import PySnmpCodeGen  # noqa: F401
+    from pysmi.compiler import MibCompiler  # noqa: F401
+    from pysmi.reader import FileReader  # noqa: F401
+except Exception:
+    SmiV1Parser = SmiV2Parser = PySnmpCodeGen = MibCompiler = FileReader = None
+    pysmi_debug = None
 
 from .base_service import BaseService
 
@@ -51,8 +60,12 @@ class MibManagerService(BaseService):
         """Initialize MIB compiler and builder."""
         try:
             # Setup MIB builder
-            self.mib_builder = builder.MibBuilder()
-            self.mib_view = view.MibViewController(self.mib_builder)
+            if builder and view:
+                self.mib_builder = builder.MibBuilder()
+                self.mib_view = view.MibViewController(self.mib_builder)
+            else:
+                self.mib_builder = None
+                self.mib_view = None
             
             # Add MIB sources
             mib_sources = [
@@ -69,12 +82,16 @@ class MibManagerService(BaseService):
             self.mib_builder.addMibSources(*mib_sources)
             
             # Setup MIB compiler
-            self.mib_compiler = MibCompiler(
-                SmiV1Parser(), SmiV2Parser(),
-                PySnmpCodeGen(),
-                FileReader(str(self.mibs_path)),
-                FileSearcher(str(self.mibs_path)),
-            )
+            # Initialize compiler only if pysmi is available
+            if MibCompiler and SmiV1Parser and SmiV2Parser and PySnmpCodeGen and FileReader:
+                self.mib_compiler = MibCompiler(
+                    SmiV1Parser(), SmiV2Parser(),
+                    PySnmpCodeGen(),
+                    FileReader(str(self.mibs_path)),
+                    FileReader(str(self.mibs_path)),
+                )
+            else:
+                self.mib_compiler = None
             
             # Load essential MIBs
             self._load_essential_mibs()
@@ -82,7 +99,7 @@ class MibManagerService(BaseService):
             self.log_info("MIB compiler initialized successfully")
             
         except Exception as e:
-            self.log_error(f"Error initializing MIB compiler: {e}")
+            self.log_warning(f"MIB toolchain not available, continuing without MIB compilation: {e}")
             self.mib_builder = None
             self.mib_view = None
             self.mib_compiler = None

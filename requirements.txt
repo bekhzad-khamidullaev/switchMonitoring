@@ -1,7 +1,6 @@
 amqp==5.2.0
 asgiref==3.4.1
 async-timeout==4.0.2
-backports.zoneinfo==0.2.1
 billiard==3.6.4.0
 cached-property==1.5.2
 celery==5.1.2
@@ -11,14 +10,13 @@ click==7.1.2
 click-didyoumean==0.3.1
 click-plugins==1.1.1
 click-repl==0.3.0
-Django==3.0.14
+Django==3.2.25
 django-appconf==1.0.5
 django-celery-results==2.2.0
 django-compat==1.0.15
 django-compressor==4.4
-django-rest-framework==0.1.0
 django-simple-history==3.0.0
-django-tailwind==0.9.0
+django-tailwind==2.2.2
 django4-background-tasks==1.2.10
 djangorestframework==3.15.1
 et-xmlfile==1.1.0

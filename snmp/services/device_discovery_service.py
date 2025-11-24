@@ -13,14 +13,16 @@ from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
-from pysmi import debug
-from pysmi.reader import FileReader
-from pysmi.searcher import FileSearcher
-from pysmi.parser import SmiV1Parser, SmiV2Parser
-from pysmi.codegen import PySnmpCodeGen
-from pysmi.compiler import MibCompiler
+# Optional MIB tooling imports (safe for production if missing)
+try:
+    from pysmi import debug as pysmi_debug
+    from pysnmp.smi import builder, view
+except Exception:
+    pysmi_debug = None
+    builder = None
+    view = None
+
 from pysnmp.hlapi import *
-from pysnmp.smi import builder, view, compiler
 
 from .base_service import BaseService
 from .snmp_service import SNMPService
@@ -114,14 +116,19 @@ class DeviceDiscoveryService(BaseService):
     def _setup_mib_compiler(self):
         """Setup MIB compiler for parsing vendor MIB files."""
         try:
-            self.mib_builder = builder.MibBuilder()
-            self.mib_view = view.MibViewController(self.mib_builder)
+            if builder and view:
+                self.mib_builder = builder.MibBuilder()
+                self.mib_view = view.MibViewController(self.mib_builder)
+            else:
+                self.mib_builder = None
+                self.mib_view = None
             
             # Add standard MIB sources
-            self.mib_builder.addMibSources(
-                builder.DirMibSource(str(self.mibs_path)),
-                builder.DirMibSource(str(self.compiled_mibs_path))
-            )
+            if self.mib_builder and builder:
+                self.mib_builder.addMibSources(
+                    builder.DirMibSource(str(self.mibs_path)),
+                    builder.DirMibSource(str(self.compiled_mibs_path))
+                )
             
             # Load standard MIBs
             standard_mibs = [
@@ -132,17 +139,18 @@ class DeviceDiscoveryService(BaseService):
                 'HUAWEI-MIB',
             ]
             
-            for mib in standard_mibs:
-                try:
-                    self.mib_builder.loadModules(mib)
-                    self.log_debug(f"Loaded MIB: {mib}")
-                except Exception as e:
-                    self.log_warning(f"Could not load MIB {mib}: {e}")
+            if self.mib_builder:
+                for mib in standard_mibs:
+                    try:
+                        self.mib_builder.loadModules(mib)
+                        self.log_debug(f"Loaded MIB: {mib}")
+                    except Exception as e:
+                        self.log_warning(f"Could not load MIB {mib}: {e}")
             
             self.log_info("MIB compiler setup completed")
             
         except Exception as e:
-            self.log_error(f"Error setting up MIB compiler: {e}")
+            self.log_warning(f"MIB toolchain not available, continuing without MIB compilation: {e}")
             self.mib_builder = None
             self.mib_view = None
     
