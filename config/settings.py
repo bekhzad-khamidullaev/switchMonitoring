@@ -117,13 +117,17 @@ TIME_ZONE = 'Asia/Tashkent'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # --- Файлы ---
 STATIC_URL = "/static/"
-# STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "static_files"
+
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 
@@ -174,7 +178,11 @@ COMPRESS_ROOT = BASE_DIR / 'static'
  
 COMPRESS_ENABLED = True
  
-STATICFILES_FINDERS = ('compressor.finders.CompressorFinder',)
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'compressor.finders.CompressorFinder',
+]
 
 
 TAILWIND_APP_NAME = 'theme'
