@@ -3,6 +3,7 @@ from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from django.db.models import Min
 from openpyxl import Workbook
 
 from snmp.models import Switch, Interface, InterfaceOptics
@@ -39,10 +40,14 @@ def export_high_sig_switches_to_excel(request):
     worksheet.append(['Branch', 'ATS', 'Hostname', 'IP', 'Model', 'Uptime', 'RX', 'TX', 'Last check'])
 
     user_permitted_branches = get_permitted_branches(request.user)
-    switches = Switch.objects.filter(
-        rx_signal__lte=-11, branch__in=user_permitted_branches
-    ).select_related('ats', 'ats__branch', 'model').order_by('rx_signal') # Use select_related for efficiency
-
+    switches = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .filter(min_rx__lte=-11)
+        .select_related('ats', 'ats__branch', 'model')
+        .order_by('min_rx')
+    )
     for switch in switches:
         # *** Sanitize string fields before appending ***
         branch_name = sanitize_for_excel(switch.ats.branch.name)
@@ -62,8 +67,8 @@ def export_high_sig_switches_to_excel(request):
             ip_address,
             model_name,
             uptime_str,
-            switch.rx_signal, # Numeric
-            switch.tx_signal, # Numeric
+            switch.min_rx, # Numeric
+            switch.min_tx, # Numeric
             last_update_str,  # Already formatted string, usually safe
         ])
 
