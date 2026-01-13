@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from pysnmp.hlapi import SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity, getCmd
 
-from snmp.models import Switch, SwitchesPorts, InterfaceCounterState, InterfaceBandwidthSample
+from snmp.models import Switch, Interface, InterfaceCounterState, InterfaceBandwidthSample
 from snmp.services.bandwidth import CounterSnapshot, compute_bps
 from snmp.services.interface_classification import is_virtual_interface
 
@@ -62,18 +62,21 @@ class Command(BaseCommand):
                 logger.exception("Bandwidth poll failed for %s: %s", sw.ip, e)
 
     def poll_switch(self, sw: Switch, now, oids_per_request: int = 20):
-        # collect candidate interfaces from SwitchesPorts
-        ports = SwitchesPorts.objects.filter(switch=sw)
+        # collect candidate interfaces from normalized Interface table
+        ports = Interface.objects.filter(switch=sw)
         if not ports.exists():
             return
 
         # Build list of ifIndex we want to poll
         candidates = []
+        iface_by_ifindex = {}
         for p in ports:
-            is_virtual, _ = is_virtual_interface(None, p.name, p.description, p.alias)
+            is_virtual, _ = is_virtual_interface(p.iftype, p.name, p.description, p.alias)
             if is_virtual:
                 continue
-            candidates.append(int(p.port))
+            ifindex = int(p.ifindex)
+            candidates.append(ifindex)
+            iface_by_ifindex[ifindex] = p
 
         if not candidates:
             return
@@ -126,11 +129,20 @@ class Command(BaseCommand):
             in_val = int(values.get(in_oid, 0))
             out_val = int(values.get(out_oid, 0))
 
+            iface = iface_by_ifindex.get(ifindex)
             state, _ = InterfaceCounterState.objects.get_or_create(
                 switch=sw,
                 ifindex=ifindex,
-                defaults={'last_in_octets': in_val, 'last_out_octets': out_val, 'last_ts': now},
+                defaults={
+                    'interface': iface,
+                    'last_in_octets': in_val,
+                    'last_out_octets': out_val,
+                    'last_ts': now,
+                },
             )
+            # backfill interface FK if missing
+            if iface and state.interface_id is None:
+                state.interface = iface
 
             if state.last_ts:
                 interval_sec = max(1.0, (now - state.last_ts).total_seconds())
@@ -145,12 +157,18 @@ class Command(BaseCommand):
             state.last_in_octets = in_val
             state.last_out_octets = out_val
             state.last_ts = now
-            state.save(update_fields=['last_in_octets', 'last_out_octets', 'last_ts'])
+            update_fields = ['last_in_octets', 'last_out_octets', 'last_ts']
+            if iface and state.interface_id == iface.id:
+                update_fields = update_fields
+            elif iface and state.interface_id is None:
+                update_fields.append('interface')
+            state.save(update_fields=update_fields)
 
             if bps:
                 InterfaceBandwidthSample.objects.create(
                     switch=sw,
                     ifindex=ifindex,
+                    interface=iface,
                     ts=now,
                     in_bps=bps[0],
                     out_bps=bps[1],

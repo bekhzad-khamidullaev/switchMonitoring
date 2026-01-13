@@ -10,23 +10,34 @@ from django.contrib.auth.models import Group
 
 @receiver(post_migrate)
 def create_branch_permissions(sender, **kwargs):
-    # This function creates custom permissions for each branch after migration
+    """Create per-branch view permissions.
 
-    # Get the content type for the Branch model
-    content_type = ContentType.objects.get_for_model(Branch)
+    IMPORTANT:
+    This must only run after *snmp* migrations, otherwise it can break the global
+    migrate flow (contenttypes/auth tables may not be ready yet).
+    """
+    if getattr(sender, 'name', None) != 'snmp':
+        return
 
-    # Define the branches for which you want to create permissions
-    branches = Branch.objects.all()
+    try:
+        content_type = ContentType.objects.get_for_model(Branch)
+    except Exception:
+        # During initial migrate or partial states we skip silently.
+        return
 
-    # Create a permission for each branch
-    for branch in branches:
-        codename = f'view_{branch.name.lower().replace(" ", "_")}'
-        name = f'Can view switches in {branch.name}'
-        permission, created = Permission.objects.get_or_create(
-            codename=codename,
-            name=name,
-            content_type=content_type,
-        )
+    for branch in Branch.objects.all():
+        if not branch.name:
+            continue
+        codename = f"view_{branch.name.lower().replace(' ', '_')}"
+        name = f"Can view switches in {branch.name}"
+        try:
+            Permission.objects.get_or_create(
+                codename=codename,
+                name=name,
+                content_type=content_type,
+            )
+        except Exception:
+            continue
 
         # Optionally, assign the permission to a specific group
         # For example, if you have a group named "Branch Managers"
@@ -209,6 +220,110 @@ class Switch(models.Model):
         return self.hostname
     
     
+class SwitchStatus(models.Model):
+    switch = models.OneToOneField('Switch', on_delete=models.CASCADE, related_name='status_record')
+    is_up = models.BooleanField(default=False)
+    uptime = models.CharField(max_length=200, null=True, blank=True)
+    last_poll_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'switch_status'
+
+
+class Interface(models.Model):
+    switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='interfaces')
+    ifindex = models.PositiveIntegerField()
+
+    name = models.CharField(max_length=64, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    alias = models.CharField(max_length=255, null=True, blank=True)
+
+    iftype = models.PositiveIntegerField(null=True, blank=True)
+    speed = models.BigIntegerField(null=True, blank=True)
+    duplex = models.SmallIntegerField(null=True, blank=True)
+    admin = models.SmallIntegerField(null=True, blank=True)
+    oper = models.SmallIntegerField(null=True, blank=True)
+    lastchange = models.BigIntegerField(null=True, blank=True)
+
+    discards_in = models.BigIntegerField(null=True, blank=True)
+    discards_out = models.BigIntegerField(null=True, blank=True)
+
+    polled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'interfaces'
+        unique_together = (('switch', 'ifindex'),)
+        indexes = [
+            models.Index(fields=['switch', 'ifindex']),
+        ]
+
+
+class InterfaceOptics(models.Model):
+    interface = models.OneToOneField('Interface', on_delete=models.CASCADE, related_name='optics')
+    rx_dbm = models.FloatField(null=True, blank=True)
+    tx_dbm = models.FloatField(null=True, blank=True)
+    temperature_c = models.FloatField(null=True, blank=True)
+    voltage_v = models.FloatField(null=True, blank=True)
+    sfp_vendor = models.CharField(max_length=100, null=True, blank=True)
+    part_number = models.CharField(max_length=100, null=True, blank=True)
+    serial_number = models.CharField(max_length=100, null=True, blank=True)
+    polled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'interface_optics'
+
+
+class InterfaceL2(models.Model):
+    interface = models.OneToOneField('Interface', on_delete=models.CASCADE, related_name='l2')
+    mac_count = models.PositiveIntegerField(null=True, blank=True)
+    pvid = models.PositiveIntegerField(null=True, blank=True)
+    tagged_vlans = models.CharField(max_length=2000, null=True, blank=True)
+    untagged_vlans = models.CharField(max_length=200, null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'interface_l2'
+
+
+class MacEntry(models.Model):
+    switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='mac_entries')
+    interface = models.ForeignKey('Interface', on_delete=models.SET_NULL, null=True, blank=True, related_name='mac_entries')
+    mac = models.CharField(max_length=17)
+    vlan = models.PositiveIntegerField()
+    ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = True
+        db_table = 'mac_entries'
+        unique_together = (('switch', 'mac', 'vlan'),)
+        indexes = [
+            models.Index(fields=['mac']),
+            models.Index(fields=['switch', 'interface']),
+        ]
+
+
+class NeighborLink(models.Model):
+    local_switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='neighbor_links')
+    local_interface = models.ForeignKey('Interface', on_delete=models.SET_NULL, null=True, blank=True, related_name='neighbor_links')
+    remote_mac = models.CharField(max_length=17)
+    remote_port = models.CharField(max_length=64, null=True, blank=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = True
+        db_table = 'neighbor_links'
+        indexes = [
+            models.Index(fields=['local_switch']),
+            models.Index(fields=['remote_mac']),
+        ]
+
+
+# Legacy model kept temporarily for data migration; will be removed in cleanup migration.
 class SwitchesPorts(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
     switch = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
@@ -245,8 +360,13 @@ class SwitchesPorts(models.Model):
 class InterfaceCounterState(models.Model):
     """Stores last counter values to compute bandwidth deltas."""
 
+    # Legacy addressing (will be removed after data migration)
     switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
     ifindex = models.PositiveIntegerField()
+
+    # New normalized FK
+    interface = models.OneToOneField('Interface', on_delete=models.CASCADE, related_name='counter_state', null=True, blank=True)
+
     last_in_octets = models.BigIntegerField(default=0)
     last_out_octets = models.BigIntegerField(default=0)
     last_ts = models.DateTimeField(null=True, blank=True)
@@ -260,8 +380,13 @@ class InterfaceCounterState(models.Model):
 class InterfaceBandwidthSample(models.Model):
     """Bandwidth sample computed from SNMP counters (bps)."""
 
+    # Legacy addressing (will be removed after data migration)
     switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
     ifindex = models.PositiveIntegerField()
+
+    # New normalized FK
+    interface = models.ForeignKey('Interface', on_delete=models.CASCADE, related_name='bandwidth_samples', null=True, blank=True)
+
     ts = models.DateTimeField(db_index=True)
     in_bps = models.BigIntegerField(null=True, blank=True)
     out_bps = models.BigIntegerField(null=True, blank=True)
@@ -274,6 +399,7 @@ class InterfaceBandwidthSample(models.Model):
         db_table = 'interface_bandwidth_sample'
         indexes = [
             models.Index(fields=['switch', 'ifindex', 'ts']),
+            models.Index(fields=['interface', 'ts']),
         ]
 
 

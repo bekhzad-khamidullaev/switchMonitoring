@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from openpyxl import Workbook
 
-from snmp.models import Switch, SwitchesPorts
+from snmp.models import Switch, Interface, InterfaceOptics
 
 # Assuming get_permitted_branches is correctly imported from .qoshimcha
 from .qoshimcha import get_permitted_branches
@@ -103,34 +103,35 @@ def export_optical_ports_to_excel(request):
 
     user_permitted_branches = get_permitted_branches(request.user)
     qs = (
-        SwitchesPorts.objects
+        Interface.objects
         .select_related('switch', 'switch__ats', 'switch__ats__branch', 'switch__model')
-        .filter(switch__branch__in=user_permitted_branches)
+        .filter(switch__ats__branch__in=user_permitted_branches)
     )
 
     # Optional filters
     min_rx = request.GET.get('min_rx')
     if min_rx not in (None, ''):
         try:
-            qs = qs.filter(rx_signal__lte=float(min_rx))
+            qs = qs.filter(optics__rx_dbm__lte=float(min_rx))
         except ValueError:
             pass
 
     max_rx = request.GET.get('max_rx')
     if max_rx not in (None, ''):
         try:
-            qs = qs.filter(rx_signal__gte=float(max_rx))
+            qs = qs.filter(optics__rx_dbm__gte=float(max_rx))
         except ValueError:
             pass
 
     only_optical = request.GET.get('only_optical')
     if str(only_optical) in ('1', 'true', 'True', 'yes', 'on'):
-        qs = qs.exclude(rx_signal__isnull=True).exclude(tx_signal__isnull=True)
+        qs = qs.exclude(optics__rx_dbm__isnull=True).exclude(optics__tx_dbm__isnull=True)
 
-    qs = qs.order_by('switch__ats__branch__name', 'switch__ats__name', 'switch__hostname', 'port')
+    qs = qs.order_by('switch__ats__branch__name', 'switch__ats__name', 'switch__hostname', 'ifindex')
 
     for p in qs:
         sw = p.switch
+        optics = getattr(p, 'optics', None)
         ats = getattr(sw, 'ats', None)
         branch = getattr(ats, 'branch', None) if ats else None
 
@@ -140,19 +141,19 @@ def export_optical_ports_to_excel(request):
             sanitize_for_excel(sw.hostname or ''),
             sanitize_for_excel(str(sw.ip or '')),
             sanitize_for_excel(sw.model.device_model if sw.model else ''),
-            p.port,
+            p.ifindex,
             sanitize_for_excel(p.name or ''),
             sanitize_for_excel(p.alias or ''),
             sanitize_for_excel(p.description or ''),
             p.speed,
             p.admin,
             p.oper,
-            p.rx_signal,
-            p.tx_signal,
-            sanitize_for_excel(p.sfp_vendor or ''),
-            sanitize_for_excel(p.part_number or ''),
-            sanitize_for_excel(p.serial_number or ''),
-            p.data.strftime('%Y-%m-%d %H:%M:%S') if p.data else '',
+            getattr(optics, 'rx_dbm', None),
+            getattr(optics, 'tx_dbm', None),
+            sanitize_for_excel(getattr(optics, 'sfp_vendor', '') or ''),
+            sanitize_for_excel(getattr(optics, 'part_number', '') or ''),
+            sanitize_for_excel(getattr(optics, 'serial_number', '') or ''),
+            (getattr(optics, 'polled_at', None) or p.polled_at).strftime('%Y-%m-%d %H:%M:%S') if (getattr(optics, 'polled_at', None) or p.polled_at) else '',
         ])
 
     workbook.save(response)
