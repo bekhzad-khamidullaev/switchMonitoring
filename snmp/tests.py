@@ -31,6 +31,9 @@ class VirtualInterfaceClassifierTests(SimpleTestCase):
         self.assertEqual('', reason)
 
 
+from snmp.services.bridge_mib import _parse_dot1q_fdb_index
+
+
 class BandwidthComputationTests(SimpleTestCase):
     def test_compute_bps_basic(self):
         prev = CounterSnapshot(in_octets=1000, out_octets=2000)
@@ -52,3 +55,9 @@ class BandwidthComputationTests(SimpleTestCase):
         prev = CounterSnapshot(in_octets=100, out_octets=100)
         curr = CounterSnapshot(in_octets=200, out_octets=200)
         self.assertIsNone(compute_bps(prev, curr, interval_sec=0, counter_bits=64))
+
+
+class BridgeMibParsingTests(SimpleTestCase):
+    def test_parse_dot1q_fdb_index(self):
+        parsed = _parse_dot1q_fdb_index('Q-BRIDGE-MIB::dot1qTpFdbPort.101.76.158.255.233.162.161')
+        self.assertEqual(parsed, (101, '4c:9e:ff:e9:a2:a1'))
