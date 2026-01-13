@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'celery',
     'snmp',
-    'users',
+    'users.apps.UsersConfig',
     'background_task',
     'django_celery_results',
     'rest_framework',

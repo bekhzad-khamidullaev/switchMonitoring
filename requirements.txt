@@ -37,6 +37,7 @@ ply==3.11
 prompt-toolkit==3.0.36
 psycopg2==2.8.6
 pyasn1==0.5.1
+pyasn1-modules==0.3.0
 pycryptodomex==3.20.0
 pyparsing==3.0.7
 pysmi==0.3.4

@@ -2,50 +2,6 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 from django.utils import timezone
 from ipaddress import ip_address, IPv4Network
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import post_migrate
-from django.dispatch import receiver
-from django.contrib.auth.models import Group
-
-@receiver(post_migrate)
-def create_branch_permissions(sender, **kwargs):
-    """Create per-branch view permissions.
-
-    IMPORTANT:
-    This must only run after *snmp* migrations, otherwise it can break the global
-    migrate flow (contenttypes/auth tables may not be ready yet).
-    """
-    if getattr(sender, 'name', None) != 'snmp':
-        return
-
-    try:
-        content_type = ContentType.objects.get_for_model(Branch)
-    except Exception:
-        # During initial migrate or partial states we skip silently.
-        return
-
-    for branch in Branch.objects.all():
-        if not branch.name:
-            continue
-        codename = f"view_{branch.name.lower().replace(' ', '_')}"
-        name = f"Can view switches in {branch.name}"
-        try:
-            Permission.objects.get_or_create(
-                codename=codename,
-                name=name,
-                content_type=content_type,
-            )
-        except Exception:
-            continue
-
-        # Optionally, assign the permission to a specific group
-        # For example, if you have a group named "Branch Managers"
-        # group = Group.objects.get(name='Branch Managers')
-        # group.permissions.add(permission)
-
-
-
 class Branch(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
     
