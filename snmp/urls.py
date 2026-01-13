@@ -27,6 +27,7 @@ urlpatterns = [
     path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory'),
     path('switches/synch_zbx/', sync_hosts_from_zabbix, name='sync_zbx'),
     path('switches/export/high_sig', export_high_sig_switches_to_excel, name='export_high_sig_switches_to_excel'),
+    path('switches/export/optical_ports', export_optical_ports_to_excel, name='export_optical_ports_to_excel'),
 
     # path('switches/online_switches/', views.online_switches, name='online_switches'),
 ]

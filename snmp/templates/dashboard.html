@@ -18,6 +18,16 @@
       </div>
 
       <div>
+        <a href="{% url 'export_optical_ports_to_excel' %}">
+        <button
+            class="py-4 px-4 ml-2 mb-2 bg-emerald-600 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
+            <i class="fa-solid fa-download mr-3"></i>
+            Export optical ports
+        </button>
+      </a>
+      </div>
+
+      <div>
       <a href="{% url 'sync_zbx' %}">
         <button id="sync"
             class="py-4 px-4 ml-2 bg-sky-600 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
