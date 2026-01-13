@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 
+from snmp.services.interface_classification import is_virtual_interface
+
 from pysnmp.hlapi.asyncio import (
     getCmd, nextCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity
 )
@@ -406,8 +408,23 @@ class SNMPDevicePoller:
             except (pysnmp_error.SmiError, IndexError, ValueError, TypeError) as e:
                 logger.warning(f"[{self.ip}] Error processing ifTable entry {oid_str}: {e}")
 
-        # Фильтрация оптики
+        # Filter out virtual interfaces first
+        filtered_interfaces = {}
         for if_index, data in processed_interfaces.items():
+            if_type = data.get('type')
+            is_virtual, reason = is_virtual_interface(
+                if_type,
+                data.get('name'),
+                data.get('description') or data.get('ifDescr'),
+                data.get('alias'),
+            )
+            data['is_virtual'] = is_virtual
+            data['virtual_reason'] = reason
+            if not is_virtual:
+                filtered_interfaces[if_index] = data
+
+        # Фильтрация оптики
+        for if_index, data in filtered_interfaces.items():
             if_type = data.get('type')
             calculated_speed_mbps = data.get('calculated_speed', 0)
             is_optical = False
@@ -470,11 +487,37 @@ class SNMPDevicePoller:
             'serial_number': self.symbolic_config.get('serial_num'), 'temperature': self.symbolic_config.get('temperature'),
             'voltage': self.symbolic_config.get('voltage'),
         }
+        def _normalize_numeric_oid(oid_str: str) -> str:
+            # Accept common textual numeric OID forms like 'iso.3.6.1...' or '.1.3.6.1...'
+            v = (oid_str or '').strip()
+            if v.startswith('iso.'):
+                v = '1' + v[len('iso'):]
+            if v.startswith('.'):
+                v = v[1:]
+            return v
+
+        def _is_numeric_oid(oid_str: str) -> bool:
+            v = _normalize_numeric_oid(oid_str)
+            parts = v.split('.')
+            return len(parts) > 2 and all(p.isdigit() for p in parts)
+
         for key, mib_obj_name in mib_objects_to_get.items():
-            if mib_obj_name:
-                symbol_parts = mib_obj_name.split('::')
-                symbol = (symbol_parts[0], symbol_parts[1], target_index) if len(symbol_parts) == 2 else (mib_obj_name, target_index)
-                tasks[key] = snmp_get_symbolic(self.snmp_engine, self.community, self.ip, self.port, *symbol)
+            if not mib_obj_name:
+                continue
+
+            # Two supported formats:
+            # 1) Symbolic name: 'MODULE::objectName' -> index appended as a separate argument
+            # 2) Numeric OID base: '1.3.6.1....' or 'iso.3.6.1....' -> build full OID with index suffix
+            if '::' in mib_obj_name:
+                mod, sym = mib_obj_name.split('::', 1)
+                tasks[key] = snmp_get_symbolic(self.snmp_engine, self.community, self.ip, self.port, mod, sym, target_index)
+            elif _is_numeric_oid(mib_obj_name):
+                base = _normalize_numeric_oid(mib_obj_name)
+                full_oid = f"{base}.{int(target_index)}"
+                tasks[key] = snmp_get_symbolic(self.snmp_engine, self.community, self.ip, self.port, full_oid)
+            else:
+                # Unknown format, try as-is with index.
+                tasks[key] = snmp_get_symbolic(self.snmp_engine, self.community, self.ip, self.port, mib_obj_name, target_index)
 
         if not tasks: return port_result
         results = await asyncio.gather(*tasks.values())
@@ -523,34 +566,44 @@ class SNMPDevicePoller:
         updated_count, created_count = 0, 0
         now = timezone.now()
         try:
-            # Критично: Атомарное обновление данных одного коммутатора
-            async with transaction.atomic():
-                for i, port_data_result in enumerate(all_ports_data_list):
-                    if isinstance(port_data_result, Exception): logger.error(f"[{self.ip}] Port poll task failed: {port_data_result}"); continue
-                    if not port_data_result or 'if_index' not in port_data_result: continue
+            # Django 3.0 ORM is synchronous. We keep SNMP polling async, but persist results synchronously.
+            with transaction.atomic():
+                for port_data_result in all_ports_data_list:
+                    if isinstance(port_data_result, Exception):
+                        logger.error(f"[{self.ip}] Port poll task failed: {port_data_result}")
+                        continue
+                    if not port_data_result or 'if_index' not in port_data_result:
+                        continue
 
                     if_index = port_data_result['if_index']
                     interface_info = self.interfaces.get(if_index, {})
                     defaults = {
-                        'description': interface_info.get('description') or interface_info.get('ifDescr'),
-                        'speed': interface_info.get('speed', 0), 'admin': interface_info.get('admin_status'),
-                        'oper': interface_info.get('oper_status'), 'lastchange': interface_info.get('last_change', 0),
-                        'name': interface_info.get('name') or f'Port {if_index}', 'alias': interface_info.get('alias', ''),
-                        'data': now, 'rx_signal': port_data_result.get('rx_signal'), 'tx_signal': port_data_result.get('tx_signal'),
-                        'sfp_vendor': port_data_result.get('sfp_vendor'), 'part_number': port_data_result.get('part_number'),
+                        'description': interface_info.get('description') or interface_info.get('ifDescr') or '',
+                        'speed': interface_info.get('speed', 0) or 0,
+                        'admin': interface_info.get('admin_status') or 0,
+                        'oper': interface_info.get('oper_status') or 0,
+                        'lastchange': interface_info.get('last_change', 0) or 0,
+                        'name': interface_info.get('name') or f'Port {if_index}',
+                        'alias': interface_info.get('alias', '') or '',
+                        'data': now,
+                        'rx_signal': port_data_result.get('rx_signal'),
+                        'tx_signal': port_data_result.get('tx_signal'),
+                        'sfp_vendor': port_data_result.get('sfp_vendor'),
+                        'part_number': port_data_result.get('part_number'),
                         'serial_number': port_data_result.get('serial_number'),
-                        # Добавить temperature/voltage если нужно
                     }
                     try:
-                        obj, created = await SwitchesPorts.objects.aupdate_or_create(
+                        _, created = SwitchesPorts.objects.update_or_create(
                             switch=self.switch, port=if_index, defaults=defaults
                         )
-                        if created: created_count += 1
-                        else: updated_count += 1
+                        if created:
+                            created_count += 1
+                        else:
+                            updated_count += 1
                     except Exception as db_err:
-                         logger.error(f"[{self.ip}] DB update/create failed for port {if_index}: {db_err}")
+                        logger.error(f"[{self.ip}] DB update/create failed for port {if_index}: {db_err}")
         except Exception as e:
-             logger.error(f"[{self.ip}] DB transaction failed: {e}")
+            logger.error(f"[{self.ip}] DB transaction failed: {e}")
 
         if created_count > 0: logger.info(f"[{self.ip}] Created {created_count} SwitchesPorts.")
         if updated_count > 0: logger.info(f"[{self.ip}] Updated {updated_count} SwitchesPorts.")

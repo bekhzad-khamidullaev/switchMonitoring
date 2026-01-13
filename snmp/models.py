@@ -88,6 +88,8 @@ class Vendor(models.Model):
 class SwitchModel(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
     device_model = models.CharField(max_length=200)
+
+    # Legacy per-model OID config (kept for fallback collectors)
     rx_oid = models.CharField(max_length=200, null=True, blank=True)
     tx_oid = models.CharField(max_length=200, null=True, blank=True)
     part_num_oid = models.CharField(max_length=200, null=True, blank=True)
@@ -99,6 +101,63 @@ class SwitchModel(models.Model):
     duplex_oid = models.CharField(max_length=200, null=True, blank=True)
     admin_state_oid = models.CharField(max_length=200, null=True, blank=True)
     oper_state_oid = models.CharField(max_length=200, null=True, blank=True)
+
+    # Capabilities-driven SNMP config for MIB-based collectors (update_optical_info_mib)
+    required_mibs = models.CharField(
+        max_length=500,
+        null=True,
+        blank=True,
+        help_text="Comma-separated list of MIB modules to load (e.g. 'ENTITY-MIB,ENTITY-SENSOR-MIB')",
+    )
+
+    DDM_INDEX_IFINDEX = 'ifIndex'
+    DDM_INDEX_ENTPHYSICAL = 'entPhysicalIndex'
+    DDM_INDEX_CHOICES = (
+        (DDM_INDEX_IFINDEX, 'ifIndex'),
+        (DDM_INDEX_ENTPHYSICAL, 'entPhysicalIndex'),
+    )
+    ddm_index_type = models.CharField(
+        max_length=32,
+        choices=DDM_INDEX_CHOICES,
+        default=DDM_INDEX_ENTPHYSICAL,
+        help_text='Index type to use for DDM polling.',
+    )
+
+    # Symbolic MIB objects in form 'MODULE::objectName'
+    rx_power_object = models.CharField(max_length=200, null=True, blank=True)
+    tx_power_object = models.CharField(max_length=200, null=True, blank=True)
+    temperature_object = models.CharField(max_length=200, null=True, blank=True)
+    voltage_object = models.CharField(max_length=200, null=True, blank=True)
+    sfp_vendor_object = models.CharField(max_length=200, null=True, blank=True)
+    part_num_object = models.CharField(max_length=200, null=True, blank=True)
+    serial_num_object = models.CharField(max_length=200, null=True, blank=True)
+
+    # Unit hints for parsers
+    POWER_UNIT_DBM = 'dbm'
+    POWER_UNIT_MW = 'mw'
+    POWER_UNIT_AUTO = 'auto'
+    POWER_UNIT_SCALED_DBM_100 = 'scaled_dbm_100'
+    POWER_UNIT_SCALED_MW_1000 = 'scaled_mw_1000'
+    POWER_UNIT_SCALED_MW_10 = 'scaled_mw_10'
+    POWER_UNIT_CHOICES = (
+        (POWER_UNIT_AUTO, 'auto'),
+        (POWER_UNIT_DBM, 'dBm'),
+        (POWER_UNIT_MW, 'mW'),
+        (POWER_UNIT_SCALED_DBM_100, 'scaled dBm/100'),
+        (POWER_UNIT_SCALED_MW_1000, 'scaled mW/1000 (uW)'),
+        (POWER_UNIT_SCALED_MW_10, 'scaled mW/10'),
+    )
+    power_unit = models.CharField(max_length=32, choices=POWER_UNIT_CHOICES, default=POWER_UNIT_AUTO)
+
+    TEMP_UNIT_CELSIUS = 'celsius'
+    TEMP_UNIT_AUTO = 'auto'
+    TEMP_UNIT_SCALED_CELSIUS_100 = 'scaled_celsius_100'
+    TEMP_UNIT_CHOICES = (
+        (TEMP_UNIT_AUTO, 'auto'),
+        (TEMP_UNIT_CELSIUS, 'Celsius'),
+        (TEMP_UNIT_SCALED_CELSIUS_100, 'scaled Celsius/100'),
+    )
+    temperature_unit = models.CharField(max_length=32, choices=TEMP_UNIT_CHOICES, default=TEMP_UNIT_AUTO)
     
     class Meta:
         managed = True
@@ -175,6 +234,7 @@ class SwitchesPorts(models.Model):
     tx_signal = models.FloatField(null=True, blank=True)
     sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
     part_number = models.CharField(max_length=50, null=True, blank=True)
+    serial_number = models.CharField(max_length=100, null=True, blank=True)
     mac_on_port = models.ForeignKey("Mac", models.DO_NOTHING, blank=False, null=False, default=0)
     
     class Meta:

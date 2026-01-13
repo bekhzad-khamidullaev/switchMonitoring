@@ -9,54 +9,14 @@ class Migration(migrations.Migration):
         ('snmp', '0025_historicalswitch_created_alter_switch_created'),
     ]
 
+    # NOTE:
+    # This migration originally attempted to alter primary key fields.
+    # On PostgreSQL deployments where PKs are implemented as IDENTITY columns,
+    # altering them may fail (and it is not required for our app logic).
+    # We keep this migration as a no-op (aside from model options) for safety.
     operations = [
         migrations.AlterModelOptions(
             name='historicalswitch',
             options={'get_latest_by': 'history_date', 'ordering': ('-history_date', '-history_id'), 'verbose_name': 'historical switch'},
-        ),
-        migrations.AlterField(
-            model_name='ats',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='branch',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='historicalswitch',
-            name='history_date',
-            field=models.DateTimeField(),
-        ),
-        migrations.AlterField(
-            model_name='historicalswitch',
-            name='id',
-            field=models.IntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='mac',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='switch',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='switchesneighbors',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='switchmodel',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='vendor',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
         ),
     ]
