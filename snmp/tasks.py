@@ -19,3 +19,13 @@ def update_switch_inventory_task():
 @shared_task
 def subnet_discovery_task():
     call_command('subnet_discovery')
+
+
+@shared_task
+def poll_bandwidth_task():
+    call_command('poll_bandwidth')
+
+
+@shared_task
+def cleanup_bandwidth_samples_task():
+    call_command('cleanup_bandwidth_samples')

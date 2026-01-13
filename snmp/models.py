@@ -242,6 +242,41 @@ class SwitchesPorts(models.Model):
         db_table = 'switches_ports'
         unique_together = (('switch', 'port'),)
         
+class InterfaceCounterState(models.Model):
+    """Stores last counter values to compute bandwidth deltas."""
+
+    switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
+    ifindex = models.PositiveIntegerField()
+    last_in_octets = models.BigIntegerField(default=0)
+    last_out_octets = models.BigIntegerField(default=0)
+    last_ts = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'interface_counter_state'
+        unique_together = (('switch', 'ifindex'),)
+
+
+class InterfaceBandwidthSample(models.Model):
+    """Bandwidth sample computed from SNMP counters (bps)."""
+
+    switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
+    ifindex = models.PositiveIntegerField()
+    ts = models.DateTimeField(db_index=True)
+    in_bps = models.BigIntegerField(null=True, blank=True)
+    out_bps = models.BigIntegerField(null=True, blank=True)
+    interval_sec = models.PositiveIntegerField(null=True, blank=True)
+    in_octets = models.BigIntegerField(null=True, blank=True)
+    out_octets = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'interface_bandwidth_sample'
+        indexes = [
+            models.Index(fields=['switch', 'ifindex', 'ts']),
+        ]
+
+
 class SwitchesNeighbors(models.Model):
     mac1 = models.CharField(max_length=17)
     port1 = models.SmallIntegerField()
