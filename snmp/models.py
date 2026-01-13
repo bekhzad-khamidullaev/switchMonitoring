@@ -191,16 +191,9 @@ class Switch(models.Model):
     snmp_community_ro = models.CharField(max_length=20, default='eriwpirt', null=True, blank=True)
     snmp_community_rw = models.CharField(max_length=20, default='netman', null=True, blank=True)
     status = models.BooleanField(default=False, null=True, blank=True)
-    neighbor = models.ForeignKey("SwitchesNeighbors", on_delete=models.SET_NULL, blank=True, null=True)
-    port = models.ForeignKey("SwitchesPorts", on_delete=models.SET_NULL, blank=True, null=True, related_name='switch_ports')
-    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True)
     ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
-    rx_signal = models.FloatField(null=True, blank=True)
-    tx_signal = models.FloatField(null=True, blank=True)
-    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
-    part_number = models.CharField(max_length=50, null=True, blank=True)
     history = HistoricalRecords()
 
     
@@ -209,7 +202,7 @@ class Switch(models.Model):
         db_table = 'switches'
         unique_together = (('hostname', 'ip'),)
         indexes = [
-            models.Index(fields=['status', 'hostname', 'ip', 'rx_signal', 'tx_signal']),
+            models.Index(fields=['status', 'hostname', 'ip']),
         ]
     
     def save(self, *args, **kwargs):
@@ -323,50 +316,13 @@ class NeighborLink(models.Model):
         ]
 
 
-# Legacy model kept temporarily for data migration; will be removed in cleanup migration.
-class SwitchesPorts(models.Model):
-    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
-    switch = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
-    port = models.SmallIntegerField(blank=False)
-    description = models.CharField(max_length=200, default='')
-    speed = models.IntegerField()
-    duplex = models.SmallIntegerField()
-    admin = models.SmallIntegerField()
-    oper = models.SmallIntegerField()
-    lastchange = models.BigIntegerField()
-    discards_in = models.BigIntegerField()
-    discards_out = models.BigIntegerField()
-    mac_count = models.SmallIntegerField()
-    pvid = models.SmallIntegerField()
-    port_tagged = models.CharField(max_length=2000)
-    port_untagged = models.CharField(max_length=80)
-    data = models.DateTimeField()
-    name = models.CharField(max_length=30)
-    alias = models.CharField(max_length=80)
-    oct_in = models.BigIntegerField()
-    oct_out = models.BigIntegerField()
-    rx_signal = models.FloatField(null=True, blank=True)
-    tx_signal = models.FloatField(null=True, blank=True)
-    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
-    part_number = models.CharField(max_length=50, null=True, blank=True)
-    serial_number = models.CharField(max_length=100, null=True, blank=True)
-    mac_on_port = models.ForeignKey("Mac", models.DO_NOTHING, blank=False, null=False, default=0)
-    
-    class Meta:
-        managed = True
-        db_table = 'switches_ports'
-        unique_together = (('switch', 'port'),)
-        
+# Legacy models removed by normalization cleanup.
+# (SwitchesPorts, SwitchesNeighbors, Mac)
+
 class InterfaceCounterState(models.Model):
     """Stores last counter values to compute bandwidth deltas."""
 
-    # Legacy addressing (will be removed after data migration)
-    switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
-    ifindex = models.PositiveIntegerField()
-
-    # New normalized FK
-    interface = models.OneToOneField('Interface', on_delete=models.CASCADE, related_name='counter_state', null=True, blank=True)
-
+    interface = models.OneToOneField('Interface', on_delete=models.CASCADE, related_name='counter_state')
     last_in_octets = models.BigIntegerField(default=0)
     last_out_octets = models.BigIntegerField(default=0)
     last_ts = models.DateTimeField(null=True, blank=True)
@@ -374,19 +330,12 @@ class InterfaceCounterState(models.Model):
     class Meta:
         managed = True
         db_table = 'interface_counter_state'
-        unique_together = (('switch', 'ifindex'),)
 
 
 class InterfaceBandwidthSample(models.Model):
     """Bandwidth sample computed from SNMP counters (bps)."""
 
-    # Legacy addressing (will be removed after data migration)
-    switch = models.ForeignKey('Switch', on_delete=models.CASCADE)
-    ifindex = models.PositiveIntegerField()
-
-    # New normalized FK
-    interface = models.ForeignKey('Interface', on_delete=models.CASCADE, related_name='bandwidth_samples', null=True, blank=True)
-
+    interface = models.ForeignKey('Interface', on_delete=models.CASCADE, related_name='bandwidth_samples')
     ts = models.DateTimeField(db_index=True)
     in_bps = models.BigIntegerField(null=True, blank=True)
     out_bps = models.BigIntegerField(null=True, blank=True)
@@ -398,53 +347,7 @@ class InterfaceBandwidthSample(models.Model):
         managed = True
         db_table = 'interface_bandwidth_sample'
         indexes = [
-            models.Index(fields=['switch', 'ifindex', 'ts']),
             models.Index(fields=['interface', 'ts']),
         ]
 
-
-class SwitchesNeighbors(models.Model):
-    mac1 = models.CharField(max_length=17)
-    port1 = models.SmallIntegerField()
-    mac2 = models.CharField(max_length=17)
-    port2 = models.SmallIntegerField()
-
-    class Meta:
-        managed = True
-        db_table = 'switches_neighbors'
-        unique_together = (('mac1', 'port1', 'mac2'),)
-
-class Mac(models.Model):
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0)
-    mac = models.CharField(max_length=17, default='', blank=False, null=False)
-    port = models.ForeignKey("SwitchesPorts", models.DO_NOTHING, blank=False, null=False, default=0)
-    vlan = models.SmallIntegerField()
-    ip =  models.GenericIPAddressField(protocol='both', null=True, blank=True)
-    data = models.DateTimeField(auto_now_add=True, blank=False)
-
-    class Meta:
-        managed = True
-        db_table = 'mac'
-        unique_together = (('switch', 'mac', 'vlan'),)
-
-class ListMacHistory(models.Model):
-    """
-    Read-only class. The mat_listMacHistory is a materialized view to speed up searches upon mac history
-    """
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0, related_name='hist_switch')
-    mac = models.CharField(max_length=17, default='', blank=False, null=False)
-    port = models.SmallIntegerField()
-    vlan = models.SmallIntegerField()
-    ip = models.CharField(max_length=15, blank=True, null=True)
-    data = models.DateTimeField(primary_key=True)
-
-    def save(self, *args, **kwargs):
-        return
-
-    def delete(self, *args, **kwargs):
-        return
-
-    class Meta:
-        managed = False
-        db_table = 'mat_listmachistory'
 

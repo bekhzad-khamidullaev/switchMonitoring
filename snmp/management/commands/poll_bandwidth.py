@@ -130,19 +130,17 @@ class Command(BaseCommand):
             out_val = int(values.get(out_oid, 0))
 
             iface = iface_by_ifindex.get(ifindex)
+            if not iface:
+                continue
+
             state, _ = InterfaceCounterState.objects.get_or_create(
-                switch=sw,
-                ifindex=ifindex,
+                interface=iface,
                 defaults={
-                    'interface': iface,
                     'last_in_octets': in_val,
                     'last_out_octets': out_val,
                     'last_ts': now,
                 },
             )
-            # backfill interface FK if missing
-            if iface and state.interface_id is None:
-                state.interface = iface
 
             if state.last_ts:
                 interval_sec = max(1.0, (now - state.last_ts).total_seconds())
@@ -166,8 +164,6 @@ class Command(BaseCommand):
 
             if bps:
                 InterfaceBandwidthSample.objects.create(
-                    switch=sw,
-                    ifindex=ifindex,
                     interface=iface,
                     ts=now,
                     in_bps=bps[0],
