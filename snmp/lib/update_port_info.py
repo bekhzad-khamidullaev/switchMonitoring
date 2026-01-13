@@ -1,8 +1,11 @@
 from pysnmp.hlapi import *
 from pysnmp import error
 import math
+
 from django.core.paginator import Paginator
-from ..models import Switch, SwitchesPorts, SwitchesNeighbors, Mac
+from django.utils import timezone
+
+from ..models import Switch, Interface, InterfaceL2, InterfaceOptics, MacEntry
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -194,32 +197,49 @@ class SNMPUpdater:
             PART_NUMBER = None
 
         switch = self.selected_switch
+
+        # Switch-level optics fields are deprecated.
+        # Best-effort: if a "main port" is set on the switch (legacy FK), store optics to that interface.
+        rx_dbm = None
+        tx_dbm = None
         try:
             if '3500' in self.model or 'GS3700' in self.model or 'MGS3520-28' in self.model:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) / 100.0 if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) / 100.0 if RX_SIGNAL is not None else None
+                tx_dbm = round(float(TX_SIGNAL), 2) / 100.0 if TX_SIGNAL is not None else None
+                rx_dbm = round(float(RX_SIGNAL), 2) / 100.0 if RX_SIGNAL is not None else None
             elif '3328' in self.model or 'T2600G' in self.model:
-                Tx_SIGNAL = mw_to_dbm(float(TX_SIGNAL))
-                Rx_SIGNAL = mw_to_dbm(float(RX_SIGNAL))
-                switch.tx_signal = round(Tx_SIGNAL, 2) if TX_SIGNAL is not None else None
-                switch.rx_signal = round(Rx_SIGNAL, 2) if RX_SIGNAL is not None else None
+                tx_dbm = round(mw_to_dbm(float(TX_SIGNAL)), 2) if TX_SIGNAL is not None else None
+                rx_dbm = round(mw_to_dbm(float(RX_SIGNAL)), 2) if RX_SIGNAL is not None else None
             elif 'SNR' in self.model:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) if RX_SIGNAL is not None else None
+                tx_dbm = round(float(TX_SIGNAL), 2) if TX_SIGNAL is not None else None
+                rx_dbm = round(float(RX_SIGNAL), 2) if RX_SIGNAL is not None else None
             else:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) / 1000.0 if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) / 1000.0 if RX_SIGNAL is not None else None
+                tx_dbm = round(float(TX_SIGNAL), 2) / 1000.0 if TX_SIGNAL is not None else None
+                rx_dbm = round(float(RX_SIGNAL), 2) / 1000.0 if RX_SIGNAL is not None else None
         except (ValueError, TypeError):
-            switch.tx_signal = None
-            switch.rx_signal = None
+            rx_dbm = None
+            tx_dbm = None
 
-        switch.sfp_vendor = SFP_VENDOR if SFP_VENDOR is not None else None
-        switch.part_number = PART_NUMBER if PART_NUMBER is not None else None
-
+        # Persist to per-interface optics if possible
         try:
-            switch.save()
-        except Exception as e:
-            print(f"Error saving switch data: {e}")
+            legacy_port = getattr(switch, 'port', None)
+            if legacy_port is not None:
+                ifindex = int(getattr(legacy_port, 'port', 0) or 0)
+                iface = Interface.objects.filter(switch=switch, ifindex=ifindex).first()
+                if iface:
+                    InterfaceOptics.objects.update_or_create(
+                        interface=iface,
+                        defaults={
+                            'rx_dbm': rx_dbm,
+                            'tx_dbm': tx_dbm,
+                            'sfp_vendor': SFP_VENDOR if SFP_VENDOR is not None else None,
+                            'part_number': PART_NUMBER if PART_NUMBER is not None else None,
+                            'polled_at': timezone.now(),
+                        },
+                    )
+        except Exception:
+            pass
+
+        # Keep switch inventory fields untouched
 
     def extract_value(self, snmp_response):
         if snmp_response and len(snmp_response) > 0:
@@ -284,19 +304,21 @@ class PortsInfo():
             # Set default values for speed if SNMP data is not available
             speed = int(speed) if speed is not None else 0  # Adjust this default value as needed
 
-            # Create SwitchesPorts instance with retrieved data
-            SwitchesPorts.objects.create(
+            iface_defaults = {
+                'speed': speed,
+                'duplex': int(duplex) if duplex is not None else None,
+                'polled_at': timezone.now(),
+            }
+            iface, _ = Interface.objects.update_or_create(
                 switch=switch,
-                port=port_num,
-                speed=speed,
-                duplex=int(duplex) if duplex is not None else None,
-                # Add other port fields here
+                ifindex=port_num,
+                defaults=iface_defaults,
             )
-            switch.save()
+            InterfaceL2.objects.update_or_create(interface=iface, defaults={})
             
     def update_port_data(self, switch):
         # Get all ports for the given switch
-        ports = SwitchesPorts.objects.filter(switch=switch)
+        ports = Interface.objects.filter(switch=switch)
 
         for port in ports:
             self.update_port_info_from_snmp(switch, port)
@@ -307,13 +329,13 @@ class PortsInfo():
 
         # Define SNMP OIDs for various port information
         port_oids = {
-            'speed': f'.1.3.6.1.2.1.2.2.1.5.{port.port}',
-            'admin_status': f'.1.3.6.1.2.1.2.2.1.7.{port.port}',
-            'oper_status': f'.1.3.6.1.2.1.2.2.1.8.{port.port}',
-            'vlan_membership': f'.1.3.6.1.2.1.17.7.1.4.3.1.2.{port.port}',
-            'mac_addresses': f'.1.3.6.1.2.1.17.7.1.2.2.1.2.{port.port}',
-            'discards_in': f'.1.3.6.1.2.1.2.2.1.13.{port.port}',
-            'discards_out': f'.1.3.6.1.2.1.2.2.1.19.{port.port}',
+            'speed': f'.1.3.6.1.2.1.2.2.1.5.{port.ifindex}',
+            'admin_status': f'.1.3.6.1.2.1.2.2.1.7.{port.ifindex}',
+            'oper_status': f'.1.3.6.1.2.1.2.2.1.8.{port.ifindex}',
+            'vlan_membership': f'.1.3.6.1.2.1.17.7.1.4.3.1.2.{port.ifindex}',
+            'mac_addresses': f'.1.3.6.1.2.1.17.7.1.2.2.1.2.{port.ifindex}',
+            'discards_in': f'.1.3.6.1.2.1.2.2.1.13.{port.ifindex}',
+            'discards_out': f'.1.3.6.1.2.1.2.2.1.19.{port.ifindex}',
         }
 
         # Perform SNMP queries for port information
@@ -325,30 +347,29 @@ class PortsInfo():
         discards_in = self.snmp_get(ip, community, port_oids['discards_in'])
         discards_out = self.snmp_get(ip, community, port_oids['discards_out'])
 
-        # Update port data in the database
+        # Update interface data
         port.speed = int(speed) if speed else None
         port.admin = int(admin_status) if admin_status else None
         port.oper = int(oper_status) if oper_status else None
         port.discards_in = int(discards_in) if discards_in else None
         port.discards_out = int(discards_out) if discards_out else None
-
-
         port.duplex = 0
+        port.polled_at = timezone.now()
+        port.save(update_fields=['speed', 'admin', 'oper', 'discards_in', 'discards_out', 'duplex', 'polled_at'])
 
         # Extract VLAN information and MAC addresses
+        l2, _ = InterfaceL2.objects.get_or_create(interface=port)
         if vlan_membership:
-            port.port_tagged = vlan_membership.split(',')
+            l2.tagged_vlans = vlan_membership
+        l2.save(update_fields=['tagged_vlans'])
+
+        pvid = l2.pvid
         if mac_addresses:
-            # Assuming MAC addresses are separated by commas
-            mac_list = mac_addresses.split(',')
+            mac_list = [m.strip() for m in mac_addresses.split(',') if m.strip()]
             for mac_address in mac_list:
-                # Check if the MAC address already exists in the database
-                mac, created = Mac.objects.get_or_create(
+                MacEntry.objects.update_or_create(
                     switch=switch,
                     mac=mac_address,
-                    vlan=port.pvid,
+                    vlan=pvid or 0,
+                    defaults={'interface': port},
                 )
-                if created:
-                    print(f"New MAC address discovered: {mac_address}")
-
-        port.save()
