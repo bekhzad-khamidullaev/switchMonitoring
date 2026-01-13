@@ -8,7 +8,7 @@ from snmp.management.commands.snmp import perform_snmpwalk
 import re
 import logging
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Min
 from django.db import transaction
 from .qoshimcha import get_permitted_branches, convert_uptime_to_human_readable
 import time
@@ -55,11 +55,18 @@ def update_optical_info(request, pk):
         try:
             snmp_updater = SNMPUpdater(switch, snmp_community)
             snmp_updater.update_switch_data()
+
+            # Return aggregated optics values (min RX/TX across interfaces)
+            switch = Switch.objects.annotate(
+                min_rx=Min('interfaces__optics__rx_dbm'),
+                min_tx=Min('interfaces__optics__tx_dbm'),
+            ).get(pk=switch.pk)
+
             return JsonResponse({
-                'rx_signal': switch.rx_signal,
-                'tx_signal': switch.tx_signal,
-                'sfp_vendor': switch.sfp_vendor,
-                'part_number': switch.part_number
+                'rx_signal': switch.min_rx,
+                'tx_signal': switch.min_tx,
+                'sfp_vendor': None,
+                'part_number': None,
             })
         except Exception as e:
             return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)
@@ -85,7 +92,12 @@ def update_switch_ports_data(request, pk):
 @login_required
 def switches_offline(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_offline = Switch.objects.filter(status=False, branch__in=user_permitted_branches).order_by('ats')
+    switches_offline = (
+        Switch.objects
+        .filter(status=False, ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .order_by('ats')
+    )
     search_query = request.GET.get('search')
     if search_query:
         switches_offline = switches_offline.filter(
@@ -95,10 +107,8 @@ def switches_offline(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(switches_offline, 25)
@@ -111,9 +121,13 @@ def switches_offline(request):
 @login_required
 def switches_high_sig_15(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_high_sig = Switch.objects.filter(
-        rx_signal__lte=-15, rx_signal__gt=-20, branch__in=user_permitted_branches
-    ).order_by('rx_signal')
+    switches_high_sig = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .filter(min_rx__lte=-15, min_rx__gt=-20)
+        .order_by('min_rx')
+    )
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -123,10 +137,8 @@ def switches_high_sig_15(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(switches_high_sig, 100)
@@ -139,9 +151,13 @@ def switches_high_sig_15(request):
 @login_required
 def switches_high_sig_10(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_high_sig = Switch.objects.filter(
-        rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_branches
-    ).order_by('rx_signal')
+    switches_high_sig = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .filter(min_rx__lte=-11, min_rx__gt=-15)
+        .order_by('min_rx')
+    )
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -151,10 +167,8 @@ def switches_high_sig_10(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(switches_high_sig, 100)
@@ -167,7 +181,13 @@ def switches_high_sig_10(request):
 @login_required
 def switches_high_sig(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_high_sig = Switch.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).order_by('rx_signal')
+    switches_high_sig = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .filter(min_rx__lte=-20)
+        .order_by('min_rx')
+    )
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -177,10 +197,8 @@ def switches_high_sig(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(switches_high_sig, 25)
@@ -322,9 +340,13 @@ def update_switch_inventory(request, pk):
 @login_required
 def switches_high_sig_11(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    switches_high_sig = Switch.objects.filter(
-        rx_signal__lte=-11, branch__in=user_permitted_branches
-    ).order_by('rx_signal')
+    switches_high_sig = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .filter(min_rx__lte=-11)
+        .order_by('min_rx')
+    )
     search_query = request.GET.get('search')
     if search_query:
         switches_high_sig = switches_high_sig.filter(
@@ -334,10 +356,8 @@ def switches_high_sig_11(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(switches_high_sig, 100)

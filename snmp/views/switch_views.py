@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Min
 from django.contrib.auth.decorators import login_required
 from snmp.models import Switch
 from snmp.forms import SwitchForm
@@ -16,7 +16,12 @@ logger = logging.getLogger("ICMP RESPONSE")
 @login_required
 def switches(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = Switch.objects.filter(branch__in=user_permitted_branches).order_by('-pk')
+    items = (
+        Switch.objects
+        .filter(ats__branch__in=user_permitted_branches)
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .order_by('-pk')
+    )
     search_query = request.GET.get('search')
     if search_query:
         items = items.filter(
@@ -26,10 +31,8 @@ def switches(request):
             Q(ip__icontains=search_query) |
             Q(model__device_model__icontains=search_query) |
             Q(status__icontains=search_query) |
-            Q(sfp_vendor__icontains=search_query) |
-            Q(part_number__icontains=search_query) |
-            Q(rx_signal__icontains=search_query) |
-            Q(tx_signal__icontains=search_query)
+            Q(interfaces__optics__sfp_vendor__icontains=search_query) |
+            Q(interfaces__optics__part_number__icontains=search_query)
         )
 
     paginator = Paginator(items, 25)
@@ -40,8 +43,13 @@ def switches(request):
 
 @login_required
 def switch_detail(request, pk):
-    switch = get_object_or_404(Switch, pk=pk)
-    return render(request, 'switch_detail.html', {'switch': switch})
+    switch = (
+        Switch.objects
+        .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
+        .get(pk=pk)
+    )
+    interfaces = switch.interfaces.select_related('optics', 'l2').order_by('ifindex')
+    return render(request, 'switch_detail.html', {'switch': switch, 'interfaces': interfaces})
 
 @login_required
 def switch_create(request):

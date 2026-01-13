@@ -136,8 +136,8 @@
           </td>        
           <td class="text-neutral-950 dark:text-neutral-200 border px-2 py-1">
             {{ switch.hostname }}
-            {% if switch.rx_signal <= -11 %}
-              <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">{{ switch.rx_signal }}</button>
+            {% if switch.min_rx is not None and switch.min_rx <= -11 %}
+              <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-red-600 animate-pulse">{{ switch.min_rx|default_if_none:'' }}</button>
             {% endif %}
           </td>
           <td class="border px-2 py-1">

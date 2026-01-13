@@ -56,8 +56,9 @@
           console.log('Optical info updated successfully:', data);
 
           // Update the Rx Signal value with the new value received from the server
-          updateRxSignalValue(data.rx_signal);
-          updateTxSignalValue(data.tx_signal);
+          // Switch-level rx/tx are deprecated; per-interface optics are displayed below.
+          // updateRxSignalValue(data.rx_signal);
+          // updateTxSignalValue(data.tx_signal);
           updateSfpVendorValue(data.sfp_vendor);
           updatePartNumberValue(data.part_number);
 
@@ -181,8 +182,8 @@
           <td class="border px-2 py-1">{{ switch.switch_ports_reverse.description | default:"N/A"  }}</td>
           <td class="border px-2 py-1" id="sfp-vendor">{{ switch.sfp_vendor }}</td>
           <td class="border px-2 py-1" id="part-number">{{ switch.part_number }}</td>
-          <td class="border px-2 py-1" id="rx-signal">{{ switch.rx_signal }}</td>
-          <td class="border px-2 py-1" id="tx-signal">{{ switch.tx_signal }}</td>
+          <td class="border px-2 py-1" id="rx-signal">{{ switch.min_rx|default_if_none:'' }}</td>
+          <td class="border px-2 py-1" id="tx-signal">{{ switch.min_tx|default_if_none:'' }}</td>
           <td class="border px-2 py-1">
             <button class="update-optical-info px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.id }}">
               Update Optical Info
