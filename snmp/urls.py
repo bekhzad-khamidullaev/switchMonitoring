@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 # from . import views
 from .views.switch_views import *
 from .views.dashboard_views import *
@@ -7,6 +7,7 @@ from .views.requests_views import *
 from .views.export import *
     
 urlpatterns = [
+    path('api/', include('snmp.api.urls')),
     path('', switches, name='switches'),
     path('switches/', switches, name='switches'),
     path('switches/create/', switch_create, name='switch_create'),

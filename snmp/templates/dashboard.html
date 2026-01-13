@@ -1,118 +1,38 @@
 {% extends 'index.html' %}
 {% block content %}
-<main class="flex flex-col">
- 
-  <div class="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+<div class="p-4">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    <a href="{% url 'switches' %}" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 font-medium rounded-lg text-sm px-4 py-2">Switches</a>
+  </div>
 
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="p-4 bg-white border rounded-lg shadow">
+      <div class="text-gray-500">Interfaces</div>
+      <div id="count-interfaces" class="text-3xl font-bold">0</div>
+    </div>
+    <div class="p-4 bg-white border rounded-lg shadow">
+      <div class="text-gray-500">Optics</div>
+      <div id="count-optics" class="text-3xl font-bold">0</div>
+    </div>
+    <div class="p-4 bg-white border rounded-lg shadow">
+      <div class="text-gray-500">MAC entries</div>
+      <div id="count-mac" class="text-3xl font-bold">0</div>
+    </div>
+  </div>
 
-      <div>
-        <a href="{% url 'export_high_sig_switches_to_excel' %}">
-        <button
-            class="py-4 px-4 ml-2 mb-2 bg-violet-500 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
-            <i class="fa-solid fa-download mr-3"></i>
-            Export switches with
-            low signal levels
-        </button>
-      </a>
-      </div>
+  <div class="mt-6">
+    <h2 class="text-xl font-bold mb-2">Realtime</h2>
+    <p class="text-gray-600">Данные обновляются по WebSocket каждые 5 секунд.</p>
+  </div>
+</div>
 
-      <div>
-        <a href="{% url 'export_optical_ports_to_excel' %}">
-        <button
-            class="py-4 px-4 ml-2 mb-2 bg-emerald-600 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
-            <i class="fa-solid fa-download mr-3"></i>
-            Export optical ports
-        </button>
-      </a>
-      </div>
-
-      <div>
-      <a href="{% url 'sync_zbx' %}">
-        <button id="sync"
-            class="py-4 px-4 ml-2 bg-sky-600 rounded-md drop-shadow-lg text-2xl text-white duration-300 hover:bg-blue-700">
-            <i class="fa-solid fa-rotate"></i>
-            Sync with TSHTT Zabbix server
-        </button>
-      </a>
-      </div>
-
-      <div class="bg-green-600 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'switches' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ up_count }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            </h4>
-            <span class="text-2xl font-bold text-white">Total switches UP</span>
-          </a>
-        </div>
-      </div>
-      
-      <div class="bg-red-600 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'offline' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ down_count }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            </h4>
-            <span class="text-2xl font-bold text-white">Total switches DOWN</span>
-          </a>
-        </div>
-      </div>
-      
-      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'switches_high_sig' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ high_sig_sw }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            </h4>
-            <span class="text-2xl font-bold text-white">Switches with a signal level less than or equal to -20 dBm.</span>
-          </a>
-        </div>
-      </div>
-      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'switches_high_sig_15' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ high_sig_sw_15 }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            </h4>
-            <span class="text-2xl font-bold text-white">Switches with a signal level less than -15 dBm and greater then -20 dBm.</span>
-          </a>
-        </div>
-      </div>
-      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'switches_high_sig_10' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ high_sig_sw_10 }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            <span class="text-2xl font-bold text-white">Switches with a signal level less than -10 dBm and greater then -15 dBm.</span>
-          </a>
-        </div>
-      </div>
-      <div class="bg-red-400 rounded-md border border-stroke shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div class="m-4 flex justify-between">
-          <a href="{% url 'switches_high_sig_11' %}">
-            <h4 class="text-2xl font-bold text-white">
-              {{ high_sig_sw_11 }}
-              <i class="fa-sharp fa-solid fa-ethernet"></i>
-            <span class="text-2xl font-bold text-white">Switches with a signal level less than -11 dBm.</span>
-          </a>
-        </div>
-      </div>
-      <script>
-        // Wrap the script inside a DOMContentLoaded event listener to ensure it runs after the DOM has loaded
-        document.addEventListener("DOMContentLoaded", function() {
-          // Add event listener to the sync button
-          document.getElementById("sync").addEventListener("click", function() {
-            // Reload the page when the button is clicked
-            location.reload();
-          });
-        });
-      </script>
-      
-
+<script>
+  window.addEventListener('monitoring:snapshot', (e) => {
+    const c = e.detail.counts || {};
+    document.getElementById('count-interfaces').textContent = c.interfaces ?? 0;
+    document.getElementById('count-optics').textContent = c.optics ?? 0;
+    document.getElementById('count-mac').textContent = c.mac_entries ?? 0;
+  });
+</script>
 {% endblock %}

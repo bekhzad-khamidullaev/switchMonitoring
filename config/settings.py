@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'background_task',
     'django_celery_results',
     'rest_framework',
+    'channels',
     'compressor',
     'tailwind',
     'theme',
@@ -58,6 +59,15 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Channels: in-memory layer for dev (replace with Redis in prod)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
 
 # APPEND_SLASH=False
 

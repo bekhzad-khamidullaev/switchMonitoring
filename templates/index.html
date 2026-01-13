@@ -9,42 +9,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
-  <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet" type="text/css">
-  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
-<script>
-  function updateSwitchStatus() {
-    $.ajax({
-      url: `/snmp/switches00/switch_status/${switchId}/`,
-      method: 'GET',
-      dataType: 'json',
-      success: function(data) {
-        // Update the status in the DOM
-        const switchStatusElement = $("#switch-status-{{ switch.pk }}");
-        switchStatusElement.text(data.status);
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" />
 
-        // You can customize the styling based on the status (UP or DOWN)
-        if (data.status === 'UP') {
-          switchStatusElement.removeClass('text-red-600').addClass('text-green-600');
-        } else {
-          switchStatusElement.removeClass('text-green-600').addClass('text-red-600');
-        }
-      },
-      error: function(error) {
-        console.error('Error updating switch status:', error);
+  <script>
+    // Global realtime client (session-auth via cookies).
+    // Listens on ws(s)://<host>/ws/monitoring/ and dispatches window event 'monitoring:snapshot'.
+    (function () {
+      function wsUrl(path) {
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        return `${proto}://${window.location.host}${path}`;
       }
-    });
-  }
 
-  $(document).ready(function() {
-    updateSwitchStatus();
+      function connect() {
+        const ws = new WebSocket(wsUrl('/ws/monitoring/'));
 
-    setInterval(function() {
-      updateSwitchStatus();
-    }, 3000);
-  });
-</script>
+        ws.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            if (data && data.type === 'snapshot') {
+              window.dispatchEvent(new CustomEvent('monitoring:snapshot', { detail: data }));
+            }
+          } catch (e) {
+            console.error('WS parse error', e);
+          }
+        };
+
+        ws.onclose = () => setTimeout(connect, 3000);
+      }
+
+      if (window.location.pathname.startsWith('/snmp/')) {
+        connect();
+      }
+    })();
+  </script>
   
 </head>
   <body class="text-neutral-900 dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-800">
@@ -60,5 +58,6 @@
       {% include 'login_page.html' %}
 
   {% endif %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
   </body>
 </html>
