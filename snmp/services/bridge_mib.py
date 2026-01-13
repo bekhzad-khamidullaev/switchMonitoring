@@ -107,7 +107,10 @@ def collect_mac_table(client: SnmpClient) -> List[Tuple[int, int, str]]:
 
 
 def get_pvid(client: SnmpClient, ifindex: int) -> Optional[int]:
-    v = client.get_one(f'{DOT1Q_PVID}.{ifindex}')
+    try:
+        v = client.get_one(f'{DOT1Q_PVID}.{ifindex}')
+    except Exception:
+        v = None
     if v is None:
         v = client.get_one(f'{DOT1Q_PVID_NUM}.{ifindex}')
     if v is None:
