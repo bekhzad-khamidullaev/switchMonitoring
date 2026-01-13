@@ -7,11 +7,13 @@ from .models import (
     InterfaceOptics,
     MacEntry,
     NeighborLink,
+    HostGroup,
     Switch,
     SwitchModel,
     SwitchStatus,
     Vendor,
 )
+admin.site.register(HostGroup)
 admin.site.register(Switch)
 admin.site.register(Vendor)
 admin.site.register(SwitchModel)

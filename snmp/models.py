@@ -136,6 +136,29 @@ class SwitchModel(models.Model):
         return self.device_model
 
 
+class HostGroup(models.Model):
+    """Hierarchical grouping for hosts (tree structure).
+
+    UI path: Region (Branch) -> Root group -> group -> subgroups -> hosts.
+    """
+
+    branch = models.ForeignKey('Branch', on_delete=models.CASCADE, related_name='host_groups')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
+    name = models.CharField(max_length=200)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        managed = True
+        db_table = 'host_groups'
+        unique_together = (('branch', 'parent', 'name'),)
+        indexes = [
+            models.Index(fields=['branch', 'parent', 'sort_order', 'name']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Switch(models.Model):
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
@@ -148,6 +171,7 @@ class Switch(models.Model):
     snmp_community_rw = models.CharField(max_length=20, default='netman', null=True, blank=True)
     status = models.BooleanField(default=False, null=True, blank=True)
     ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
+    group = models.ForeignKey('HostGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='switches')
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
     history = HistoricalRecords()
