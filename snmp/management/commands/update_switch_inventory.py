@@ -1,19 +1,18 @@
 import time
 import logging
-import re
 from django.core.paginator import Paginator
 from django.core.management.base import BaseCommand
 from snmp.models import Switch, SwitchModel, Ats
-from .snmp import perform_snmpwalk
+from snmp.services.snmp_client import SnmpClient, SnmpTarget
 from django.db.models import Count
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
 
 SNMP_COMMUNITY = "snmp2netread"
-OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
-OID_SYSTEM_UPTIME = 'iso.3.6.1.2.1.1.3.0'
-OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
+OID_SYSTEM_HOSTNAME = 'SNMPv2-MIB::sysName.0'
+OID_SYSTEM_UPTIME = 'SNMPv2-MIB::sysUpTime.0'
+OID_SYSTEM_DESCRIPTION = 'SNMPv2-MIB::sysDescr.0'
 
 
 def convert_uptime_to_human_readable(uptime_in_hundredths):
@@ -39,40 +38,33 @@ class Command(BaseCommand):
                 duplicate_ips = Switch.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
                 for selected_switch in selected_switches:
                     SNMP_COMMUNITY = "snmp2netread"
-                    snmp_response_hostname = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, SNMP_COMMUNITY)
-                    snmp_response_uptime = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_UPTIME, SNMP_COMMUNITY)
+                    client = SnmpClient(SnmpTarget(host=str(selected_switch.ip), community=SNMP_COMMUNITY))
+                    sys_name = client.get_one(OID_SYSTEM_HOSTNAME)
+                    sys_uptime = client.get_one(OID_SYSTEM_UPTIME)
                     for branch in ats:
                         if branch.contains_ip(selected_switch.ip):
-                            selected_switch.branch = branch.branch  # Assigning Ats instance
                             selected_switch.ats = branch
 
-                    if not snmp_response_hostname or not snmp_response_uptime:
+                    if sys_name is None or sys_uptime is None:
                         logger.warning(f"No SNMP response received for IP address: {selected_switch.ip}")
                         continue
 
                     try:
-                        match_hostname = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', snmp_response_hostname[0])
-                        if match_hostname:
-                            selected_switch.hostname = match_hostname.group(1).strip()
-                        else:
-                            raise ValueError(f"Unexpected SNMP response format for hostname: {snmp_response_hostname[0]}. Response: {snmp_response_hostname}")
+                        selected_switch.hostname = sys_name.prettyPrint() if hasattr(sys_name, 'prettyPrint') else str(sys_name)
                     except Exception as e:
                         logger.error(f"Error processing hostname for {selected_switch.ip}: {e}")
                         continue
 
                     try:
-                        match_uptime = re.search(r'SNMPv2-MIB::sysUpTime.0\s*=\s*(\d+)', snmp_response_uptime[0])
-                        if match_uptime:
-                            selected_switch.uptime = convert_uptime_to_human_readable(match_uptime.group(1).strip())
-                        else:
-                            raise ValueError(f"Unexpected SNMP response format for uptime: {snmp_response_uptime[0]}. Response: {snmp_response_uptime}")
+                        selected_switch.uptime = convert_uptime_to_human_readable(int(sys_uptime))
                     except Exception as e:
                         logger.error(f"Error processing uptime for {selected_switch.ip}: {e}")
                         continue
 
-                    snmp_response_description = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_DESCRIPTION, SNMP_COMMUNITY)
-                    if not snmp_response_description:
+                    sys_descr = client.get_one(OID_SYSTEM_DESCRIPTION)
+                    if sys_descr is None:
                         continue
+                    snmp_response_description = [sys_descr.prettyPrint() if hasattr(sys_descr, 'prettyPrint') else str(sys_descr)]
                     for duplicate_ip in duplicate_ips:
                         ip = duplicate_ip['ip']
                         

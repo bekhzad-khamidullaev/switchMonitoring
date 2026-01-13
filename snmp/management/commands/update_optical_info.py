@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
+from django.core.management import call_command
 from snmp.models import Switch
 from pysnmp.hlapi import *
 import math
@@ -270,6 +271,10 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
+        # Deprecated: use MIB-based collector
+        call_command('update_optical_info_mib')
+        return
+
         snmp_community = "snmp2netread"
 
         while True:

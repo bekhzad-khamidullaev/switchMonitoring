@@ -1,11 +1,11 @@
-from pysnmp.hlapi import *
-from pysnmp import error
+from snmp.services.snmp_client import SnmpClient, SnmpTarget
 import math
 
 from django.core.paginator import Paginator
 from django.utils import timezone
 
 from ..models import Switch, Interface, InterfaceL2, InterfaceOptics, MacEntry
+from snmp.services.bridge_mib import collect_mac_table, get_pvid
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -31,6 +31,7 @@ class SNMPUpdater:
         self.ip = selected_switch.ip
         self.snmp_community = snmp_community
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
+        self.client = SnmpClient(SnmpTarget(host=str(self.ip), community=self.snmp_community))
 
     def get_snmp_oids(self):
         if self.model == 'MES3500-24S':
@@ -153,26 +154,17 @@ class SNMPUpdater:
                     None)
 
     def perform_snmpwalk(self, oid):
+        # Legacy name: this performs a single GET.
         try:
-            snmp_walk = getCmd(
-                SnmpEngine(),
-                CommunityData(self.snmp_community),
-                UdpTransportTarget((self.ip, 161), timeout=2, retries=2),
-                ContextData(),
-                ObjectType(ObjectIdentity(oid)),
-            )
-
-            snmp_response = []
-            for (errorIndication, errorStatus, errorIndex, varBinds) in snmp_walk:
-                if errorIndication:
-                    continue
-                if varBinds:
-                    for varBind in varBinds:
-                        snmp_response.append(str(varBind))
-            return snmp_response
-        except TimeoutError:
-            return []
-        except Exception as e:
+            val = self.client.get_one(oid)
+            if val is None:
+                return []
+            try:
+                rendered = str(int(val))
+            except Exception:
+                rendered = val.prettyPrint() if hasattr(val, 'prettyPrint') else str(val)
+            return [f"{oid} = {rendered}"]
+        except Exception:
             return []
     
 
@@ -247,34 +239,22 @@ class SNMPUpdater:
             return value_str if value_str != 'None' else None
         return None
     
-class PortsInfo():
-    
-    def snmp_get(self, ip, community, oid):
-        try:
-            logger.debug(f"Performing SNMP get for OID: {oid}")
-            errorIndication, errorStatus, errorIndex, varBinds = next(
-                getCmd(SnmpEngine(),
-                    CommunityData(community),
-                    UdpTransportTarget((ip, 161)),
-                    ContextData(),
-                    ObjectType(ObjectIdentity(oid)))
-            )
+class PortsInfo:
 
-            if errorIndication:
-                logger.error(f"SNMP Get Error: {errorIndication}")
+    def snmp_get(self, ip, community, oid):
+        """MIB-aware SNMP GET.
+
+        Supports both numeric and symbolic OIDs (e.g. 'IF-MIB::ifSpeed.1').
+        """
+        try:
+            client = SnmpClient(SnmpTarget(host=str(ip), community=community))
+            val = client.get_one(oid)
+            if val is None:
                 return None
-            elif errorStatus:
-                if isinstance(errorStatus, error.InconsistentValueError):
-                    logger.warning(f"SNMP Get Warning: {errorStatus}")
-                    # Handle InconsistentValueError gracefully, e.g., skip this OID
-                    return None
-                else:
-                    logger.error(f"SNMP Get Status: {errorStatus.prettyPrint()}, Index: {errorIndex}")
-                    return None
-            else:
-                value = varBinds[0][1].prettyPrint()
-                logger.debug(f"SNMP Get Response - Value: {value}")
-                return value
+            try:
+                return str(int(val))
+            except Exception:
+                return val.prettyPrint() if hasattr(val, 'prettyPrint') else str(val)
         except Exception as e:
             logger.exception(f"Error during SNMP Get: {e}")
             return None
@@ -286,8 +266,8 @@ class PortsInfo():
 
         # Replace the following with the actual SNMP OIDs for port information
         port_oids = {
-            'speed': '.1.3.6.1.2.1.2.2.1.5',
-            'duplex': '.1.3.6.1.2.1.10.7.2.1.19',
+            'speed': 'IF-MIB::ifSpeed',
+            'duplex': 'EtherLike-MIB::dot3StatsDuplexStatus',
             # Add more port-related OIDs as needed
         }
 
@@ -317,25 +297,31 @@ class PortsInfo():
             InterfaceL2.objects.update_or_create(interface=iface, defaults={})
             
     def update_port_data(self, switch):
-        # Get all ports for the given switch
+        # Preload MAC table via Q-BRIDGE-MIB (vlan, ifIndex, mac)
+        client = SnmpClient(SnmpTarget(host=str(switch.ip), community=switch.snmp_community_ro or self.snmp_community))
+        mac_rows = collect_mac_table(client)
+        mac_by_ifindex = {}
+        for vlan, ifindex, mac in mac_rows:
+            mac_by_ifindex.setdefault(ifindex, []).append((vlan, mac))
+
         ports = Interface.objects.filter(switch=switch)
-
         for port in ports:
-            self.update_port_info_from_snmp(switch, port)
+            self.update_port_info_from_snmp(switch, port, client=client, mac_by_ifindex=mac_by_ifindex)
 
-    def update_port_info_from_snmp(self, switch, port):
+    def update_port_info_from_snmp(self, switch, port, client: SnmpClient, mac_by_ifindex: dict):
         ip = switch.ip
         community = switch.snmp_community_ro
 
         # Define SNMP OIDs for various port information
         port_oids = {
-            'speed': f'.1.3.6.1.2.1.2.2.1.5.{port.ifindex}',
-            'admin_status': f'.1.3.6.1.2.1.2.2.1.7.{port.ifindex}',
-            'oper_status': f'.1.3.6.1.2.1.2.2.1.8.{port.ifindex}',
+            'speed': f'IF-MIB::ifSpeed.{port.ifindex}',
+            'admin_status': f'IF-MIB::ifAdminStatus.{port.ifindex}',
+            'oper_status': f'IF-MIB::ifOperStatus.{port.ifindex}',
+            # NOTE: VLAN/MAC requires BRIDGE/Q-BRIDGE MIB and usually walks, keep numeric fallback for now.
             'vlan_membership': f'.1.3.6.1.2.1.17.7.1.4.3.1.2.{port.ifindex}',
             'mac_addresses': f'.1.3.6.1.2.1.17.7.1.2.2.1.2.{port.ifindex}',
-            'discards_in': f'.1.3.6.1.2.1.2.2.1.13.{port.ifindex}',
-            'discards_out': f'.1.3.6.1.2.1.2.2.1.19.{port.ifindex}',
+            'discards_in': f'IF-MIB::ifInDiscards.{port.ifindex}',
+            'discards_out': f'IF-MIB::ifOutDiscards.{port.ifindex}',
         }
 
         # Perform SNMP queries for port information
@@ -343,7 +329,8 @@ class PortsInfo():
         admin_status = self.snmp_get(ip, community, port_oids['admin_status'])
         oper_status = self.snmp_get(ip, community, port_oids['oper_status'])
         vlan_membership = self.snmp_get(ip, community, port_oids['vlan_membership'])
-        mac_addresses = self.snmp_get(ip, community, port_oids['mac_addresses'])
+        # MAC addresses collected once via Q-BRIDGE-MIB
+        mac_addresses = None
         discards_in = self.snmp_get(ip, community, port_oids['discards_in'])
         discards_out = self.snmp_get(ip, community, port_oids['discards_out'])
 
@@ -357,19 +344,23 @@ class PortsInfo():
         port.polled_at = timezone.now()
         port.save(update_fields=['speed', 'admin', 'oper', 'discards_in', 'discards_out', 'duplex', 'polled_at'])
 
-        # Extract VLAN information and MAC addresses
+        # Extract VLAN information
         l2, _ = InterfaceL2.objects.get_or_create(interface=port)
         if vlan_membership:
             l2.tagged_vlans = vlan_membership
-        l2.save(update_fields=['tagged_vlans'])
 
-        pvid = l2.pvid
-        if mac_addresses:
-            mac_list = [m.strip() for m in mac_addresses.split(',') if m.strip()]
-            for mac_address in mac_list:
-                MacEntry.objects.update_or_create(
-                    switch=switch,
-                    mac=mac_address,
-                    vlan=pvid or 0,
-                    defaults={'interface': port},
-                )
+        # Update PVID from Q-BRIDGE-MIB
+        pvid = get_pvid(client, int(port.ifindex))
+        if pvid is not None:
+            l2.pvid = pvid
+
+        l2.save(update_fields=['tagged_vlans', 'pvid'])
+
+        # Save MAC entries collected via Q-BRIDGE-MIB (vlan + mac)
+        for vlan, mac_address in mac_by_ifindex.get(int(port.ifindex), []):
+            MacEntry.objects.update_or_create(
+                switch=switch,
+                mac=mac_address,
+                vlan=vlan,
+                defaults={'interface': port},
+            )

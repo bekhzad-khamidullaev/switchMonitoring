@@ -2,6 +2,7 @@ import concurrent.futures
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
+from django.core.management import call_command
 from snmp.models import Switch
 from snmp.lib.update_port_info import SNMPUpdater
 from pysnmp.hlapi import *
@@ -461,6 +462,10 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
+        # Deprecated: use MIB-based collector
+        call_command('update_optical_info_mib')
+        return
+
         snmp_community = "snmp2netread"
         loop = asyncio.get_event_loop()
 

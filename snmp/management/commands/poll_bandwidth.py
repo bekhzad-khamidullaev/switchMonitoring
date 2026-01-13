@@ -1,9 +1,10 @@
 import logging
+from typing import Any, Dict
+
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from pysnmp.hlapi import SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity, getCmd
-
 from snmp.models import Switch, Interface, InterfaceCounterState, InterfaceBandwidthSample
+from snmp.services.snmp_client import SnmpClient, SnmpTarget
 from snmp.services.bandwidth import CounterSnapshot, compute_bps
 from snmp.services.interface_classification import is_virtual_interface
 
@@ -11,32 +12,10 @@ from snmp.services.interface_classification import is_virtual_interface
 logger = logging.getLogger(__name__)
 
 
-IFHC_IN_OCTETS = '1.3.6.1.2.1.31.1.1.1.6'
-IFHC_OUT_OCTETS = '1.3.6.1.2.1.31.1.1.1.10'
-IF_IN_OCTETS = '1.3.6.1.2.1.2.2.1.10'
-IF_OUT_OCTETS = '1.3.6.1.2.1.2.2.1.16'
-
-
-def snmp_get_many(ip: str, community: str, oids: list[str], timeout=2, retries=1):
-    """SNMP GET for multiple numeric OIDs."""
-    iterator = getCmd(
-        SnmpEngine(),
-        CommunityData(community),
-        UdpTransportTarget((ip, 161), timeout=timeout, retries=retries),
-        ContextData(),
-        *[ObjectType(ObjectIdentity(oid)) for oid in oids],
-    )
-    error_indication, error_status, error_index, var_binds = next(iterator)
-
-    if error_indication:
-        raise RuntimeError(str(error_indication))
-    if error_status:
-        raise RuntimeError(f"{error_status.prettyPrint()} at {error_index}")
-
-    result = {}
-    for name, val in var_binds:
-        result[str(name)] = val
-    return result
+IFHC_IN_OCTETS = 'IF-MIB::ifHCInOctets'
+IFHC_OUT_OCTETS = 'IF-MIB::ifHCOutOctets'
+IF_IN_OCTETS = 'IF-MIB::ifInOctets'
+IF_OUT_OCTETS = 'IF-MIB::ifOutOctets'
 
 
 class Command(BaseCommand):
@@ -83,6 +62,7 @@ class Command(BaseCommand):
 
         community = sw.snmp_community_ro or 'public'
         ip = str(sw.ip)
+        client = SnmpClient(SnmpTarget(host=ip, community=community))
 
         def _chunks(seq, size):
             for i in range(0, len(seq), size):
@@ -94,14 +74,13 @@ class Command(BaseCommand):
             oids64.append(f"{IFHC_IN_OCTETS}.{ifindex}")
             oids64.append(f"{IFHC_OUT_OCTETS}.{ifindex}")
 
-        values = {}
+        values: Dict[str, Any] = {}
         counter_bits_by_ifindex = {ifindex: 64 for ifindex in candidates}
 
         for chunk in _chunks(oids64, oids_per_request):
             try:
-                values.update(snmp_get_many(ip, community, chunk))
+                values.update(client.get_many(chunk))
             except Exception as e:
-                # If device doesn't support ifHC*, we'll fall back below
                 logger.debug("ifHC counters not available on %s: %s", ip, e)
                 values = {}
                 counter_bits_by_ifindex = {ifindex: 32 for ifindex in candidates}
@@ -114,7 +93,7 @@ class Command(BaseCommand):
                 oids32.append(f"{IF_IN_OCTETS}.{ifindex}")
                 oids32.append(f"{IF_OUT_OCTETS}.{ifindex}")
             for chunk in _chunks(oids32, oids_per_request):
-                values.update(snmp_get_many(ip, community, chunk))
+                values.update(client.get_many(chunk))
 
         for ifindex in candidates:
             if counter_bits_by_ifindex.get(ifindex, 64) == 64:
