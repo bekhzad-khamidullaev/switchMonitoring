@@ -21,7 +21,7 @@ from pysnmp.smi import builder, view, compiler, error as pysnmp_error, rfc1902
 # --- Предполагаемые импорты ваших моделей ---
 # Замените 'your_snmp_app' на имя вашего Django приложения
 try:
-    from snmp.models import Switch, SwitchModel, SwitchesPorts, Vendor
+    from snmp.models import Switch, SwitchModel, Interface, InterfaceOptics, Vendor
 except ImportError:
     print("ERROR: Could not import models from 'snmp.models'. Please ensure the app name and models are correct.")
     raise
@@ -577,7 +577,7 @@ class SNMPDevicePoller:
 
                     if_index = port_data_result['if_index']
                     interface_info = self.interfaces.get(if_index, {})
-                    defaults = {
+                    iface_defaults = {
                         'description': interface_info.get('description') or interface_info.get('ifDescr') or '',
                         'speed': interface_info.get('speed', 0) or 0,
                         'admin': interface_info.get('admin_status') or 0,
@@ -585,28 +585,38 @@ class SNMPDevicePoller:
                         'lastchange': interface_info.get('last_change', 0) or 0,
                         'name': interface_info.get('name') or f'Port {if_index}',
                         'alias': interface_info.get('alias', '') or '',
-                        'data': now,
-                        'rx_signal': port_data_result.get('rx_signal'),
-                        'tx_signal': port_data_result.get('tx_signal'),
+                        'iftype': interface_info.get('type'),
+                        'polled_at': now,
+                    }
+                    optics_defaults = {
+                        'rx_dbm': port_data_result.get('rx_signal'),
+                        'tx_dbm': port_data_result.get('tx_signal'),
                         'sfp_vendor': port_data_result.get('sfp_vendor'),
                         'part_number': port_data_result.get('part_number'),
                         'serial_number': port_data_result.get('serial_number'),
+                        'temperature_c': port_data_result.get('temperature'),
+                        'voltage_v': port_data_result.get('voltage'),
+                        'polled_at': now,
                     }
                     try:
-                        _, created = SwitchesPorts.objects.update_or_create(
-                            switch=self.switch, port=if_index, defaults=defaults
+                        iface, created = Interface.objects.update_or_create(
+                            switch=self.switch, ifindex=if_index, defaults=iface_defaults
+                        )
+                        # Write optics as a separate one-to-one
+                        InterfaceOptics.objects.update_or_create(
+                            interface=iface, defaults=optics_defaults
                         )
                         if created:
                             created_count += 1
                         else:
                             updated_count += 1
                     except Exception as db_err:
-                        logger.error(f"[{self.ip}] DB update/create failed for port {if_index}: {db_err}")
+                        logger.error(f"[{self.ip}] DB update/create failed for ifIndex {if_index}: {db_err}")
         except Exception as e:
             logger.error(f"[{self.ip}] DB transaction failed: {e}")
 
-        if created_count > 0: logger.info(f"[{self.ip}] Created {created_count} SwitchesPorts.")
-        if updated_count > 0: logger.info(f"[{self.ip}] Updated {updated_count} SwitchesPorts.")
+        if created_count > 0: logger.info(f"[{self.ip}] Created {created_count} interfaces.")
+        if updated_count > 0: logger.info(f"[{self.ip}] Updated {updated_count} interfaces.")
         logger.info(f"----- Finished MIB poll for {self.switch.hostname or self.ip} -----")
 
 
