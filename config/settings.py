@@ -27,10 +27,6 @@ INSTALLED_APPS = [
     'compressor',
     'tailwind',
     'theme',
-    # 'olt_monitoring',
-    'vendors',
-    'zabbixapp',
-
 ]
 
 MIDDLEWARE = [
