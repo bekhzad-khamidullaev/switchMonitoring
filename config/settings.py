@@ -83,14 +83,32 @@ WSGI_APPLICATION = 'config.wsgi.application'
 #     }
 # }
 
+# Database configuration
+# Default to SQLite for local/dev runs. Can be overridden via environment variables.
+#
+# Examples:
+#   SQLite (default):
+#     DB_ENGINE=django.db.backends.sqlite3
+#     DB_NAME=/path/to/db.sqlite3
+#
+#   PostgreSQL:
+#     DB_ENGINE=django.db.backends.postgresql
+#     DB_NAME=snmp DB_USER=snmp DB_PASSWORD=admin DB_HOST=127.0.0.1 DB_PORT=5432
+DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
+DB_NAME = os.getenv("DB_NAME", str(BASE_DIR / "db.sqlite3"))
+DB_USER = os.getenv("DB_USER", "")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_HOST = os.getenv("DB_HOST", "")
+DB_PORT = os.getenv("DB_PORT", "")
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'snmp',
-        'USER': 'snmp',
-        'PASSWORD': 'admin',
-        'HOST': '127.0.0.1',
-        'PORT': '',
+    "default": {
+        "ENGINE": DB_ENGINE,
+        "NAME": DB_NAME,
+        **({"USER": DB_USER} if DB_USER else {}),
+        **({"PASSWORD": DB_PASSWORD} if DB_PASSWORD else {}),
+        **({"HOST": DB_HOST} if DB_HOST else {}),
+        **({"PORT": DB_PORT} if DB_PORT else {}),
     }
 }
 
