@@ -169,27 +169,6 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ENABLE_UTC = True
 
-CELERY_BEAT_SCHEDULE = {
-    'update-switch-status': {
-        'task': 'snmp.tasks.update_switch_status_task',
-        'schedule': 300,
-    },
-    'update-optical-info': {
-        'task': 'snmp.tasks.update_optical_info_task',
-        'schedule': 14400,
-    },
-    'update-switch-inventory': {
-        'task': 'snmp.tasks.update_switch_inventory_task',
-        'schedule': crontab(minute=0, hour=9),  # 09:00 AM
-    },
-    'subnet_discovery': {
-        'task': 'snmp.tasks.subnet_discovery_task',
-        'schedule': crontab(minute=0, hour=3),  # 04:00 AM
-    },
-}
-
-
-
 LOGIN_REDIRECT_URL = '/snmp/switches/'
 
 COMPRESS_ROOT = BASE_DIR / 'static'

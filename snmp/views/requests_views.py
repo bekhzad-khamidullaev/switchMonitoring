@@ -1,22 +1,31 @@
 
-from django.http import JsonResponse
-from snmp.models import Switch
-from django.shortcuts import redirect
-import requests
-from urllib3.exceptions import InsecureRequestWarning
-from django.contrib.auth.decorators import login_required
+import logging
+import os
 
+import requests
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from urllib3.exceptions import InsecureRequestWarning
+
+from snmp.models import Switch
+
+
+logger = logging.getLogger(__name__)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 @login_required
 def sync_hosts_from_zabbix(request):
-    # Zabbix API token and endpoint
-    zabbix_url = 'https://monitoring.tshtt.uz/api_jsonrpc.php'
-    zabbix_token = '89296f0cae9f7d302495371e27be491100d516196608be0caace979572467cf7'
+    # Zabbix API token and endpoint (configured via env)
+    zabbix_url = os.getenv('ZABBIX_URL', 'https://monitoring.tshtt.uz/api_jsonrpc.php')
+    zabbix_token = os.getenv('ZABBIX_TOKEN')
+
+    if not zabbix_token:
+        logger.error('ZABBIX_TOKEN is not configured')
+        return redirect('dashboard')
+
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {zabbix_token}'
     }
     # Define the API request payload
     payload = {
