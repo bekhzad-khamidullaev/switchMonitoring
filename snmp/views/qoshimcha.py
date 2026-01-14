@@ -10,9 +10,16 @@ def convert_uptime_to_human_readable(uptime_in_hundredths):
 
 
 def get_permitted_branches(user):
-    branches = Branch.objects.all()
-    permitted_branches = []
-    for branch in branches:
-        if user.has_perm(f'snmp.view_{branch.name.lower().replace(" ", "_")}'):
-            permitted_branches.append(branch)      
-    return permitted_branches
+    """Return queryset of branches the user is allowed to see."""
+    qs = Branch.objects.all()
+
+    if getattr(user, 'is_superuser', False):
+        return qs
+
+    permitted_ids = []
+    for branch in qs:
+        codename = f"snmp.view_{branch.name.lower().replace(' ', '_')}"
+        if user.has_perm(codename):
+            permitted_ids.append(branch.id)
+
+    return Branch.objects.filter(id__in=permitted_ids)

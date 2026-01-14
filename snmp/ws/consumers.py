@@ -45,9 +45,10 @@ class MonitoringConsumer(AsyncJsonWebsocketConsumer):
         qs = (
             Switch.objects
             .select_related('ats', 'ats__branch')
-            .filter(ats__branch__in=branches)
             .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
         )
+        if branches.exists():
+            qs = qs.filter(ats__branch__in=branches)
 
         switches = [
             {

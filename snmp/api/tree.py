@@ -38,10 +38,12 @@ def monitoring_tree(request):
     groups = list(HostGroup.objects.filter(branch__in=branches).select_related('branch'))
 
     # Hosts
+    base_qs = Switch.objects.select_related('ats', 'ats__branch')
+    if branches.exists():
+        base_qs = base_qs.filter(ats__branch__in=branches)
+
     switches = (
-        Switch.objects
-        .select_related('ats', 'ats__branch')
-        .filter(ats__branch__in=branches)
+        base_qs
         .annotate(min_rx=Min('interfaces__optics__rx_dbm'), min_tx=Min('interfaces__optics__tx_dbm'))
         .values('id', 'hostname', 'ip', 'status', 'group_id', 'min_rx', 'min_tx', 'ats_id', 'ats__name', 'ats__branch_id')
     )
@@ -62,11 +64,12 @@ def monitoring_tree(request):
         if s['group_id']:
             switches_by_group[s['group_id']].append(host)
         else:
-            ungrouped_by_branch[s['ats__branch_id']].append(host)
+            # If no ATS/Branch, put into unassigned pseudo-region
+            ungrouped_by_branch[s.get('ats__branch_id')].append(host)
 
     # Build output per region (Branch)
     out = []
-    for b in Branch.objects.filter(id__in=[br.id for br in branches]).order_by('name'):
+    for b in branches.order_by('name'):
         branch_groups = [g for g in groups if g.branch_id == b.id]
         tree = _build_group_tree(branch_groups, switches_by_group)
         out.append({
@@ -75,6 +78,17 @@ def monitoring_tree(request):
             'name': b.name,
             'groups': tree,
             'ungrouped_hosts': ungrouped_by_branch.get(b.id, []),
+        })
+
+    # Add pseudo-region for switches without branch/ATS
+    unassigned = ungrouped_by_branch.get(None, [])
+    if unassigned:
+        out.append({
+            'type': 'region',
+            'id': None,
+            'name': 'Unassigned',
+            'groups': [],
+            'ungrouped_hosts': unassigned,
         })
 
     return Response(out)
