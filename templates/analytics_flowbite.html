@@ -1,0 +1,93 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Analytics - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Analytics</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Bandwidth samples (loaded from API)</p>
+</div>
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+  <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Recent bandwidth samples</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+          <tr>
+            <th class="px-4 py-2">Time</th>
+            <th class="px-4 py-2">Interface</th>
+            <th class="px-4 py-2">In</th>
+            <th class="px-4 py-2">Out</th>
+          </tr>
+        </thead>
+        <tbody id="bw-body">
+          <tr><td colspan="4" class="px-4 py-3 text-center">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Traffic chart (based on samples)</h2>
+    <div id="bw-chart"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function bpsHuman(v) {
+    if (v === null || v === undefined) return '—';
+    if (v >= 1e9) return (v/1e9).toFixed(2)+' Gbps';
+    if (v >= 1e6) return (v/1e6).toFixed(2)+' Mbps';
+    if (v >= 1e3) return (v/1e3).toFixed(2)+' Kbps';
+    return v+' bps';
+  }
+
+  async function loadBandwidth() {
+    const data = await apiGet('/bandwidth/?page_size=50&ordering=-ts');
+    const body = document.getElementById('bw-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="4" class="px-4 py-3 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="4" class="px-4 py-3 text-center">No samples</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(s => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-4 py-2">${s.ts}</td>
+        <td class="px-4 py-2">${s.interface_name || s.interface}</td>
+        <td class="px-4 py-2">${bpsHuman(s.in_bps)}</td>
+        <td class="px-4 py-2">${bpsHuman(s.out_bps)}</td>
+      </tr>
+    `).join('');
+
+    // chart series from newest->oldest => reverse
+    const points = data.results.slice().reverse();
+    const categories = points.map(p => (p.ts || '').slice(11, 19));
+    const inSeries = points.map(p => p.in_bps || 0);
+    const outSeries = points.map(p => p.out_bps || 0);
+
+    const options = {
+      chart: { type: 'area', height: 300, toolbar: { show: false } },
+      series: [
+        { name: 'In', data: inSeries },
+        { name: 'Out', data: outSeries },
+      ],
+      xaxis: { categories },
+      stroke: { curve: 'smooth' },
+      colors: ['#3b82f6', '#10b981'],
+    };
+
+    const el = document.querySelector('#bw-chart');
+    el.innerHTML = '';
+    new ApexCharts(el, options).render();
+  }
+
+  document.addEventListener('DOMContentLoaded', loadBandwidth);
+</script>
+{% endblock %}

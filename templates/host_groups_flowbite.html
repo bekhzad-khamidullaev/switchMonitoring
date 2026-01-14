@@ -1,0 +1,57 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Host Groups - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Host Groups</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/host-groups/</p>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">ID</th>
+          <th class="px-6 py-3">Name</th>
+          <th class="px-6 py-3">Branch</th>
+          <th class="px-6 py-3">Parent</th>
+          <th class="px-6 py-3">Sort</th>
+        </tr>
+      </thead>
+      <tbody id="hg-body">
+        <tr><td colspan="5" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadHostGroups() {
+    const data = await apiGet('/host-groups/?page_size=500&ordering=branch,name');
+    const body = document.getElementById('hg-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">No groups</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(g => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${g.id}</td>
+        <td class="px-6 py-4">${g.name || '—'}</td>
+        <td class="px-6 py-4">${g.branch || '—'}</td>
+        <td class="px-6 py-4">${g.parent || '—'}</td>
+        <td class="px-6 py-4">${g.sort_order ?? '—'}</td>
+      </tr>
+    `).join('');
+  }
+  document.addEventListener('DOMContentLoaded', loadHostGroups);
+</script>
+{% endblock %}

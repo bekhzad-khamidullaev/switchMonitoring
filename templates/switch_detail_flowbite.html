@@ -1,0 +1,442 @@
+{% extends 'base_flowbite.html' %}
+
+{% block title %}Switch Details - SNMP Network Management{% endblock %}
+
+{% block content %}
+<!-- Back Button & Header -->
+<div class="mb-4">
+    <a href="{% url 'switch_list' %}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500 mb-4">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Switches
+    </a>
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white" id="switch-name">Loading...</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1" id="switch-ip">---</p>
+        </div>
+        <div class="flex space-x-2">
+            <button type="button" onclick="pollSwitch()" class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800">
+                <i class="fas fa-sync mr-2"></i>Poll SNMP
+            </button>
+            <button type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+                <i class="fas fa-edit mr-2"></i>Edit
+            </button>
+            <button type="button" class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
+                <i class="fas fa-trash mr-2"></i>Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Status Banner -->
+<div id="status-banner" class="mb-4 p-4 rounded-lg border hidden">
+    <div class="flex items-center">
+        <i class="fas fa-circle mr-3 text-2xl"></i>
+        <div>
+            <h5 class="text-lg font-semibold" id="status-text">Status</h5>
+            <p class="text-sm" id="status-desc">Last seen: <span id="last-seen">---</span></p>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="mb-4 border-b border-gray-200 dark:border-gray-700">
+    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="tabs" role="tablist">
+        <li class="me-2" role="presentation">
+            <button class="inline-block p-4 border-b-2 rounded-t-lg" id="overview-tab" data-tabs-target="#overview" type="button" role="tab">
+                <i class="fas fa-info-circle mr-2"></i>Overview
+            </button>
+        </li>
+        <li class="me-2" role="presentation">
+            <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="ports-tab" data-tabs-target="#ports" type="button" role="tab">
+                <i class="fas fa-ethernet mr-2"></i>Ports
+            </button>
+        </li>
+        <li class="me-2" role="presentation">
+            <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="neighbors-tab" data-tabs-target="#neighbors" type="button" role="tab">
+                <i class="fas fa-project-diagram mr-2"></i>Neighbors
+            </button>
+        </li>
+        <li class="me-2" role="presentation">
+            <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="performance-tab" data-tabs-target="#performance" type="button" role="tab">
+                <i class="fas fa-chart-line mr-2"></i>Performance
+            </button>
+        </li>
+        <li class="me-2" role="presentation">
+            <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="config-tab" data-tabs-target="#config" type="button" role="tab">
+                <i class="fas fa-cog mr-2"></i>Configuration
+            </button>
+        </li>
+    </ul>
+</div>
+
+<!-- Tab Content -->
+<div id="tabContentExample">
+    <!-- Overview Tab -->
+    <div class="hidden" id="overview" role="tabpanel">
+        <div class="grid grid-cols-1 gap-4 mb-4 lg:grid-cols-3">
+            <!-- System Info Card -->
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                    <i class="fas fa-server mr-2"></i>System Information
+                </h5>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Hostname:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-hostname">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">IP Address:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-ip">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">MAC Address:</dt>
+                        <dd class="font-mono text-xs text-gray-900 dark:text-white" id="info-mac">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Model:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-model">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Serial Number:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-serial">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Firmware:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-firmware">---</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <!-- Location Info Card -->
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                    <i class="fas fa-map-marker-alt mr-2"></i>Location
+                </h5>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">ATS:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-ats">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Branch:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-branch">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Host Group:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-hostgroup">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Location:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-location">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Contact:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-contact">---</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <!-- Status Metrics Card -->
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Status Metrics
+                </h5>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Uptime:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-uptime">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">CPU Usage:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-cpu">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Memory Usage:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-memory">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Temperature:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-temp">---</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 dark:text-gray-400">Last Polled:</dt>
+                        <dd class="font-medium text-gray-900 dark:text-white" id="info-polled">---</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Port Statistics -->
+        <div class="grid grid-cols-1 gap-4 mb-4 md:grid-cols-4">
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+                <div class="text-3xl font-bold text-gray-900 dark:text-white" id="ports-total">0</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Total Ports</div>
+            </div>
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+                <div class="text-3xl font-bold text-green-600 dark:text-green-400" id="ports-up">0</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Active Ports</div>
+            </div>
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+                <div class="text-3xl font-bold text-red-600 dark:text-red-400" id="ports-down">0</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Inactive Ports</div>
+            </div>
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+                <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400" id="ports-errors">0</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Ports with Errors</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ports Tab -->
+    <div class="hidden" id="ports" role="tabpanel">
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white">Interface List</h5>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Port</th>
+                            <th scope="col" class="px-6 py-3">Status</th>
+                            <th scope="col" class="px-6 py-3">Speed</th>
+                            <th scope="col" class="px-6 py-3">Duplex</th>
+                            <th scope="col" class="px-6 py-3">VLAN</th>
+                            <th scope="col" class="px-6 py-3">Description</th>
+                            <th scope="col" class="px-6 py-3">Traffic</th>
+                            <th scope="col" class="px-6 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ports-tbody">
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 text-center">Loading ports...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Neighbors Tab -->
+    <div class="hidden" id="neighbors" role="tabpanel">
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white">LLDP/CDP Neighbors</h5>
+            </div>
+            <div class="p-4" id="neighbors-content">
+                <p class="text-gray-500 dark:text-gray-400">Loading neighbors...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Tab -->
+    <div class="hidden" id="performance" role="tabpanel">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">CPU & Memory</h5>
+                <div id="cpu-memory-chart"></div>
+            </div>
+            <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Network Traffic</h5>
+                <div id="network-traffic-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div class="hidden" id="config" role="tabpanel">
+        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">SNMP Configuration</h5>
+            <dl class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                    <dt class="mb-1 text-sm text-gray-500 dark:text-gray-400">SNMP Version:</dt>
+                    <dd class="font-medium text-gray-900 dark:text-white" id="config-version">---</dd>
+                </div>
+                <div>
+                    <dt class="mb-1 text-sm text-gray-500 dark:text-gray-400">SNMP Port:</dt>
+                    <dd class="font-medium text-gray-900 dark:text-white" id="config-port">---</dd>
+                </div>
+                <div>
+                    <dt class="mb-1 text-sm text-gray-500 dark:text-gray-400">Polling Interval:</dt>
+                    <dd class="font-medium text-gray-900 dark:text-white" id="config-interval">---</dd>
+                </div>
+                <div>
+                    <dt class="mb-1 text-sm text-gray-500 dark:text-gray-400">Monitored:</dt>
+                    <dd class="font-medium text-gray-900 dark:text-white" id="config-monitored">---</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const switchId = {{ switch_id }};
+    
+    // Load Switch Details
+    async function loadSwitchDetails() {
+        try {
+            const response = await apiGet(`/switches/${switchId}/`);
+            
+            // Update header
+            document.getElementById('switch-name').textContent = response.hostname || response.name || 'Unknown';
+            document.getElementById('switch-ip').textContent = response.ip || 'No IP';
+            
+            // Update status banner
+            const banner = document.getElementById('status-banner');
+            banner.classList.remove('hidden');
+            if (response.status === true || response.status === 'online') {
+                banner.className = 'mb-4 p-4 rounded-lg border bg-green-50 border-green-300 dark:bg-green-900 dark:border-green-700';
+                banner.querySelector('i').className = 'fas fa-circle mr-3 text-2xl text-green-500';
+                document.getElementById('status-text').textContent = 'Online';
+                document.getElementById('status-text').className = 'text-lg font-semibold text-green-800 dark:text-green-300';
+            } else {
+                banner.className = 'mb-4 p-4 rounded-lg border bg-red-50 border-red-300 dark:bg-red-900 dark:border-red-700';
+                banner.querySelector('i').className = 'fas fa-circle mr-3 text-2xl text-red-500';
+                document.getElementById('status-text').textContent = 'Offline';
+                document.getElementById('status-text').className = 'text-lg font-semibold text-red-800 dark:text-red-300';
+            }
+            document.getElementById('last-seen').textContent = response.last_update || response.created || 'Never';
+            
+            // Update overview info
+            document.getElementById('info-hostname').textContent = response.hostname || 'N/A';
+            document.getElementById('info-ip').textContent = response.ip || 'N/A';
+            document.getElementById('info-mac').textContent = response.switch_mac || response.mac_address || 'N/A';
+            document.getElementById('info-model').textContent = response.model?.device_model || 'N/A';
+            document.getElementById('info-serial').textContent = response.serial_number || 'N/A';
+            document.getElementById('info-firmware').textContent = response.soft_version || 'N/A';
+            
+            document.getElementById('info-ats').textContent = response.ats?.name || 'N/A';
+            document.getElementById('info-branch').textContent = response.ats?.branch?.name || 'N/A';
+            document.getElementById('info-hostgroup').textContent = response.group?.name || 'N/A';
+            document.getElementById('info-location').textContent = 'N/A';
+            document.getElementById('info-contact').textContent = 'N/A';
+            
+            document.getElementById('info-uptime').textContent = response.uptime || 'N/A';
+            document.getElementById('info-cpu').textContent = 'N/A';
+            document.getElementById('info-memory').textContent = 'N/A';
+            document.getElementById('info-temp').textContent = 'N/A';
+            document.getElementById('info-polled').textContent = response.last_update || 'N/A';
+            
+            // Load ports + neighbors
+            loadPorts();
+            loadNeighbors();
+            
+        } catch (error) {
+            console.error('Error loading switch details:', error);
+        }
+    }
+    
+    // Load Neighbors
+    async function loadNeighbors() {
+        try {
+            const data = await apiGet(`/switches/${switchId}/neighbors/`);
+            const cont = document.getElementById('neighbors-content');
+
+            if (!data || data.length === 0) {
+                cont.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No neighbors found</p>';
+                return;
+            }
+
+            cont.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th class="px-6 py-3">Local Port</th>
+                                <th class="px-6 py-3">Remote MAC</th>
+                                <th class="px-6 py-3">Remote Port</th>
+                                <th class="px-6 py-3">Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(n => `
+                                <tr class="border-b dark:border-gray-700">
+                                    <td class="px-6 py-4">${n.local_interface_name || '—'}</td>
+                                    <td class="px-6 py-4"><code>${n.remote_mac}</code></td>
+                                    <td class="px-6 py-4">${n.remote_port || '—'}</td>
+                                    <td class="px-6 py-4">${n.last_seen || '—'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (e) {
+            console.error('Error loading neighbors:', e);
+        }
+    }
+
+    // Load Ports
+    async function loadPorts() {
+        try {
+            const response = await apiGet(`/switches/${switchId}/ports/`);
+            const tbody = document.getElementById('ports-tbody');
+            
+            if (response && response.length > 0) {
+                // Update stats
+                document.getElementById('ports-total').textContent = response.length;
+                document.getElementById('ports-up').textContent = response.filter(p => p.oper === 1).length;
+                document.getElementById('ports-down').textContent = response.filter(p => p.oper !== 1).length;
+                
+                tbody.innerHTML = response.map(port => `
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="px-6 py-4 font-medium">${port.name || `Port ${port.ifindex}`}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded ${
+                                port.oper === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }">
+                                ${port.oper === 1 ? 'Up' : 'Down'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">${formatSpeed(port.speed)}</td>
+                        <td class="px-6 py-4">${port.duplex || 'N/A'}</td>
+                        <td class="px-6 py-4">N/A</td>
+                        <td class="px-6 py-4">${port.description || port.alias || '-'}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs text-gray-500">In/Out</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <button class="text-blue-600 hover:underline">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center">No ports found</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error loading ports:', error);
+        }
+    }
+    
+    // Poll Switch
+    async function pollSwitch() {
+        try {
+            await apiPost(`/switches/${switchId}/poll/`, {});
+            alert('Polling started! Refresh the page in a few moments to see updated data.');
+        } catch (error) {
+            console.error('Error polling switch:', error);
+            alert('Failed to start polling');
+        }
+    }
+    
+    // Helper Functions
+    function formatSpeed(speed) {
+        if (!speed) return 'N/A';
+        const mbps = speed / 1000000;
+        if (mbps >= 1000) {
+            return (mbps / 1000).toFixed(1) + ' Gbps';
+        }
+        return mbps + ' Mbps';
+    }
+    
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSwitchDetails();
+    });
+</script>
+{% endblock %}

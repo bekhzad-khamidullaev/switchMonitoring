@@ -1,0 +1,47 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Settings - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Profile information loaded from API</p>
+</div>
+
+<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">My profile</h2>
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div>
+      <div class="text-sm text-gray-500">Username</div>
+      <div class="font-medium text-gray-900 dark:text-white" id="set-username">—</div>
+    </div>
+    <div>
+      <div class="text-sm text-gray-500">Email</div>
+      <div class="font-medium text-gray-900 dark:text-white" id="set-email">—</div>
+    </div>
+    <div>
+      <div class="text-sm text-gray-500">Full name</div>
+      <div class="font-medium text-gray-900 dark:text-white" id="set-fullname">—</div>
+    </div>
+    <div>
+      <div class="text-sm text-gray-500">Department</div>
+      <div class="font-medium text-gray-900 dark:text-white" id="set-dept">—</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadSettings() {
+    const me = await apiGet('/users/me/');
+    if (!me) return;
+
+    document.getElementById('set-username').textContent = me.username || '—';
+    document.getElementById('set-email').textContent = me.email || '—';
+    const fn = `${me.first_name || ''} ${me.last_name || ''}`.trim();
+    document.getElementById('set-fullname').textContent = fn || me.username || '—';
+    document.getElementById('set-dept').textContent = me.profile?.department || '—';
+  }
+
+  document.addEventListener('DOMContentLoaded', loadSettings);
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Account - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Account</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Password change via API: /api/v1/users/password/change/</p>
+</div>
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+  <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">My profile</h2>
+    <div class="text-sm text-gray-500" id="acc-profile">Loading...</div>
+  </div>
+
+  <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Change password</h2>
+
+    <div id="pwd-msg" class="hidden p-3 mb-3 text-sm rounded-lg"></div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Old password</label>
+        <input id="old-password" type="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+      </div>
+      <div>
+        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">New password</label>
+        <input id="new-password" type="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+      </div>
+      <div>
+        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm new password</label>
+        <input id="new-password-confirm" type="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+      </div>
+
+      <button onclick="changePassword()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">Update password</button>
+
+      <button onclick="logoutJWT()" class="w-full text-red-600 border border-red-600 hover:bg-red-50 font-medium rounded-lg text-sm px-5 py-2.5">Logout</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadAccount() {
+    const me = await apiGet('/users/me/');
+    if (!me) return;
+    document.getElementById('acc-profile').innerHTML = `
+      <div><b>${me.username}</b> (${me.email || ''})</div>
+      <div>${(me.first_name || '')} ${(me.last_name || '')}</div>
+      <div class="text-xs text-gray-400">Department: ${me.profile?.department || '—'}</div>
+    `;
+  }
+
+  function showMsg(text, ok=true) {
+    const el = document.getElementById('pwd-msg');
+    el.classList.remove('hidden');
+    el.textContent = text;
+    el.className = ok
+      ? 'p-3 mb-3 text-sm rounded-lg bg-green-50 text-green-800'
+      : 'p-3 mb-3 text-sm rounded-lg bg-red-50 text-red-800';
+  }
+
+  async function changePassword() {
+    const payload = {
+      old_password: document.getElementById('old-password').value,
+      new_password: document.getElementById('new-password').value,
+      new_password_confirm: document.getElementById('new-password-confirm').value,
+    };
+
+    const res = await apiRequest('PUT', '/users/password/change/', payload);
+
+    // If API returns errors, show generic
+    if (!res || res.success === false) {
+      showMsg('Failed to change password. Check old password and validation rules.', false);
+      return;
+    }
+
+    showMsg('Password updated successfully');
+    document.getElementById('old-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-password-confirm').value = '';
+  }
+
+  document.addEventListener('DOMContentLoaded', loadAccount);
+</script>
+{% endblock %}

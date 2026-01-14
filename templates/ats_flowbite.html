@@ -1,0 +1,152 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}ATS - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">ATS</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">Administrative Territorial Structures (API: /api/v1/ats/)</p>
+  </div>
+  <button data-modal-target="ats-modal" data-modal-toggle="ats-modal" onclick="openCreateAtsModal()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+    <i class="fas fa-plus mr-2"></i>Add ATS
+  </button>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">ID</th>
+          <th class="px-6 py-3">Name</th>
+          <th class="px-6 py-3">Subnet</th>
+          <th class="px-6 py-3">Branch</th>
+          <th class="px-6 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="ats-body">
+        <tr><td colspan="4" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ATS Modal -->
+<div id="ats-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-600">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="ats-modal-title">Add ATS</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8" data-modal-hide="ats-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-4">
+        <div id="ats-modal-error" class="hidden p-3 mb-3 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+        <input type="hidden" id="ats-id" />
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+            <input id="ats-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+          </div>
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Subnet</label>
+            <input id="ats-subnet" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="10.0.0.0 (IP only)" />
+          </div>
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Branch ID</label>
+            <input id="ats-branch" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="(optional)" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button data-modal-hide="ats-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+          <button onclick="saveAts()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function openCreateAtsModal() {
+    document.getElementById('ats-modal-title').textContent = 'Add ATS';
+    document.getElementById('ats-id').value = '';
+    document.getElementById('ats-name').value = '';
+    document.getElementById('ats-subnet').value = '';
+    document.getElementById('ats-branch').value = '';
+  }
+
+  async function openEditAtsModal(id) {
+    const a = await apiGet(`/ats/${id}/`);
+    document.getElementById('ats-modal-title').textContent = 'Edit ATS';
+    document.getElementById('ats-id').value = a.id;
+    document.getElementById('ats-name').value = a.name || '';
+    document.getElementById('ats-subnet').value = a.subnet || '';
+    document.getElementById('ats-branch').value = a.branch?.id || '';
+  }
+
+  async function saveAts() {
+    const err = document.getElementById('ats-modal-error');
+    err.classList.add('hidden');
+    const id = document.getElementById('ats-id').value;
+
+    let subnetVal = document.getElementById('ats-subnet').value;
+    // Backend field is IP address (not CIDR). If user enters CIDR, strip mask.
+    if (subnetVal && subnetVal.includes('/')) {
+      subnetVal = subnetVal.split('/')[0];
+    }
+
+    const payload = {
+      name: document.getElementById('ats-name').value,
+      subnet: subnetVal,
+    };
+    const branchId = document.getElementById('ats-branch').value;
+    if (branchId) payload.branch = branchId;
+
+    try {
+      if (id) {
+        await apiPatch(`/ats/${id}/`, payload);
+      } else {
+        await apiPost('/ats/', payload);
+      }
+      document.querySelectorAll('[data-modal-hide="ats-modal"]').forEach(b => b.click());
+      loadAts();
+    } catch (e) {
+      err.textContent = 'Failed to save ATS';
+      err.classList.remove('hidden');
+    }
+  }
+
+  async function deleteAts(id) {
+    if (!confirm('Delete ATS?')) return;
+    await apiDelete(`/ats/${id}/`);
+    loadAts();
+  }
+
+  async function loadAts() { 
+
+    const data = await apiGet('/ats/?page_size=500&ordering=name');
+    const body = document.getElementById('ats-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">No ATS</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(a => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${a.id}</td>
+        <td class="px-6 py-4">${a.name || '—'}</td>
+        <td class="px-6 py-4">${a.subnet || '—'}</td>
+        <td class="px-6 py-4">${a.branch?.name || '—'}</td>
+      </tr>
+    `).join('');
+  }
+  document.addEventListener('DOMContentLoaded', loadAts);
+</script>
+{% endblock %}

@@ -1,0 +1,366 @@
+{% extends 'base_flowbite.html' %}
+
+{% block title %}Dashboard - SNMP Network Management{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="mb-4">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">Network monitoring and management overview</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 lg:grid-cols-4">
+    <!-- Total Switches -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 card-hover">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h5 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Switches</h5>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white" id="total-switches">---</p>
+            </div>
+            <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900">
+                <i class="fas fa-network-wired text-2xl text-blue-600 dark:text-blue-300"></i>
+            </div>
+        </div>
+        <div class="flex items-center text-sm">
+            <i class="fas fa-arrow-up text-green-500 mr-1"></i>
+            <span class="text-green-500 font-medium">12%</span>
+            <span class="text-gray-500 dark:text-gray-400 ml-2">from last month</span>
+        </div>
+    </div>
+
+    <!-- Online Switches -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 card-hover">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h5 class="text-sm font-medium text-gray-500 dark:text-gray-400">Online</h5>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="online-switches">---</p>
+            </div>
+            <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900">
+                <i class="fas fa-check-circle text-2xl text-green-600 dark:text-green-300"></i>
+            </div>
+        </div>
+        <div class="flex items-center text-sm">
+            <span class="text-gray-500 dark:text-gray-400">Uptime:</span>
+            <span class="text-green-600 font-medium ml-2" id="uptime-percentage">---</span>
+        </div>
+    </div>
+
+    <!-- Offline Switches -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 card-hover">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h5 class="text-sm font-medium text-gray-500 dark:text-gray-400">Offline</h5>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400" id="offline-switches">---</p>
+            </div>
+            <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900">
+                <i class="fas fa-exclamation-circle text-2xl text-red-600 dark:text-red-300"></i>
+            </div>
+        </div>
+        <div class="flex items-center text-sm">
+            <i class="fas fa-arrow-down text-red-500 mr-1"></i>
+            <span class="text-red-500 font-medium">3 devices</span>
+            <span class="text-gray-500 dark:text-gray-400 ml-2">need attention</span>
+        </div>
+    </div>
+
+    <!-- Total Ports -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 card-hover">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h5 class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Ports</h5>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white" id="active-ports">---</p>
+            </div>
+            <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900">
+                <i class="fas fa-ethernet text-2xl text-purple-600 dark:text-purple-300"></i>
+            </div>
+        </div>
+        <div class="flex items-center text-sm">
+            <span class="text-gray-500 dark:text-gray-400">of</span>
+            <span class="text-gray-900 dark:text-white font-medium ml-1" id="total-ports">---</span>
+            <span class="text-gray-500 dark:text-gray-400 ml-1">total</span>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 gap-4 mb-4 lg:grid-cols-2">
+    <!-- Network Traffic Chart -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white">Network Traffic</h5>
+            <button class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+        </div>
+        <div id="traffic-chart"></div>
+    </div>
+
+    <!-- Switch Status Distribution -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white">Switch Status</h5>
+            <button class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+        </div>
+        <div id="status-chart"></div>
+    </div>
+</div>
+
+<!-- Recent Switches & Alerts -->
+<div class="grid grid-cols-1 gap-4 mb-4 lg:grid-cols-2">
+    <!-- Recent Switches -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Switches</h5>
+            <a href="{% url 'switch_list' %}" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+                View all
+            </a>
+        </div>
+        
+        <div class="flow-root">
+            <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700" id="recent-switches">
+                <!-- Loading placeholder -->
+                <li class="py-3 sm:py-4">
+                    <div class="flex items-center space-x-4 animate-pulse">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="h-4 bg-gray-200 rounded dark:bg-gray-700 mb-2"></div>
+                            <div class="h-3 bg-gray-200 rounded dark:bg-gray-700 w-3/4"></div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- System Alerts -->
+    <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white">System Alerts</h5>
+            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                3 New
+            </span>
+        </div>
+        
+        <div class="flow-root">
+            <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+                <li class="py-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="flex items-center justify-center w-8 h-8 bg-red-100 rounded-full dark:bg-red-900">
+                                <i class="fas fa-exclamation text-red-600 dark:text-red-300"></i>
+                            </span>
+                        </div>
+                        <div class="ml-3 w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                Switch Offline
+                            </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Core-Switch-01 is not responding
+                            </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                5 minutes ago
+                            </p>
+                        </div>
+                    </div>
+                </li>
+                
+                <li class="py-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="flex items-center justify-center w-8 h-8 bg-yellow-100 rounded-full dark:bg-yellow-900">
+                                <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-300"></i>
+                            </span>
+                        </div>
+                        <div class="ml-3 w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                High CPU Usage
+                            </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Branch-Switch-12 CPU at 89%
+                            </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                12 minutes ago
+                            </p>
+                        </div>
+                    </div>
+                </li>
+                
+                <li class="py-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="flex items-center justify-center w-8 h-8 bg-yellow-100 rounded-full dark:bg-yellow-900">
+                                <i class="fas fa-temperature-high text-yellow-600 dark:text-yellow-300"></i>
+                            </span>
+                        </div>
+                        <div class="ml-3 w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                High Temperature
+                            </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Access-Switch-05 temp: 72°C
+                            </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                1 hour ago
+                            </p>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Network Map Preview -->
+<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center justify-between mb-4">
+        <h5 class="text-lg font-semibold text-gray-900 dark:text-white">Network Topology</h5>
+        <a href="#" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+            Full View
+        </a>
+    </div>
+    <div class="flex items-center justify-center h-64 bg-gray-100 dark:bg-gray-700 rounded-lg">
+        <p class="text-gray-500 dark:text-gray-400">
+            <i class="fas fa-project-diagram text-4xl mb-2"></i><br>
+            Network topology visualization
+        </p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fetch Dashboard Statistics
+    async function loadDashboardStats() {
+        try {
+            const response = await apiGet('/dashboard/statistics/');
+            
+            // Update stats cards
+            document.getElementById('total-switches').textContent = response.total_switches || 0;
+            document.getElementById('online-switches').textContent = response.online_switches || 0;
+            document.getElementById('offline-switches').textContent = response.offline_switches || 0;
+            document.getElementById('active-ports').textContent = response.active_ports || 0;
+            document.getElementById('total-ports').textContent = response.total_ports || 0;
+            document.getElementById('uptime-percentage').textContent = 
+                (response.uptime_percentage || 0).toFixed(1) + '%';
+            
+            // Load charts
+            await loadTrafficChartFromApi();
+            loadStatusChart(response);
+            loadRecentSwitches();
+        } catch (error) {
+            console.error('Error loading dashboard stats:', error);
+        }
+    }
+    
+    // Traffic Chart (from API /bandwidth)
+    async function loadTrafficChartFromApi() {
+        // Get recent samples and build a simple time series
+        const data = await apiGet('/bandwidth/?page_size=100&ordering=-ts');
+        const el = document.querySelector('#traffic-chart');
+        if (!data || !data.results || data.results.length === 0) {
+            el.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400">No bandwidth samples</div>';
+            return;
+        }
+
+        const points = data.results.slice().reverse();
+        const categories = points.map(p => (p.ts || '').slice(11, 19));
+        const inSeries = points.map(p => p.in_bps || 0);
+        const outSeries = points.map(p => p.out_bps || 0);
+
+        const options = {
+            chart: { type: 'area', height: 300, toolbar: { show: false } },
+            series: [
+                { name: 'Inbound', data: inSeries },
+                { name: 'Outbound', data: outSeries },
+            ],
+            xaxis: { categories },
+            colors: ['#3b82f6', '#10b981'],
+            stroke: { curve: 'smooth' },
+            fill: {
+                type: 'gradient',
+                gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.3 }
+            }
+        };
+
+        el.innerHTML = '';
+        new ApexCharts(el, options).render();
+    }
+    
+    // Status Chart
+    function loadStatusChart(data) {
+        const options = {
+            chart: {
+                type: 'donut',
+                height: 300
+            },
+            series: [
+                data.online_switches || 0,
+                data.offline_switches || 0,
+                data.warning_switches || 0
+            ],
+            labels: ['Online', 'Offline', 'Warning'],
+            colors: ['#10b981', '#ef4444', '#f59e0b'],
+            legend: {
+                position: 'bottom'
+            }
+        };
+        
+        const chart = new ApexCharts(document.querySelector("#status-chart"), options);
+        chart.render();
+    }
+    
+    // Load Recent Switches
+    async function loadRecentSwitches() {
+        try {
+            const response = await apiGet('/switches/?page_size=5&ordering=-created');
+            const container = document.getElementById('recent-switches');
+            
+            if (response.results && response.results.length > 0) {
+                container.innerHTML = response.results.map(sw => `
+                    <li class="py-3 sm:py-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                                <span class="flex items-center justify-center w-8 h-8 rounded-full ${
+                                    sw.status === 'online' || sw.status ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                                }">
+                                    <i class="fas fa-network-wired ${
+                                        sw.status === 'online' || sw.status ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'
+                                    }"></i>
+                                </span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate dark:text-white">
+                                    ${sw.hostname || sw.name || 'Unknown'}
+                                </p>
+                                <p class="text-sm text-gray-500 truncate dark:text-gray-400">
+                                    ${sw.ip || 'No IP'}
+                                </p>
+                            </div>
+                            <div class="inline-flex items-center text-base font-semibold ${
+                                sw.status === 'online' || sw.status ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                            }">
+                                ${sw.status === 'online' || sw.status ? 'Online' : 'Offline'}
+                            </div>
+                        </div>
+                    </li>
+                `).join('');
+            } else {
+                container.innerHTML = '<li class="py-3 text-center text-gray-500">No switches found</li>';
+            }
+        } catch (error) {
+            console.error('Error loading recent switches:', error);
+        }
+    }
+    
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardStats();
+    });
+</script>
+{% endblock %}

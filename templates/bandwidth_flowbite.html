@@ -1,0 +1,72 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Bandwidth - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Bandwidth</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/bandwidth/</p>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent samples</h2>
+    <button onclick="loadBandwidth()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Refresh</button>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">Time</th>
+          <th class="px-6 py-3">Switch</th>
+          <th class="px-6 py-3">Interface</th>
+          <th class="px-6 py-3">In bps</th>
+          <th class="px-6 py-3">Out bps</th>
+          <th class="px-6 py-3">Interval</th>
+        </tr>
+      </thead>
+      <tbody id="bw-body">
+        <tr><td colspan="6" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function bpsHuman(v) {
+    if (v === null || v === undefined) return '—';
+    if (v >= 1e9) return (v/1e9).toFixed(2)+' Gbps';
+    if (v >= 1e6) return (v/1e6).toFixed(2)+' Mbps';
+    if (v >= 1e3) return (v/1e3).toFixed(2)+' Kbps';
+    return v+' bps';
+  }
+
+  async function loadBandwidth() {
+    const data = await apiGet('/bandwidth/?page_size=200&ordering=-ts');
+    const body = document.getElementById('bw-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center">No samples</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(s => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${s.ts}</td>
+        <td class="px-6 py-4">${s.switch_id || '—'}</td>
+        <td class="px-6 py-4">${s.interface_name || s.interface}</td>
+        <td class="px-6 py-4">${bpsHuman(s.in_bps)}</td>
+        <td class="px-6 py-4">${bpsHuman(s.out_bps)}</td>
+        <td class="px-6 py-4">${s.interval_sec || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', loadBandwidth);
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Switch Models - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Switch Models</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/switch-models/</p>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">ID</th>
+          <th class="px-6 py-3">Vendor</th>
+          <th class="px-6 py-3">Model</th>
+          <th class="px-6 py-3">Required MIBs</th>
+        </tr>
+      </thead>
+      <tbody id="sm-body">
+        <tr><td colspan="4" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadModels() {
+    const data = await apiGet('/switch-models/?page_size=200&ordering=device_model');
+    const body = document.getElementById('sm-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">No models</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(m => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${m.id}</td>
+        <td class="px-6 py-4">${m.vendor?.name || '—'}</td>
+        <td class="px-6 py-4">${m.device_model || '—'}</td>
+        <td class="px-6 py-4">${m.required_mibs || '—'}</td>
+      </tr>
+    `).join('');
+  }
+  document.addEventListener('DOMContentLoaded', loadModels);
+</script>
+{% endblock %}

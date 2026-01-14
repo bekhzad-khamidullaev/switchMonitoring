@@ -1,21 +1,67 @@
+"""snmp.api.serializers
+
+Serializers aligned with the existing project models in `snmp.models`.
+
+Important: this project uses the legacy/normalized schema:
+- Ats (not ATS)
+- Switch fields: hostname, ip, switch_mac, created, last_update, status (bool)
+- Interface (not SwitchPort)
+- NeighborLink (not SwitchNeighbor)
+- InterfaceBandwidthSample (not BandwidthSample)
+
+These serializers are intentionally pragmatic: they cover the fields actually
+present in the DB schema and used by the Flowbite frontend.
+"""
+
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from snmp.models import (
-    Switch,
-    SwitchModel,
+    Ats,
+    Branch,
+    HostGroup,
     Vendor,
+    SwitchModel,
+    Switch,
     Interface,
     InterfaceOptics,
-    InterfaceL2,
-    MacEntry,
+    NeighborLink,
     InterfaceBandwidthSample,
 )
+
+
+User = get_user_model()
+
+
+# -------------------------
+# Reference serializers
+# -------------------------
+
+
+class BranchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Branch
+        fields = ["id", "name"]
+
+
+class AtsSerializer(serializers.ModelSerializer):
+    branch = BranchSerializer(read_only=True)
+
+    class Meta:
+        model = Ats
+        fields = ["id", "name", "subnet", "branch"]
+
+
+class HostGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostGroup
+        fields = ["id", "branch", "parent", "name", "sort_order"]
 
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ['id', 'name']
+        fields = ["id", "name"]
 
 
 class SwitchModelSerializer(serializers.ModelSerializer):
@@ -23,63 +69,218 @@ class SwitchModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SwitchModel
-        fields = ['id', 'device_model', 'vendor']
+        fields = [
+            "id",
+            "vendor",
+            "device_model",
+            "rx_oid",
+            "tx_oid",
+            "part_num_oid",
+            "sfp_vendor",
+            "port_num_oid",
+            "max_ports_oid",
+            "description_oid",
+            "speed_oid",
+            "duplex_oid",
+            "admin_state_oid",
+            "oper_state_oid",
+            "required_mibs",
+            "ddm_index_type",
+            "rx_power_object",
+            "tx_power_object",
+            "temperature_object",
+            "voltage_object",
+            "sfp_vendor_object",
+            "part_num_object",
+            "serial_num_object",
+            "power_unit",
+            "temperature_unit",
+        ]
 
 
-class SwitchSerializer(serializers.ModelSerializer):
+# -------------------------
+# Switch / Interface serializers
+# -------------------------
+
+
+class SwitchListSerializer(serializers.ModelSerializer):
+    ats = AtsSerializer(read_only=True)
     model = SwitchModelSerializer(read_only=True)
-    ats = serializers.SerializerMethodField()
-    branch = serializers.SerializerMethodField()
-    min_rx = serializers.FloatField(read_only=True)
-    min_tx = serializers.FloatField(read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
 
     class Meta:
         model = Switch
-        fields = ['id', 'hostname', 'ip', 'status', 'uptime', 'model', 'ats', 'branch', 'min_rx', 'min_tx']
-
-    def get_ats(self, obj):
-        if not obj.ats_id:
-            return None
-        return {'id': obj.ats_id, 'name': getattr(obj.ats, 'name', None)}
-
-    def get_branch(self, obj):
-        if not obj.ats_id or not getattr(obj.ats, 'branch_id', None):
-            return None
-        return {'id': obj.ats.branch_id, 'name': getattr(obj.ats.branch, 'name', None)}
+        fields = [
+            "id",
+            "hostname",
+            "ip",
+            "switch_mac",
+            "status",
+            "created",
+            "last_update",
+            "uptime",
+            "serial_number",
+            "soft_version",
+            "ats",
+            "model",
+            "group_name",
+        ]
 
 
 class InterfaceOpticsSerializer(serializers.ModelSerializer):
     class Meta:
         model = InterfaceOptics
-        fields = ['rx_dbm', 'tx_dbm', 'sfp_vendor', 'part_number', 'serial_number', 'temperature_c', 'voltage_v', 'polled_at']
-
-
-class InterfaceL2Serializer(serializers.ModelSerializer):
-    class Meta:
-        model = InterfaceL2
-        fields = ['pvid', 'tagged_vlans', 'untagged_vlans', 'mac_count']
+        fields = [
+            "rx_dbm",
+            "tx_dbm",
+            "temperature_c",
+            "voltage_v",
+            "sfp_vendor",
+            "part_number",
+            "serial_number",
+            "polled_at",
+        ]
 
 
 class InterfaceSerializer(serializers.ModelSerializer):
+    switch_hostname = serializers.CharField(source="switch.hostname", read_only=True)
+    switch_ip = serializers.CharField(source="switch.ip", read_only=True)
     optics = InterfaceOpticsSerializer(read_only=True)
-    l2 = InterfaceL2Serializer(read_only=True)
 
     class Meta:
         model = Interface
         fields = [
-            'id', 'switch', 'ifindex', 'name', 'description', 'alias',
-            'iftype', 'speed', 'admin', 'oper', 'lastchange', 'polled_at',
-            'optics', 'l2',
+            "id",
+            "switch",
+            "switch_hostname",
+            "switch_ip",
+            "ifindex",
+            "name",
+            "description",
+            "alias",
+            "iftype",
+            "speed",
+            "duplex",
+            "admin",
+            "oper",
+            "lastchange",
+            "discards_in",
+            "discards_out",
+            "polled_at",
+            "optics",
         ]
 
 
-class MacEntrySerializer(serializers.ModelSerializer):
+class NeighborLinkSerializer(serializers.ModelSerializer):
+    local_switch_hostname = serializers.CharField(source="local_switch.hostname", read_only=True)
+    local_switch_ip = serializers.CharField(source="local_switch.ip", read_only=True)
+    local_interface_name = serializers.CharField(source="local_interface.name", read_only=True)
+
     class Meta:
-        model = MacEntry
-        fields = ['id', 'switch', 'interface', 'mac', 'vlan', 'ip', 'first_seen', 'last_seen']
+        model = NeighborLink
+        fields = [
+            "id",
+            "local_switch",
+            "local_switch_hostname",
+            "local_switch_ip",
+            "local_interface",
+            "local_interface_name",
+            "remote_mac",
+            "remote_port",
+            "last_seen",
+        ]
 
 
-class BandwidthSampleSerializer(serializers.ModelSerializer):
+class SwitchDetailSerializer(serializers.ModelSerializer):
+    ats = AtsSerializer(read_only=True)
+    model = SwitchModelSerializer(read_only=True)
+    group = HostGroupSerializer(read_only=True)
+    interfaces = InterfaceSerializer(many=True, read_only=True)
+    neighbor_links = NeighborLinkSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Switch
+        fields = [
+            "id",
+            "hostname",
+            "ip",
+            "switch_mac",
+            "status",
+            "created",
+            "last_update",
+            "uptime",
+            "serial_number",
+            "soft_version",
+            "snmp_community_ro",
+            "snmp_community_rw",
+            "ats",
+            "model",
+            "group",
+            "interfaces",
+            "neighbor_links",
+        ]
+        extra_kwargs = {
+            "snmp_community_ro": {"write_only": True},
+            "snmp_community_rw": {"write_only": True},
+        }
+
+
+class SwitchCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Switch
+        fields = [
+            "id",
+            "hostname",
+            "ip",
+            "switch_mac",
+            "status",
+            "ats",
+            "group",
+            "model",
+            "snmp_community_ro",
+            "snmp_community_rw",
+            "soft_version",
+            "serial_number",
+            "uptime",
+        ]
+        extra_kwargs = {
+            "snmp_community_ro": {"write_only": True, "required": False},
+            "snmp_community_rw": {"write_only": True, "required": False},
+        }
+
+
+# -------------------------
+# Bandwidth
+# -------------------------
+
+
+class InterfaceBandwidthSampleSerializer(serializers.ModelSerializer):
+    interface_name = serializers.CharField(source="interface.name", read_only=True)
+    switch_id = serializers.IntegerField(source="interface.switch_id", read_only=True)
+
     class Meta:
         model = InterfaceBandwidthSample
-        fields = ['id', 'interface', 'ts', 'in_bps', 'out_bps', 'interval_sec', 'in_octets', 'out_octets']
+        fields = [
+            "id",
+            "interface",
+            "interface_name",
+            "switch_id",
+            "ts",
+            "in_bps",
+            "out_bps",
+            "interval_sec",
+            "in_octets",
+            "out_octets",
+        ]
+
+
+class DashboardStatsSerializer(serializers.Serializer):
+    total_switches = serializers.IntegerField()
+    online_switches = serializers.IntegerField()
+    offline_switches = serializers.IntegerField()
+    total_ports = serializers.IntegerField()
+    active_ports = serializers.IntegerField()
+    total_branches = serializers.IntegerField()
+    total_ats = serializers.IntegerField()
+    uptime_percentage = serializers.FloatField()
+    last_updated = serializers.DateTimeField()

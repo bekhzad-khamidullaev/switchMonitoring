@@ -1,0 +1,61 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Topology - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Topology</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Neighbors list (loaded from API). Visual graph can be added later.</p>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="p-4 border-b dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Neighbor links</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">Local switch</th>
+          <th class="px-6 py-3">Local port</th>
+          <th class="px-6 py-3">Remote MAC</th>
+          <th class="px-6 py-3">Remote port</th>
+          <th class="px-6 py-3">Last seen</th>
+        </tr>
+      </thead>
+      <tbody id="topology-body">
+        <tr><td colspan="5" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadNeighbors() {
+    const data = await apiGet('/neighbors/?page_size=100&ordering=-last_seen');
+    const body = document.getElementById('topology-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">No links</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(n => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${n.local_switch_hostname || '—'}<div class="text-xs text-gray-400">${n.local_switch_ip || ''}</div></td>
+        <td class="px-6 py-4">${n.local_interface_name || '—'}</td>
+        <td class="px-6 py-4"><code>${n.remote_mac}</code></td>
+        <td class="px-6 py-4">${n.remote_port || '—'}</td>
+        <td class="px-6 py-4">${n.last_seen || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', loadNeighbors);
+</script>
+{% endblock %}

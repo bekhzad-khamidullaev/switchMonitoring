@@ -1,0 +1,128 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Branches - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Branches</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">Loaded from API (/api/v1/branches/)</p>
+  </div>
+  <button data-modal-target="branch-modal" data-modal-toggle="branch-modal" onclick="openCreateBranchModal()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+    <i class="fas fa-plus mr-2"></i>Add Branch
+  </button>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">ID</th>
+          <th class="px-6 py-3">Name</th>
+          <th class="px-6 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="branches-body">
+        <tr><td colspan="2" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Branch Modal -->
+<div id="branch-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-600">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="branch-modal-title">Add Branch</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8" data-modal-hide="branch-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-4">
+        <div id="branch-modal-error" class="hidden p-3 mb-3 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+        <input type="hidden" id="branch-id" />
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+            <input id="branch-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button data-modal-hide="branch-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+          <button onclick="saveBranch()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function openCreateBranchModal() {
+    document.getElementById('branch-modal-title').textContent = 'Add Branch';
+    document.getElementById('branch-id').value = '';
+    document.getElementById('branch-name').value = '';
+  }
+
+  async function openEditBranchModal(id) {
+    const b = await apiGet(`/branches/${id}/`);
+    document.getElementById('branch-modal-title').textContent = 'Edit Branch';
+    document.getElementById('branch-id').value = b.id;
+    document.getElementById('branch-name').value = b.name || '';
+  }
+
+  async function saveBranch() {
+    const err = document.getElementById('branch-modal-error');
+    err.classList.add('hidden');
+
+    const id = document.getElementById('branch-id').value;
+    const payload = { name: document.getElementById('branch-name').value };
+
+    try {
+      if (id) {
+        await apiPatch(`/branches/${id}/`, payload);
+      } else {
+        await apiPost('/branches/', payload);
+      }
+      document.querySelectorAll('[data-modal-hide="branch-modal"]').forEach(b => b.click());
+      loadBranches();
+    } catch (e) {
+      err.textContent = 'Failed to save Branch';
+      err.classList.remove('hidden');
+    }
+  }
+
+  async function deleteBranch(id) {
+    if (!confirm('Delete Branch?')) return;
+    await apiDelete(`/branches/${id}/`);
+    loadBranches();
+  }
+
+  async function loadBranches() {
+    const data = await apiGet('/branches/?page_size=200');
+    const body = document.getElementById('branches-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-red-500">Failed</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center">No branches</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(b => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${b.id}</td>
+        <td class="px-6 py-4">${b.name || '—'}</td>
+        <td class="px-6 py-4">
+          <button class="text-green-600 hover:underline mr-3" data-modal-target="branch-modal" data-modal-toggle="branch-modal" onclick="openEditBranchModal(${b.id})"><i class="fas fa-edit"></i></button>
+          <button class="text-red-600 hover:underline" onclick="deleteBranch(${b.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+  document.addEventListener('DOMContentLoaded', loadBranches);
+</script>
+{% endblock %}

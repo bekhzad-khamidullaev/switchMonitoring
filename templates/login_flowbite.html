@@ -1,0 +1,83 @@
+{% extends 'base_flowbite.html' %}
+
+{% block title %}Login - SNMP Manager{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[70vh]">
+  <div class="w-full max-w-md bg-white rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
+    <div class="p-6 space-y-6 sm:p-8">
+      <div class="text-center">
+        <div class="flex items-center justify-center mb-3">
+          <i class="fas fa-network-wired text-4xl text-blue-600"></i>
+        </div>
+        <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+          Sign in to SNMP Manager
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          Use your username and password to get a JWT token.
+        </p>
+      </div>
+
+      <div id="login-error" class="hidden p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-700 dark:text-red-400" role="alert"></div>
+
+      <form class="space-y-4" onsubmit="return false;">
+        <div>
+          <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
+          <input type="text" name="username" id="username" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="admin" required>
+        </div>
+        <div>
+          <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+          <input type="password" name="password" id="password" placeholder="••••••••" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+        </div>
+
+        <button id="login-btn" type="button" onclick="loginJWT()" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+          Sign in
+        </button>
+
+        <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
+          Swagger UI: <a class="text-blue-600 hover:underline" href="/api/v1/docs/" target="_blank">/api/v1/docs/</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loginJWT() {
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    err.classList.add('hidden');
+
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+
+    try {
+      const res = await fetch('/api/v1/auth/token/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Invalid credentials');
+      }
+
+      setTokens(data.access, data.refresh);
+      await loadCurrentUser();
+      window.location.href = '/snmp/dashboard/';
+    } catch (e) {
+      err.textContent = e.message || 'Login failed';
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+</script>
+{% endblock %}

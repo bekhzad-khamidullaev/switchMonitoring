@@ -1,0 +1,490 @@
+{% extends 'base_flowbite.html' %}
+
+{% block title %}Switches - SNMP Network Management{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="mb-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Switches</h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-1">Manage and monitor all network switches</p>
+    </div>
+    <button type="button" data-modal-target="switch-modal" data-modal-toggle="switch-modal" onclick="openCreateSwitchModal()" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+        <i class="fas fa-plus mr-2"></i>Add Switch
+    </button>
+</div>
+
+<!-- Filters & Search -->
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <!-- Search -->
+        <div class="col-span-2">
+            <label for="search" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <i class="fas fa-search text-gray-500 dark:text-gray-400"></i>
+                </div>
+                <input type="text" id="search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Search by name, IP, MAC...">
+            </div>
+        </div>
+        
+        <!-- Status Filter -->
+        <div>
+            <label for="status-filter" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+            <select id="status-filter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                <option value="">All</option>
+                <option value="true">Online</option>
+                <option value="false">Offline</option>
+            </select>
+        </div>
+        
+        <!-- Branch Filter -->
+        <div>
+            <label for="branch-filter" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Branch</label>
+            <select id="branch-filter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                <option value="">All Branches</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Switches Table -->
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <!-- Table Header with Actions -->
+    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Total: <span id="total-count" class="font-bold">0</span> switches
+                </span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button type="button" class="text-gray-700 hover:text-white border border-gray-700 hover:bg-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-xs px-3 py-1.5 text-center dark:border-gray-600 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-800">
+                    <i class="fas fa-download mr-1"></i>Export
+                </button>
+                <button type="button" class="text-gray-700 hover:text-white border border-gray-700 hover:bg-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-xs px-3 py-1.5 text-center dark:border-gray-600 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-800">
+                    <i class="fas fa-sync mr-1"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Table -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <tr>
+                    <th scope="col" class="px-4 py-3">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    </th>
+                    <th scope="col" class="px-6 py-3">Status</th>
+                    <th scope="col" class="px-6 py-3">Name</th>
+                    <th scope="col" class="px-6 py-3">IP Address</th>
+                    <th scope="col" class="px-6 py-3">MAC Address</th>
+                    <th scope="col" class="px-6 py-3">Model</th>
+                    <th scope="col" class="px-6 py-3">Branch</th>
+                    <th scope="col" class="px-6 py-3">Uptime</th>
+                    <th scope="col" class="px-6 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="switches-tbody">
+                <!-- Loading State -->
+                <tr>
+                    <td colspan="9" class="px-6 py-4 text-center">
+                        <div role="status">
+                            <svg aria-hidden="true" class="inline w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                                <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                            </svg>
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-700 dark:text-gray-400">
+                Showing <span id="showing-from">0</span> to <span id="showing-to">0</span> of <span id="showing-total">0</span> entries
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="inline-flex -space-x-px text-sm" id="pagination">
+                    <!-- Pagination buttons will be inserted here -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Switch Modal -->
+<div id="switch-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-2xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-white" id="switch-modal-title">Add Switch</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="switch-modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="p-4 md:p-5">
+        <div id="switch-modal-error" class="hidden p-3 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+
+        <form class="grid grid-cols-1 gap-4 md:grid-cols-2" onsubmit="return false;">
+          <input type="hidden" id="sw-id" />
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Hostname</label>
+            <input id="sw-hostname" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="SW-01" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">IP</label>
+            <input id="sw-ip" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="10.0.0.1" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">MAC</label>
+            <input id="sw-mac" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="00:11:22:33:44:55" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Serial</label>
+            <input id="sw-serial" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">ATS</label>
+            <select id="sw-ats" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Host Group</label>
+            <select id="sw-group" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Model</label>
+            <select id="sw-model" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+            <select id="sw-status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="true">Online</option>
+              <option value="false">Offline</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SNMP RO</label>
+            <input id="sw-snmp-ro" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="public" />
+          </div>
+
+          <div class="md:col-span-2 flex justify-end gap-2 pt-2">
+            <button data-modal-hide="switch-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+            <button id="sw-save-btn" onclick="saveSwitch()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+            <button type="button" class="absolute top-3 end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="delete-modal">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="p-4 md:p-5 text-center">
+                <i class="fas fa-exclamation-triangle text-5xl text-red-600 mb-4"></i>
+                <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">Are you sure you want to delete this switch?</h3>
+                <button data-modal-hide="delete-modal" type="button" onclick="confirmDeleteSwitch()" class="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center">
+                    Yes, I'm sure
+                </button>
+                <button data-modal-hide="delete-modal" type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+                    No, cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let filters = {};
+    
+    // Load Switches
+    async function loadSwitches(page = 1) {
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                page_size: 20,
+                ...filters
+            });
+            
+            const response = await apiGet(`/switches/?${params}`);
+            
+            // Update table
+            const tbody = document.getElementById('switches-tbody');
+            if (response.results && response.results.length > 0) {
+                tbody.innerHTML = response.results.map(sw => `
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-4 py-4">
+                            <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                sw.status === true || sw.status === 'online' 
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
+                                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                            }">
+                                <span class="w-2 h-2 mr-1 rounded-full ${
+                                    sw.status === true || sw.status === 'online' ? 'bg-green-500' : 'bg-red-500'
+                                }"></span>
+                                ${sw.status === true || sw.status === 'online' ? 'Online' : 'Offline'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                            <a href="/snmp/switches/${sw.id}/" class="hover:underline">
+                                ${sw.hostname || sw.name || 'N/A'}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">${sw.ip || 'N/A'}</td>
+                        <td class="px-6 py-4"><code class="text-xs">${sw.switch_mac || sw.mac_address || 'N/A'}</code></td>
+                        <td class="px-6 py-4">${(sw.model && sw.model.device_model) ? sw.model.device_model : 'N/A'}</td>
+                        <td class="px-6 py-4">${(sw.ats && sw.ats.name) ? sw.ats.name : 'N/A'}</td>
+                        <td class="px-6 py-4">${formatUptime(sw.uptime)}</td>
+                        <td class="px-6 py-4">
+                            <button type="button" class="font-medium text-blue-600 dark:text-blue-500 hover:underline mr-3" onclick="viewSwitch(${sw.id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button type="button" class="font-medium text-green-600 dark:text-green-500 hover:underline mr-3" onclick="editSwitch(${sw.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="font-medium text-red-600 dark:text-red-500 hover:underline" data-modal-target="delete-modal" data-modal-toggle="delete-modal" onclick="selectSwitchForDelete(${sw.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">No switches found</td></tr>';
+            }
+            
+            // Update pagination
+            updatePagination(response);
+            
+            // Update counters
+            document.getElementById('total-count').textContent = response.count || 0;
+            document.getElementById('showing-from').textContent = response.results.length > 0 ? ((page - 1) * 20 + 1) : 0;
+            document.getElementById('showing-to').textContent = Math.min(page * 20, response.count || 0);
+            document.getElementById('showing-total').textContent = response.count || 0;
+            
+        } catch (error) {
+            console.error('Error loading switches:', error);
+            document.getElementById('switches-tbody').innerHTML = 
+                '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error loading switches</td></tr>';
+        }
+    }
+    
+    // Update Pagination
+    function updatePagination(response) {
+        const container = document.getElementById('pagination');
+        const totalPages = Math.ceil(response.count / 20);
+        let html = '';
+        
+        // Previous button
+        html += `
+            <li>
+                <button ${!response.previous ? 'disabled' : ''} 
+                    onclick="loadSwitches(${currentPage - 1})"
+                    class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white ${!response.previous ? 'opacity-50 cursor-not-allowed' : ''}">
+                    Previous
+                </button>
+            </li>
+        `;
+        
+        // Page numbers
+        for (let i = 1; i <= Math.min(totalPages, 5); i++) {
+            html += `
+                <li>
+                    <button onclick="loadSwitches(${i})"
+                        class="flex items-center justify-center px-3 h-8 leading-tight ${
+                            i === currentPage 
+                                ? 'text-blue-600 border border-gray-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white'
+                                : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
+                        }">
+                        ${i}
+                    </button>
+                </li>
+            `;
+        }
+        
+        // Next button
+        html += `
+            <li>
+                <button ${!response.next ? 'disabled' : ''}
+                    onclick="loadSwitches(${currentPage + 1})"
+                    class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white ${!response.next ? 'opacity-50 cursor-not-allowed' : ''}">
+                    Next
+                </button>
+            </li>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    // Helper Functions
+    function formatUptime(uptime) {
+        if (!uptime) return 'N/A';
+        // Format uptime string
+        return uptime;
+    }
+    
+    function viewSwitch(id) {
+        window.location.href = `/snmp/switches/${id}/`;
+    }
+    
+    async function openCreateSwitchModal() {
+        document.getElementById('switch-modal-title').textContent = 'Add Switch';
+        document.getElementById('sw-id').value = '';
+        document.getElementById('sw-hostname').value = '';
+        document.getElementById('sw-ip').value = '';
+        document.getElementById('sw-mac').value = '';
+        document.getElementById('sw-serial').value = '';
+        document.getElementById('sw-snmp-ro').value = '';
+        document.getElementById('sw-status').value = 'true';
+        await loadSwitchFormChoices();
+    }
+
+    async function editSwitch(id) {
+        // Open modal and load switch data
+        await loadSwitchFormChoices();
+        const sw = await apiGet(`/switches/${id}/`);
+        document.getElementById('switch-modal-title').textContent = 'Edit Switch';
+        document.getElementById('sw-id').value = sw.id;
+        document.getElementById('sw-hostname').value = sw.hostname || '';
+        document.getElementById('sw-ip').value = sw.ip || '';
+        document.getElementById('sw-mac').value = sw.switch_mac || '';
+        document.getElementById('sw-serial').value = sw.serial_number || '';
+        document.getElementById('sw-snmp-ro').value = '';
+        document.getElementById('sw-status').value = (sw.status === true) ? 'true' : 'false';
+        document.getElementById('sw-ats').value = sw.ats?.id || '';
+        document.getElementById('sw-group').value = sw.group?.id || '';
+        document.getElementById('sw-model').value = sw.model?.id || '';
+
+        // show modal
+        const modalEl = document.getElementById('switch-modal');
+        modalEl.classList.remove('hidden');
+        modalEl.classList.add('flex');
+    }
+
+    async function loadSwitchFormChoices() {
+        // ATS
+        const ats = await apiGet('/ats/?page_size=500&ordering=name');
+        const atsSel = document.getElementById('sw-ats');
+        atsSel.innerHTML = '<option value="">—</option>' + (ats?.results || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+        // Host groups
+        const groups = await apiGet('/host-groups/?page_size=500&ordering=name');
+        const gSel = document.getElementById('sw-group');
+        gSel.innerHTML = '<option value="">—</option>' + (groups?.results || []).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+        // Models
+        const models = await apiGet('/switch-models/?page_size=500&ordering=device_model');
+        const mSel = document.getElementById('sw-model');
+        mSel.innerHTML = '<option value="">—</option>' + (models?.results || []).map(m => `<option value="${m.id}">${m.vendor?.name || ''} ${m.device_model}</option>`).join('');
+    }
+
+    async function saveSwitch() {
+        const err = document.getElementById('switch-modal-error');
+        err.classList.add('hidden');
+        err.textContent = '';
+
+        const id = document.getElementById('sw-id').value;
+        const payload = {
+            hostname: document.getElementById('sw-hostname').value || null,
+            ip: document.getElementById('sw-ip').value || null,
+            switch_mac: document.getElementById('sw-mac').value || null,
+            serial_number: document.getElementById('sw-serial').value || null,
+            status: document.getElementById('sw-status').value === 'true',
+            ats: document.getElementById('sw-ats').value || null,
+            group: document.getElementById('sw-group').value || null,
+            model: document.getElementById('sw-model').value || null,
+            snmp_community_ro: document.getElementById('sw-snmp-ro').value || null,
+        };
+
+        // Clean null FK to satisfy DRF
+        if (!payload.ats) delete payload.ats;
+        if (!payload.group) delete payload.group;
+        if (!payload.model) delete payload.model;
+        if (!payload.snmp_community_ro) delete payload.snmp_community_ro;
+
+        try {
+            if (id) {
+                await apiRequest('PATCH', `/switches/${id}/`, payload);
+            } else {
+                await apiPost('/switches/', payload);
+            }
+            // hide modal
+            document.querySelectorAll('[data-modal-hide="switch-modal"]').forEach(b => b.click());
+            loadSwitches(1);
+        } catch (e) {
+            err.textContent = 'Failed to save switch';
+            err.classList.remove('hidden');
+        }
+    }
+    
+    let selectedSwitchId = null;
+
+    function selectSwitchForDelete(id) {
+        selectedSwitchId = id;
+    }
+
+    async function confirmDeleteSwitch() {
+        if (!selectedSwitchId) return;
+        try {
+            await apiDelete(`/switches/${selectedSwitchId}/`);
+            selectedSwitchId = null;
+            loadSwitches(1);
+        } catch (e) {
+            console.error('Failed to delete switch', e);
+        }
+    }
+    
+    // Event Listeners
+    document.getElementById('search').addEventListener('input', (e) => {
+        filters.search = e.target.value;
+        loadSwitches(1);
+    });
+    
+    document.getElementById('status-filter').addEventListener('change', (e) => {
+        if (e.target.value) {
+            filters.status = e.target.value;
+        } else {
+            delete filters.status;
+        }
+        loadSwitches(1);
+    });
+    
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSwitches(1);
+    });
+</script>
+{% endblock %}

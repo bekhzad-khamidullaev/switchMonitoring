@@ -6,10 +6,15 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # API endpoints
+    path('api/v1/', include('snmp.api.urls')),
+    path('api/v1/users/', include('users.api.urls')),
+    
+    # Web interface
     path('', include('users.urls')),
     path('snmp/', include('snmp.urls')),
-    # path('outsource/', include('zabbixapp.urls')),
-    # path('olt/', include('olt_monitoring.urls')),
 ]
+
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

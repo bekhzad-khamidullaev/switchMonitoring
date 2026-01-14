@@ -1,0 +1,102 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Ports - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Ports</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Interfaces monitoring (loaded from API)</p>
+</div>
+
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="p-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Interface name, switch hostname/ip">
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Oper status</label>
+      <select id="p-oper" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        <option value="">All</option>
+        <option value="1">Up</option>
+        <option value="2">Down</option>
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button onclick="loadPorts(1)" class="w-full text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+        Refresh
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">Switch</th>
+          <th class="px-6 py-3">IfIndex</th>
+          <th class="px-6 py-3">Name</th>
+          <th class="px-6 py-3">Admin</th>
+          <th class="px-6 py-3">Oper</th>
+          <th class="px-6 py-3">Speed</th>
+          <th class="px-6 py-3">Polled</th>
+        </tr>
+      </thead>
+      <tbody id="ports-body">
+        <tr><td colspan="7" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let pFilters = {};
+
+  function speedHuman(bps) {
+    if (!bps) return '—';
+    const mbps = bps / 1000000;
+    if (mbps >= 1000) return (mbps/1000).toFixed(1) + ' Gbps';
+    return Math.round(mbps) + ' Mbps';
+  }
+
+  async function loadPorts(page=1) {
+    const search = document.getElementById('p-search').value.trim();
+    const oper = document.getElementById('p-oper').value;
+
+    const params = new URLSearchParams({ page: page, page_size: 50 });
+    if (search) params.set('search', search);
+    if (oper) params.set('oper', oper);
+
+    const data = await apiGet(`/interfaces/?${params.toString()}`);
+    const body = document.getElementById('ports-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">No interfaces</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(p => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${p.switch_hostname || '—'}<div class="text-xs text-gray-400">${p.switch_ip || ''}</div></td>
+        <td class="px-6 py-4">${p.ifindex}</td>
+        <td class="px-6 py-4">${p.name || '—'}</td>
+        <td class="px-6 py-4">${p.admin ?? '—'}</td>
+        <td class="px-6 py-4">${p.oper ?? '—'}</td>
+        <td class="px-6 py-4">${speedHuman(p.speed)}</td>
+        <td class="px-6 py-4">${p.polled_at || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadPorts(1);
+  });
+</script>
+{% endblock %}
