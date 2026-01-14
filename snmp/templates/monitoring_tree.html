@@ -191,8 +191,95 @@
       </div>
     `;
 
-    // Bandwidth: for MVP показываем последние 50 записей по выбранному интерфейсу (позже график)
-    document.getElementById('panel-bandwidth').innerHTML = `<div class="text-gray-600">Select an interface to view bandwidth (MVP). Сейчас: реализуем график/выбор интерфейса следующим шагом.</div>`;
+    // Bandwidth
+    document.getElementById('panel-bandwidth').innerHTML = `
+      <div class="mb-3">
+        <label class="block mb-1 text-sm font-medium text-gray-700">Interface</label>
+        <select id="bw-interface" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
+      </div>
+      <div class="bg-white border rounded-lg shadow p-3">
+        <canvas id="bw-chart" height="120"></canvas>
+      </div>
+      <div class="text-xs text-gray-500 mt-2">Realtime updates come from WSS snapshot every 5s.</div>
+    `;
+
+    const select = document.getElementById('bw-interface');
+    select.innerHTML = ifaces.map(i => {
+      const label = `ifIndex ${i.ifindex} - ${(i.description || i.name || '')}`;
+      return `<option value="${i.id}">${escapeHtml(label)}</option>`;
+    }).join('');
+
+    // Auto-select first interface
+    if (select.options.length) {
+      select.value = select.options[0].value;
+    }
+
+    async function fetchSamples(interfaceId) {
+      const r = await fetch(`/snmp/api/bandwidth/?interface_id=${interfaceId}`, { credentials: 'same-origin' });
+      if (!r.ok) return [];
+      return await r.json();
+    }
+
+    function formatBps(v) {
+      if (v === null || v === undefined) return '';
+      const n = Number(v);
+      if (Number.isNaN(n)) return '';
+      if (n >= 1e9) return (n/1e9).toFixed(2) + ' Gbps';
+      if (n >= 1e6) return (n/1e6).toFixed(2) + ' Mbps';
+      if (n >= 1e3) return (n/1e3).toFixed(2) + ' Kbps';
+      return n.toFixed(0) + ' bps';
+    }
+
+    let chart = null;
+    async function renderChart() {
+      const interfaceId = Number(select.value || 0);
+      if (!interfaceId) return;
+      const samples = await fetchSamples(interfaceId);
+      // API returns latest first; reverse to oldest->newest
+      samples.reverse();
+
+      const labels = samples.map(s => new Date(s.ts).toLocaleTimeString());
+      const inData = samples.map(s => s.in_bps ?? 0);
+      const outData = samples.map(s => s.out_bps ?? 0);
+
+      const ctx = document.getElementById('bw-chart');
+      if (chart) {
+        chart.destroy();
+      }
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'In', data: inData, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.25 },
+            { label: 'Out', data: outData, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.25 },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatBps(ctx.parsed.y)}`,
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: (value) => formatBps(value),
+              }
+            }
+          }
+        }
+      });
+
+      window.__bw_selected_interface_id = interfaceId;
+      window.__bw_chart = chart;
+    }
+
+    select.addEventListener('change', renderChart);
+    await renderChart();
   }
 
   function selectHost(hostId) {
@@ -233,6 +320,35 @@
         if (opEl) opEl.textContent = `RX:${s.min_rx ?? ''} TX:${s.min_tx ?? ''}`;
       }
     }
+
+    // Realtime bandwidth chart updates (append last point)
+    try {
+      const selectedIfId = window.__bw_selected_interface_id;
+      const bw = e.detail.bandwidth_latest || [];
+      const chart = window.__bw_chart;
+      if (selectedIfId && chart && bw.length) {
+        // Find newest sample for selected interface
+        const sample = bw.find(x => x.interface_id === selectedIfId) || null;
+        if (!sample) return;
+        const ts = new Date(sample.ts);
+        const label = ts.toLocaleTimeString();
+        const labels = chart.data.labels;
+        // Append if new
+        if (!labels.length || labels[labels.length - 1] !== label) {
+          labels.push(label);
+          chart.data.datasets[0].data.push(sample.in_bps ?? 0);
+          chart.data.datasets[1].data.push(sample.out_bps ?? 0);
+
+          // Keep last 60 points
+          if (labels.length > 60) {
+            labels.shift();
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[1].data.shift();
+          }
+          chart.update('none');
+        }
+      }
+    } catch (e) {}
   });
 
   document.getElementById('tabs').addEventListener('click', (e) => {
