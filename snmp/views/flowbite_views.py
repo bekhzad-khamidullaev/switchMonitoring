@@ -35,6 +35,10 @@ def optical_monitoring_view(request):
     return render(request, 'optical_monitoring_flowbite.html')
 
 
+def optical_dashboard_view(request):
+    return render(request, 'optical_dashboard_flowbite.html')
+
+
 def topology_view(request):
     return render(request, 'topology_flowbite.html')
 

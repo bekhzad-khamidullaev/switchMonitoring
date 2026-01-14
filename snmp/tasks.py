@@ -5,6 +5,7 @@ Tasks are designed to be run periodically via celery beat
 or triggered manually through the admin/API.
 """
 import logging
+from datetime import timedelta
 from celery import shared_task, group
 from django.core.management import call_command
 from django.db import transaction
@@ -240,3 +241,127 @@ def generate_optical_report_task():
     
     logger.info(f"Daily Optical Report: {report}")
     return report
+
+
+@shared_task
+def record_optics_history_task():
+    """
+    Record current optical readings to history table for trending.
+    Should run after each optical poll to capture time-series data.
+    """
+    from snmp.models import Interface, InterfaceOptics, OpticsHistorySample
+    
+    now = timezone.now()
+    recorded = 0
+    
+    # Get all interfaces with optics data
+    optics_data = InterfaceOptics.objects.filter(
+        rx_dbm__isnull=False
+    ).select_related('interface')
+    
+    samples_to_create = []
+    for optics in optics_data:
+        samples_to_create.append(OpticsHistorySample(
+            interface=optics.interface,
+            ts=now,
+            rx_dbm=optics.rx_dbm,
+            tx_dbm=optics.tx_dbm,
+            temperature_c=optics.temperature_c,
+            voltage_v=optics.voltage_v,
+        ))
+    
+    # Bulk create for efficiency
+    if samples_to_create:
+        OpticsHistorySample.objects.bulk_create(samples_to_create, batch_size=500)
+        recorded = len(samples_to_create)
+    
+    logger.info(f"Recorded {recorded} optical history samples")
+    return recorded
+
+
+@shared_task
+def cleanup_optics_history_task(days_to_keep=30):
+    """
+    Clean up old optical history samples to manage database size.
+    Default: keep 30 days of history.
+    """
+    from snmp.models import OpticsHistorySample
+    
+    cutoff = timezone.now() - timedelta(days=days_to_keep)
+    deleted, _ = OpticsHistorySample.objects.filter(ts__lt=cutoff).delete()
+    
+    logger.info(f"Deleted {deleted} old optical history samples (older than {days_to_keep} days)")
+    return deleted
+
+
+@shared_task
+def create_optics_alerts_task():
+    """
+    Check current optical levels and create alerts for threshold violations.
+    """
+    from snmp.models import InterfaceOptics, OpticsAlert
+    
+    now = timezone.now()
+    created_alerts = 0
+    resolved_alerts = 0
+    
+    # Critical threshold: RX <= -25 dBm
+    critical_optics = InterfaceOptics.objects.filter(rx_dbm__lte=-25).select_related('interface')
+    
+    for optics in critical_optics:
+        # Check if active alert already exists
+        existing = OpticsAlert.objects.filter(
+            interface=optics.interface,
+            status=OpticsAlert.STATUS_ACTIVE
+        ).first()
+        
+        if not existing:
+            OpticsAlert.objects.create(
+                interface=optics.interface,
+                severity=OpticsAlert.SEVERITY_CRITICAL,
+                status=OpticsAlert.STATUS_ACTIVE,
+                rx_dbm=optics.rx_dbm,
+                threshold=-25.0,
+                message=f"Critical optical signal: {optics.rx_dbm} dBm (threshold: -25 dBm)"
+            )
+            created_alerts += 1
+    
+    # Warning threshold: -25 < RX <= -20 dBm
+    warning_optics = InterfaceOptics.objects.filter(
+        rx_dbm__gt=-25, rx_dbm__lte=-20
+    ).select_related('interface')
+    
+    for optics in warning_optics:
+        existing = OpticsAlert.objects.filter(
+            interface=optics.interface,
+            status=OpticsAlert.STATUS_ACTIVE
+        ).first()
+        
+        if not existing:
+            OpticsAlert.objects.create(
+                interface=optics.interface,
+                severity=OpticsAlert.SEVERITY_WARNING,
+                status=OpticsAlert.STATUS_ACTIVE,
+                rx_dbm=optics.rx_dbm,
+                threshold=-20.0,
+                message=f"Warning optical signal: {optics.rx_dbm} dBm (threshold: -20 dBm)"
+            )
+            created_alerts += 1
+    
+    # Auto-resolve alerts where signal is now normal
+    normal_interface_ids = list(
+        InterfaceOptics.objects.filter(rx_dbm__gt=-20)
+        .values_list('interface_id', flat=True)
+    )
+    
+    resolved = OpticsAlert.objects.filter(
+        interface_id__in=normal_interface_ids,
+        status=OpticsAlert.STATUS_ACTIVE
+    ).update(
+        status=OpticsAlert.STATUS_RESOLVED,
+        resolved_at=now
+    )
+    resolved_alerts = resolved
+    
+    logger.info(f"Optics alerts: created={created_alerts}, resolved={resolved_alerts}")
+    return {'created': created_alerts, 'resolved': resolved_alerts}

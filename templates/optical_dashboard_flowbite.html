@@ -1,0 +1,465 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Optical Signal Dashboard - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Optical Signal Dashboard</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Real-time monitoring and historical trends of optical signal levels</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2 lg:grid-cols-6">
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Total Optical</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white" id="stat-total">-</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Normal</p>
+    <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="stat-normal">-</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Warning</p>
+    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="stat-warning">-</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Critical</p>
+    <p class="text-2xl font-bold text-red-600 dark:text-red-400" id="stat-critical">-</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Avg RX</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white" id="stat-avg">-</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Active Alerts</p>
+    <p class="text-2xl font-bold text-red-600 dark:text-red-400" id="stat-alerts">-</p>
+  </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="flex flex-wrap gap-2 mb-6">
+  <button onclick="pollAllDevices()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">
+    <i class="fas fa-sync-alt mr-2"></i> Poll All Devices
+  </button>
+  <button onclick="pollCriticalDevices()" class="text-white bg-yellow-600 hover:bg-yellow-700 font-medium rounded-lg text-sm px-4 py-2">
+    <i class="fas fa-exclamation-triangle mr-2"></i> Poll Critical Only
+  </button>
+  <a href="{% url 'optical_monitoring' %}" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-4 py-2 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+    <i class="fas fa-table mr-2"></i> View Table
+  </a>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <!-- Signal Distribution Chart -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Signal Distribution</h3>
+    <canvas id="distributionChart" height="250"></canvas>
+  </div>
+  
+  <!-- Signal Levels Histogram -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">RX Signal Levels</h3>
+    <canvas id="histogramChart" height="250"></canvas>
+  </div>
+</div>
+
+<!-- Interface Signal History -->
+<div class="mt-6 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Signal History</h3>
+    <div class="flex gap-2">
+      <select id="interface-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" style="min-width: 300px;">
+        <option value="">Select interface...</option>
+      </select>
+      <select id="history-hours" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        <option value="24">Last 24 hours</option>
+        <option value="72">Last 3 days</option>
+        <option value="168" selected>Last 7 days</option>
+        <option value="720">Last 30 days</option>
+      </select>
+      <button onclick="loadHistory()" class="text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm px-4 py-2">
+        <i class="fas fa-chart-line mr-1"></i> Load
+      </button>
+    </div>
+  </div>
+  <canvas id="historyChart" height="200"></canvas>
+  <div id="history-placeholder" class="text-center text-gray-500 py-8">
+    Select an interface to view signal history
+  </div>
+</div>
+
+<!-- Active Alerts -->
+<div class="mt-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Active Alerts</h3>
+    <span id="alerts-count" class="text-sm text-gray-500"></span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-4 py-3">Severity</th>
+          <th class="px-4 py-3">Device</th>
+          <th class="px-4 py-3">Interface</th>
+          <th class="px-4 py-3">RX Level</th>
+          <th class="px-4 py-3">Created</th>
+          <th class="px-4 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="alerts-body">
+        <tr><td colspan="6" class="px-4 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Degrading Interfaces -->
+<div class="mt-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <i class="fas fa-arrow-trend-down text-red-500 mr-2"></i>
+      Signal Degradation Trends (7 days)
+    </h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-4 py-3">Device</th>
+          <th class="px-4 py-3">Interface</th>
+          <th class="px-4 py-3">First Half Avg</th>
+          <th class="px-4 py-3">Second Half Avg</th>
+          <th class="px-4 py-3">Change</th>
+        </tr>
+      </thead>
+      <tbody id="trends-body">
+        <tr><td colspan="5" class="px-4 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let distributionChart, histogramChart, historyChart;
+
+  // Initialize charts
+  function initCharts() {
+    const ctxDist = document.getElementById('distributionChart').getContext('2d');
+    distributionChart = new Chart(ctxDist, {
+      type: 'doughnut',
+      data: {
+        labels: ['Normal (> -20)', 'Warning (-20 to -25)', 'Critical (≤ -25)', 'Unknown'],
+        datasets: [{
+          data: [0, 0, 0, 0],
+          backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#9CA3AF'],
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' }
+        }
+      }
+    });
+
+    const ctxHist = document.getElementById('histogramChart').getContext('2d');
+    histogramChart = new Chart(ctxHist, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Interface Count',
+          data: [],
+          backgroundColor: '#3B82F6',
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { title: { display: true, text: 'RX Level (dBm)' } },
+          y: { title: { display: true, text: 'Count' }, beginAtZero: true }
+        }
+      }
+    });
+
+    const ctxHistory = document.getElementById('historyChart').getContext('2d');
+    historyChart = new Chart(ctxHistory, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'RX (dBm)',
+            data: [],
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: 'TX (dBm)',
+            data: [],
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.3,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { title: { display: true, text: 'Time' } },
+          y: { title: { display: true, text: 'dBm' } }
+        },
+        plugins: {
+          annotation: {
+            annotations: {
+              warningLine: {
+                type: 'line',
+                yMin: -20,
+                yMax: -20,
+                borderColor: '#F59E0B',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: { content: 'Warning', enabled: true }
+              },
+              criticalLine: {
+                type: 'line',
+                yMin: -25,
+                yMax: -25,
+                borderColor: '#EF4444',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: { content: 'Critical', enabled: true }
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    document.getElementById('historyChart').style.display = 'none';
+  }
+
+  async function loadSummary() {
+    const data = await apiGet('/optical/summary/');
+    if (!data) return;
+
+    document.getElementById('stat-total').textContent = data.total_optical_ports || 0;
+    document.getElementById('stat-normal').textContent = data.normal_ports || 0;
+    document.getElementById('stat-warning').textContent = data.warning_ports || 0;
+    document.getElementById('stat-critical').textContent = data.critical_ports || 0;
+    document.getElementById('stat-avg').textContent = data.avg_rx_dbm !== null ? `${data.avg_rx_dbm} dBm` : '—';
+
+    // Update distribution chart
+    distributionChart.data.datasets[0].data = [
+      data.normal_ports || 0,
+      data.warning_ports || 0,
+      data.critical_ports || 0,
+      data.unknown_ports || 0
+    ];
+    distributionChart.update();
+  }
+
+  async function loadHistogram() {
+    const data = await apiGet('/optical/?page_size=1000');
+    if (!data || !data.results) return;
+
+    // Create histogram bins
+    const bins = {};
+    for (let i = -35; i <= -5; i += 2) {
+      bins[i] = 0;
+    }
+
+    data.results.forEach(item => {
+      if (item.rx_dbm !== null) {
+        const bin = Math.floor(item.rx_dbm / 2) * 2;
+        const clampedBin = Math.max(-35, Math.min(-5, bin));
+        bins[clampedBin] = (bins[clampedBin] || 0) + 1;
+      }
+    });
+
+    const labels = Object.keys(bins).sort((a, b) => a - b).map(b => `${b} to ${parseInt(b) + 2}`);
+    const values = Object.keys(bins).sort((a, b) => a - b).map(b => bins[b]);
+    const colors = Object.keys(bins).sort((a, b) => a - b).map(b => {
+      if (b <= -25) return '#EF4444';
+      if (b <= -20) return '#F59E0B';
+      return '#10B981';
+    });
+
+    histogramChart.data.labels = labels;
+    histogramChart.data.datasets[0].data = values;
+    histogramChart.data.datasets[0].backgroundColor = colors;
+    histogramChart.update();
+  }
+
+  async function loadInterfaceOptions() {
+    const data = await apiGet('/optical/?page_size=200&signal_status=critical');
+    const select = document.getElementById('interface-select');
+    
+    if (data && data.results) {
+      data.results.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.device_hostname} - ${item.name} (RX: ${item.rx_dbm?.toFixed(1) || '?'} dBm)`;
+        select.appendChild(opt);
+      });
+    }
+    
+    // Also add warning interfaces
+    const warnData = await apiGet('/optical/?page_size=100&signal_status=warning');
+    if (warnData && warnData.results) {
+      warnData.results.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.device_hostname} - ${item.name} (RX: ${item.rx_dbm?.toFixed(1) || '?'} dBm)`;
+        select.appendChild(opt);
+      });
+    }
+  }
+
+  async function loadHistory() {
+    const interfaceId = document.getElementById('interface-select').value;
+    const hours = document.getElementById('history-hours').value;
+    
+    if (!interfaceId) {
+      alert('Please select an interface');
+      return;
+    }
+
+    const data = await apiGet(`/optical/history/${interfaceId}/?hours=${hours}&points=200`);
+    
+    if (!data || !data.data || data.data.length === 0) {
+      document.getElementById('history-placeholder').style.display = 'block';
+      document.getElementById('historyChart').style.display = 'none';
+      document.getElementById('history-placeholder').textContent = 'No historical data available for this interface';
+      return;
+    }
+
+    document.getElementById('history-placeholder').style.display = 'none';
+    document.getElementById('historyChart').style.display = 'block';
+
+    const labels = data.data.map(d => new Date(d.ts).toLocaleString('ru-RU', { 
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+    }));
+    const rxData = data.data.map(d => d.rx_dbm);
+    const txData = data.data.map(d => d.tx_dbm);
+
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = rxData;
+    historyChart.data.datasets[1].data = txData;
+    historyChart.update();
+  }
+
+  async function loadAlerts() {
+    const data = await apiGet('/optical/alerts/?status=active&limit=20');
+    const tbody = document.getElementById('alerts-body');
+    
+    if (!data || !data.alerts || data.alerts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-green-600">No active alerts</td></tr>';
+      document.getElementById('stat-alerts').textContent = '0';
+      document.getElementById('alerts-count').textContent = '0 active alerts';
+      return;
+    }
+
+    document.getElementById('stat-alerts').textContent = data.count;
+    document.getElementById('alerts-count').textContent = `${data.count} active alerts`;
+
+    tbody.innerHTML = data.alerts.map(a => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-4 py-3">
+          <span class="px-2 py-1 rounded text-xs font-medium ${a.severity === 'critical' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+            ${a.severity}
+          </span>
+        </td>
+        <td class="px-4 py-3">${a.device_hostname || '—'}<br><span class="text-xs text-gray-400">${a.device_ip || ''}</span></td>
+        <td class="px-4 py-3">${a.interface_name || '—'}</td>
+        <td class="px-4 py-3 font-mono ${a.rx_dbm <= -25 ? 'text-red-600' : 'text-yellow-600'}">${a.rx_dbm?.toFixed(1) || '—'} dBm</td>
+        <td class="px-4 py-3 text-xs">${new Date(a.created_at).toLocaleString('ru-RU')}</td>
+        <td class="px-4 py-3">
+          <button onclick="acknowledgeAlert(${a.id})" class="text-blue-600 hover:underline text-sm">Acknowledge</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadTrends() {
+    const data = await apiGet('/optical/trends/?hours=168&threshold=2');
+    const tbody = document.getElementById('trends-body');
+    
+    if (!data || !data.degrading_interfaces || data.degrading_interfaces.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-green-600">No significant signal degradation detected</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.degrading_interfaces.map(t => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-4 py-3">${t.device_hostname}<br><span class="text-xs text-gray-400">${t.device_ip}</span></td>
+        <td class="px-4 py-3">${t.interface_name || `ID: ${t.interface_id}`}</td>
+        <td class="px-4 py-3 font-mono">${t.first_half_avg} dBm</td>
+        <td class="px-4 py-3 font-mono">${t.second_half_avg} dBm</td>
+        <td class="px-4 py-3 font-mono text-red-600 font-bold">${t.change_dbm} dBm</td>
+      </tr>
+    `).join('');
+  }
+
+  async function pollAllDevices() {
+    if (!confirm('Start optical polling for all devices?')) return;
+    
+    const data = await apiPost('/optical/poll_all/');
+    if (data && data.task_id) {
+      alert(`Polling started! Task ID: ${data.task_id}`);
+    }
+  }
+
+  async function pollCriticalDevices() {
+    const data = await apiPost('/optical/poll_critical/');
+    if (data && data.task_id) {
+      alert(`Polling started for critical devices! Task ID: ${data.task_id}`);
+    }
+  }
+
+  async function acknowledgeAlert(alertId) {
+    const data = await apiPost(`/optical/alerts/${alertId}/acknowledge/`);
+    if (data && data.status === 'acknowledged') {
+      loadAlerts();
+    }
+  }
+
+  // Helper for POST requests
+  async function apiPost(url) {
+    try {
+      const response = await fetch(`/api/v1${url}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+        },
+        credentials: 'same-origin'
+      });
+      return await response.json();
+    } catch (e) {
+      console.error('API POST error:', e);
+      return null;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
+    loadSummary();
+    loadHistogram();
+    loadInterfaceOptions();
+    loadAlerts();
+    loadTrends();
+
+    // Auto-refresh every 5 minutes
+    setInterval(() => {
+      loadSummary();
+      loadAlerts();
+    }, 300000);
+  });
+</script>
+{% endblock %}

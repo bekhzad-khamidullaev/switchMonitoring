@@ -14,7 +14,7 @@ All endpoints here are implemented to be consistent with those models.
 
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -388,4 +388,236 @@ class OpticalMonitoringViewSet(viewsets.ReadOnlyModelViewSet):
             "count": len(serializer.data),
             "exported_at": timezone.now(),
             "data": serializer.data,
+        })
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def poll_all(self, request):
+        """
+        Trigger optical signal polling for all devices.
+        
+        POST /api/v1/optical/poll_all/
+        """
+        from snmp.tasks import update_optical_info_task
+        
+        task = update_optical_info_task.delay()
+        return Response({
+            "task_id": task.id,
+            "status": "started",
+            "message": "Optical polling started for all devices",
+            "started_at": timezone.now(),
+        })
+
+    @action(detail=False, methods=["post"], url_path="poll-device/(?P<device_id>[^/.]+)", permission_classes=[IsAuthenticated])
+    def poll_device(self, request, device_id=None):
+        """
+        Trigger optical signal polling for a specific device.
+        
+        POST /api/v1/optical/poll-device/{device_id}/
+        """
+        from snmp.tasks import update_optical_single_device_task
+        
+        # Verify device exists
+        if not Device.objects.filter(pk=device_id).exists():
+            return Response(
+                {"error": f"Device {device_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        task = update_optical_single_device_task.delay(int(device_id))
+        return Response({
+            "task_id": task.id,
+            "status": "started",
+            "message": f"Optical polling started for device {device_id}",
+            "device_id": device_id,
+            "started_at": timezone.now(),
+        })
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def poll_critical(self, request):
+        """
+        Trigger optical polling for devices with critical/warning signals only.
+        
+        POST /api/v1/optical/poll_critical/
+        """
+        from snmp.tasks import update_optical_critical_task
+        
+        task = update_optical_critical_task.delay()
+        return Response({
+            "task_id": task.id,
+            "status": "started",
+            "message": "Optical polling started for critical/warning devices",
+            "started_at": timezone.now(),
+        })
+
+    @action(detail=False, methods=["get"], url_path="history/(?P<interface_id>[^/.]+)")
+    def history(self, request, interface_id=None):
+        """
+        Get historical optical signal data for an interface (for graphs).
+        
+        GET /api/v1/optical/history/{interface_id}/?hours=24
+        
+        Query params:
+        - hours: Number of hours of history (default: 24, max: 720 = 30 days)
+        - points: Max data points to return (default: 100)
+        """
+        from snmp.models import OpticsHistorySample
+        from snmp.api.serializers import OpticsHistoryChartSerializer
+        
+        hours = min(int(request.query_params.get('hours', 24)), 720)
+        max_points = min(int(request.query_params.get('points', 100)), 500)
+        
+        since = timezone.now() - timedelta(hours=hours)
+        
+        samples = (
+            OpticsHistorySample.objects
+            .filter(interface_id=interface_id, ts__gte=since)
+            .order_by('ts')
+        )
+        
+        # Downsample if too many points
+        total = samples.count()
+        if total > max_points:
+            # Simple downsampling: take every nth sample
+            step = total // max_points
+            samples = samples[::step][:max_points]
+        
+        return Response({
+            "interface_id": interface_id,
+            "hours": hours,
+            "count": len(samples),
+            "data": OpticsHistoryChartSerializer(samples, many=True).data,
+        })
+
+    @action(detail=False, methods=["get"])
+    def alerts(self, request):
+        """
+        Get active optical alerts.
+        
+        GET /api/v1/optical/alerts/?status=active&severity=critical
+        """
+        from snmp.models import OpticsAlert
+        from snmp.api.serializers import OpticsAlertSerializer
+        
+        qs = OpticsAlert.objects.select_related(
+            'interface', 'interface__device'
+        ).order_by('-created_at')
+        
+        # Filter by status
+        alert_status = request.query_params.get('status')
+        if alert_status:
+            qs = qs.filter(status=alert_status)
+        
+        # Filter by severity
+        severity = request.query_params.get('severity')
+        if severity:
+            qs = qs.filter(severity=severity)
+        
+        # Limit results
+        limit = min(int(request.query_params.get('limit', 100)), 500)
+        qs = qs[:limit]
+        
+        return Response({
+            "count": len(qs),
+            "alerts": OpticsAlertSerializer(qs, many=True).data,
+        })
+
+    @action(detail=False, methods=["post"], url_path="alerts/(?P<alert_id>[^/.]+)/acknowledge", permission_classes=[IsAuthenticated])
+    def acknowledge_alert(self, request, alert_id=None):
+        """
+        Acknowledge an optical alert.
+        
+        POST /api/v1/optical/alerts/{alert_id}/acknowledge/
+        """
+        from snmp.models import OpticsAlert
+        
+        try:
+            alert = OpticsAlert.objects.get(pk=alert_id)
+        except OpticsAlert.DoesNotExist:
+            return Response(
+                {"error": f"Alert {alert_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        alert.status = OpticsAlert.STATUS_ACKNOWLEDGED
+        alert.acknowledged_at = timezone.now()
+        alert.acknowledged_by = request.user.username if request.user else 'unknown'
+        alert.save()
+        
+        return Response({
+            "status": "acknowledged",
+            "alert_id": alert_id,
+            "acknowledged_at": alert.acknowledged_at,
+        })
+
+    @action(detail=False, methods=["get"])
+    def trends(self, request):
+        """
+        Get signal trend analysis (degradation detection).
+        
+        GET /api/v1/optical/trends/?hours=168 (default: 7 days)
+        
+        Returns interfaces with significant signal degradation over time.
+        """
+        from snmp.models import OpticsHistorySample
+        from django.db.models import Avg, F
+        from django.db.models.functions import TruncHour
+        
+        hours = min(int(request.query_params.get('hours', 168)), 720)
+        threshold = float(request.query_params.get('threshold', 2.0))  # dBm degradation
+        
+        since = timezone.now() - timedelta(hours=hours)
+        midpoint = timezone.now() - timedelta(hours=hours // 2)
+        
+        # Get interfaces with data in both periods
+        interfaces_with_data = (
+            OpticsHistorySample.objects
+            .filter(ts__gte=since, rx_dbm__isnull=False)
+            .values('interface_id')
+            .annotate(sample_count=Count('id'))
+            .filter(sample_count__gte=10)
+        )
+        
+        degrading = []
+        
+        for item in interfaces_with_data[:100]:  # Limit analysis
+            iface_id = item['interface_id']
+            
+            # Average RX in first half vs second half
+            first_half = (
+                OpticsHistorySample.objects
+                .filter(interface_id=iface_id, ts__gte=since, ts__lt=midpoint, rx_dbm__isnull=False)
+                .aggregate(avg=Avg('rx_dbm'))
+            )
+            
+            second_half = (
+                OpticsHistorySample.objects
+                .filter(interface_id=iface_id, ts__gte=midpoint, rx_dbm__isnull=False)
+                .aggregate(avg=Avg('rx_dbm'))
+            )
+            
+            if first_half['avg'] and second_half['avg']:
+                change = second_half['avg'] - first_half['avg']
+                if change < -threshold:  # Signal degraded by more than threshold
+                    try:
+                        iface = Interface.objects.select_related('device').get(pk=iface_id)
+                        degrading.append({
+                            'interface_id': iface_id,
+                            'interface_name': iface.name,
+                            'device_hostname': iface.device.hostname,
+                            'device_ip': iface.device.ip,
+                            'first_half_avg': round(first_half['avg'], 2),
+                            'second_half_avg': round(second_half['avg'], 2),
+                            'change_dbm': round(change, 2),
+                        })
+                    except Interface.DoesNotExist:
+                        pass
+        
+        # Sort by degradation amount
+        degrading.sort(key=lambda x: x['change_dbm'])
+        
+        return Response({
+            "period_hours": hours,
+            "threshold_dbm": threshold,
+            "degrading_count": len(degrading),
+            "degrading_interfaces": degrading,
         })

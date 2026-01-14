@@ -60,6 +60,27 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute=0, hour=6),
         'options': {'queue': 'reports'},
     },
+    
+    # Record optical history - every 4 hours (after optical poll)
+    'record-optics-history': {
+        'task': 'snmp.tasks.record_optics_history_task',
+        'schedule': crontab(minute=5, hour='*/4'),  # 5 minutes after optical poll
+        'options': {'queue': 'optical'},
+    },
+    
+    # Create/update optical alerts - every 15 minutes
+    'create-optics-alerts': {
+        'task': 'snmp.tasks.create_optics_alerts_task',
+        'schedule': crontab(minute='*/15'),
+        'options': {'queue': 'alerts'},
+    },
+    
+    # Cleanup old optical history - daily at 4:00 AM
+    'cleanup-optics-history': {
+        'task': 'snmp.tasks.cleanup_optics_history_task',
+        'schedule': crontab(minute=0, hour=4),
+        'options': {'queue': 'maintenance'},
+    },
 
     # -------------------------
     # Inventory & Discovery
