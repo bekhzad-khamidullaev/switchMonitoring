@@ -58,6 +58,7 @@ class MonitoringConsumer(AsyncJsonWebsocketConsumer):
                 'uptime': s.uptime,
                 'min_rx': s.min_rx,
                 'min_tx': s.min_tx,
+                'group_id': s.group_id,
             }
             for s in qs.order_by('hostname')[:500]
         ]

@@ -1,0 +1,249 @@
+{% extends 'index.html' %}
+{% block content %}
+<div class="flex h-[calc(100vh-60px)]">
+  <!-- Left: Tree -->
+  <div class="w-1/3 border-r overflow-y-auto p-3 bg-white">
+    <div class="flex items-center justify-between mb-2">
+      <h1 class="text-xl font-bold">Hosts Tree</h1>
+      <button id="btn-reload" class="text-white bg-blue-600 hover:bg-blue-700 rounded-lg text-sm px-3 py-1">Reload</button>
+    </div>
+    <div class="text-sm text-gray-500 mb-3">Регион → Корневая группа → группы → … → хост</div>
+    <div id="tree" class="text-sm"></div>
+  </div>
+
+  <!-- Right: Host page -->
+  <div class="w-2/3 overflow-y-auto p-4">
+    <div id="host-header" class="mb-4">
+      <h2 class="text-2xl font-bold">Select a host</h2>
+      <div id="host-sub" class="text-gray-600"></div>
+    </div>
+
+    <div class="border-b border-gray-200 mb-4">
+      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="tabs">
+        <li class="me-2"><a data-tab="overview" class="tab active inline-block p-4 border-b-2 rounded-t-lg" href="#">Overview</a></li>
+        <li class="me-2"><a data-tab="interfaces" class="tab inline-block p-4 border-b-2 rounded-t-lg" href="#">Interfaces / Optics</a></li>
+        <li class="me-2"><a data-tab="mac" class="tab inline-block p-4 border-b-2 rounded-t-lg" href="#">MAC</a></li>
+        <li class="me-2"><a data-tab="bandwidth" class="tab inline-block p-4 border-b-2 rounded-t-lg" href="#">Bandwidth</a></li>
+      </ul>
+    </div>
+
+    <div id="panel-overview" class="tab-panel"></div>
+    <div id="panel-interfaces" class="tab-panel hidden"></div>
+    <div id="panel-mac" class="tab-panel hidden"></div>
+    <div id="panel-bandwidth" class="tab-panel hidden"></div>
+  </div>
+</div>
+
+<script>
+  let treeData = [];
+  let selectedHostId = null;
+
+  function escapeHtml(s) {
+    return (s ?? '').toString().replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function statusDot(up) {
+    const cls = up ? 'bg-green-500' : 'bg-red-500';
+    return `<span class="inline-block w-2 h-2 rounded-full ${cls} mr-2"></span>`;
+  }
+
+  function renderHosts(hosts) {
+    return hosts.map(h => {
+      const rx = (h.min_rx ?? '');
+      const tx = (h.min_tx ?? '');
+      const active = (h.id === selectedHostId) ? 'bg-blue-50' : '';
+      return `
+        <div class="pl-6 py-1 ${active}">
+          <button class="host-btn flex items-center w-full text-left hover:bg-gray-50 rounded px-2 py-1" data-host-id="${h.id}">
+            <span data-field="dot">${statusDot(h.status)}</span>
+            <span class="font-medium">${escapeHtml(h.hostname || h.ip)}</span>
+            <span class="ml-auto text-xs text-gray-500">RX:<span data-field="min_rx">${rx}</span> TX:<span data-field="min_tx">${tx}</span></span>
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderGroup(group, level=0) {
+    const pad = 2 + level * 2;
+    const children = (group.children || []).map(g => renderGroup(g, level+1)).join('');
+    const hosts = renderHosts(group.hosts || []);
+    return `
+      <details open class="pl-${pad}">
+        <summary class="cursor-pointer py-1 font-semibold">${escapeHtml(group.name)}</summary>
+        <div>
+          ${children}
+          ${hosts}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderTree(regions) {
+    const el = document.getElementById('tree');
+    el.innerHTML = regions.map(r => {
+      const groups = (r.groups || []).map(g => renderGroup(g, 0)).join('');
+      const ungrouped = (r.ungrouped_hosts && r.ungrouped_hosts.length)
+        ? `<details open><summary class="cursor-pointer py-1 font-semibold">Ungrouped</summary>${renderHosts(r.ungrouped_hosts)}</details>`
+        : '';
+      return `
+        <details open class="mb-2">
+          <summary class="cursor-pointer font-bold text-base">${escapeHtml(r.name)}</summary>
+          <div class="pl-2">
+            ${groups}
+            ${ungrouped}
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    // bind host click
+    el.querySelectorAll('.host-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectHost(Number(btn.dataset.hostId));
+      });
+    });
+  }
+
+  async function loadTree() {
+    const resp = await fetch('/snmp/api/tree/', { credentials: 'same-origin' });
+    if (!resp.ok) {
+      console.error('tree api error', resp.status);
+      return;
+    }
+    treeData = await resp.json();
+    renderTree(treeData);
+  }
+
+  function setActiveTab(tab) {
+    document.querySelectorAll('.tab').forEach(a => {
+      const active = a.dataset.tab === tab;
+      a.classList.toggle('active', active);
+      a.classList.toggle('border-blue-600', active);
+      a.classList.toggle('text-blue-600', active);
+      a.classList.toggle('border-transparent', !active);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('panel-' + tab).classList.remove('hidden');
+  }
+
+  async function loadHostPanels(hostId) {
+    // Overview uses realtime snapshot; render basic info now
+    document.getElementById('panel-overview').innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 bg-white border rounded-lg shadow"><div class="text-gray-500">Host ID</div><div class="text-2xl font-bold">${hostId}</div></div>
+        <div class="p-4 bg-white border rounded-lg shadow"><div class="text-gray-500">Status</div><div id="ov-status" class="text-2xl font-bold">—</div></div>
+        <div class="p-4 bg-white border rounded-lg shadow"><div class="text-gray-500">Min RX / TX</div><div id="ov-optics" class="text-2xl font-bold">—</div></div>
+      </div>
+    `;
+
+    // Interfaces
+    const ifResp = await fetch(`/snmp/api/interfaces/?switch_id=${hostId}`, { credentials: 'same-origin' });
+    const ifaces = ifResp.ok ? await ifResp.json() : [];
+    document.getElementById('panel-interfaces').innerHTML = `
+      <div class="relative overflow-x-auto shadow sm:rounded-lg">
+        <table class="w-full text-sm text-left text-gray-500">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr>
+              <th class="px-4 py-2">ifIndex</th>
+              <th class="px-4 py-2">Descr</th>
+              <th class="px-4 py-2">Admin</th>
+              <th class="px-4 py-2">Oper</th>
+              <th class="px-4 py-2">RX</th>
+              <th class="px-4 py-2">TX</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ifaces.map(i => `
+              <tr class="bg-white border-b">
+                <td class="px-4 py-2">${i.ifindex}</td>
+                <td class="px-4 py-2">${escapeHtml(i.description)}</td>
+                <td class="px-4 py-2">${i.admin ?? ''}</td>
+                <td class="px-4 py-2">${i.oper ?? ''}</td>
+                <td class="px-4 py-2">${i.optics?.rx_dbm ?? ''}</td>
+                <td class="px-4 py-2">${i.optics?.tx_dbm ?? ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // MAC
+    const macResp = await fetch(`/snmp/api/mac/?switch_id=${hostId}`, { credentials: 'same-origin' });
+    const macs = macResp.ok ? await macResp.json() : [];
+    document.getElementById('panel-mac').innerHTML = `
+      <div class="relative overflow-x-auto shadow sm:rounded-lg">
+        <table class="w-full text-sm text-left text-gray-500">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr><th class="px-4 py-2">VLAN</th><th class="px-4 py-2">MAC</th><th class="px-4 py-2">Interface</th></tr>
+          </thead>
+          <tbody>
+            ${macs.slice(0, 300).map(m => `
+              <tr class="bg-white border-b">
+                <td class="px-4 py-2">${m.vlan}</td>
+                <td class="px-4 py-2 font-mono">${m.mac}</td>
+                <td class="px-4 py-2">${m.interface ?? ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Bandwidth: for MVP показываем последние 50 записей по выбранному интерфейсу (позже график)
+    document.getElementById('panel-bandwidth').innerHTML = `<div class="text-gray-600">Select an interface to view bandwidth (MVP). Сейчас: реализуем график/выбор интерфейса следующим шагом.</div>`;
+  }
+
+  function selectHost(hostId) {
+    selectedHostId = hostId;
+    // rerender tree to highlight
+    renderTree(treeData);
+
+    document.getElementById('host-header').querySelector('h2').textContent = `Host #${hostId}`;
+    document.getElementById('host-sub').textContent = '';
+
+    setActiveTab('overview');
+    loadHostPanels(hostId);
+  }
+
+  // Realtime updates: update tree rows + overview tab
+  window.addEventListener('monitoring:snapshot', (e) => {
+    const sw = e.detail.switches || [];
+
+    // Update tree rows
+    for (const s of sw) {
+      const btn = document.querySelector(`.host-btn[data-host-id="${s.id}"]`);
+      if (!btn) continue;
+      const dot = btn.querySelector('[data-field="dot"]');
+      const rx = btn.querySelector('[data-field="min_rx"]');
+      const tx = btn.querySelector('[data-field="min_tx"]');
+      if (dot) dot.innerHTML = statusDot(s.status);
+      if (rx) rx.textContent = s.min_rx ?? '';
+      if (tx) tx.textContent = s.min_tx ?? '';
+    }
+
+    // Update overview
+    if (selectedHostId) {
+      const s = sw.find(x => x.id === selectedHostId);
+      if (s) {
+        const stEl = document.getElementById('ov-status');
+        const opEl = document.getElementById('ov-optics');
+        if (stEl) stEl.textContent = s.status ? 'UP' : 'DOWN';
+        if (opEl) opEl.textContent = `RX:${s.min_rx ?? ''} TX:${s.min_tx ?? ''}`;
+      }
+    }
+  });
+
+  document.getElementById('tabs').addEventListener('click', (e) => {
+    const a = e.target.closest('.tab');
+    if (!a) return;
+    e.preventDefault();
+    setActiveTab(a.dataset.tab);
+  });
+
+  document.getElementById('btn-reload').addEventListener('click', loadTree);
+
+  loadTree();
+</script>
+{% endblock %}

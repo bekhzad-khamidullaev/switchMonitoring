@@ -5,8 +5,10 @@ from .views.dashboard_views import *
 from .views.update_views import *
 from .views.requests_views import *
 from .views.export import *
+from .views.tree_views import monitoring_tree_view
     
 urlpatterns = [
+    path('monitoring/', monitoring_tree_view, name='monitoring_tree_view'),
     path('api/', include('snmp.api.urls')),
     path('', switches, name='switches'),
     path('switches/', switches, name='switches'),

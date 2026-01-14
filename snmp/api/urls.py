@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from snmp.api.views import SwitchViewSet, InterfaceViewSet, MacEntryViewSet, BandwidthSampleViewSet
@@ -8,4 +9,10 @@ router.register(r'interfaces', InterfaceViewSet, basename='interface')
 router.register(r'mac', MacEntryViewSet, basename='mac')
 router.register(r'bandwidth', BandwidthSampleViewSet, basename='bandwidth')
 
-urlpatterns = router.urls
+from snmp.api.tree import monitoring_tree
+
+urlpatterns = router.urls + [
+    # Tree endpoint: Region -> groups -> hosts
+    # Used by new UI
+    path('tree/', monitoring_tree, name='monitoring_tree'),
+]
