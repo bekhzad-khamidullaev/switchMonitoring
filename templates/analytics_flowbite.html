@@ -8,7 +8,12 @@
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
   <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Recent bandwidth samples</h2>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent bandwidth samples</h2>
+      <select id="an-interface" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" onchange="loadBandwidth()">
+        <option value="">All interfaces</option>
+      </select>
+    </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -43,8 +48,18 @@
     return v+' bps';
   }
 
+  async function loadInterfacesSelect() {
+    const data = await apiGet('/interfaces/?page_size=500&ordering=switch,name');
+    const sel = document.getElementById('an-interface');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All interfaces</option>' + (data?.results || []).map(i => `<option value="${i.id}">${i.switch_hostname || ''} :: ${i.name || i.ifindex}</option>`).join('');
+  }
+
   async function loadBandwidth() {
-    const data = await apiGet('/bandwidth/?page_size=50&ordering=-ts');
+    const iface = document.getElementById('an-interface')?.value;
+    const params = new URLSearchParams({ page_size: 50, ordering: '-ts' });
+    if (iface) params.set('interface', iface);
+    const data = await apiGet(`/bandwidth/?${params.toString()}`);
     const body = document.getElementById('bw-body');
 
     if (!data || !data.results) {
@@ -88,6 +103,9 @@
     new ApexCharts(el, options).render();
   }
 
-  document.addEventListener('DOMContentLoaded', loadBandwidth);
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadInterfacesSelect();
+    await loadBandwidth();
+  });
 </script>
 {% endblock %}

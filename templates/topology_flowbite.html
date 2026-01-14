@@ -1,61 +1,115 @@
 {% extends 'base_flowbite.html' %}
 {% block title %}Topology - SNMP Manager{% endblock %}
+
 {% block content %}
 <div class="mb-4">
   <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Topology</h1>
-  <p class="text-gray-600 dark:text-gray-400 mt-1">Neighbors list (loaded from API). Visual graph can be added later.</p>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Visual graph based on API: /api/v1/switches/ + /api/v1/neighbors/</p>
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-  <div class="p-4 border-b dark:border-gray-700">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Neighbor links</h2>
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search switch</label>
+      <input id="topo-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="hostname or ip" />
+    </div>
+    <div class="flex items-end">
+      <label class="inline-flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+        <input id="topo-only-online" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded" checked>
+        Only online
+      </label>
+    </div>
   </div>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-        <tr>
-          <th class="px-6 py-3">Local switch</th>
-          <th class="px-6 py-3">Local port</th>
-          <th class="px-6 py-3">Remote MAC</th>
-          <th class="px-6 py-3">Remote port</th>
-          <th class="px-6 py-3">Last seen</th>
-        </tr>
-      </thead>
-      <tbody id="topology-body">
-        <tr><td colspan="5" class="px-6 py-4 text-center">Loading...</td></tr>
-      </tbody>
-    </table>
+  <div class="flex justify-end mt-3">
+    <button onclick="renderTopology()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Reload graph</button>
   </div>
+</div>
+
+<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Graph</h2>
+  <div id="topology-graph" class="w-full" style="height: 650px;"></div>
+  <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+    Green nodes = online, red nodes = offline. Links are built from neighbor remote MAC matching switch MAC.
+  </p>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <script>
-  async function loadNeighbors() {
-    const data = await apiGet('/neighbors/?page_size=100&ordering=-last_seen');
-    const body = document.getElementById('topology-body');
+  let network = null;
 
-    if (!data || !data.results) {
-      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Failed to load</td></tr>';
-      return;
-    }
-
-    if (data.results.length === 0) {
-      body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">No links</td></tr>';
-      return;
-    }
-
-    body.innerHTML = data.results.map(n => `
-      <tr class="border-b dark:border-gray-700">
-        <td class="px-6 py-4">${n.local_switch_hostname || '—'}<div class="text-xs text-gray-400">${n.local_switch_ip || ''}</div></td>
-        <td class="px-6 py-4">${n.local_interface_name || '—'}</td>
-        <td class="px-6 py-4"><code>${n.remote_mac}</code></td>
-        <td class="px-6 py-4">${n.remote_port || '—'}</td>
-        <td class="px-6 py-4">${n.last_seen || '—'}</td>
-      </tr>
-    `).join('');
+  function normalizeMac(mac) {
+    return (mac || '').toLowerCase();
   }
 
-  document.addEventListener('DOMContentLoaded', loadNeighbors);
+  async function renderTopology() {
+    const search = document.getElementById('topo-search')?.value?.trim().toLowerCase();
+    const onlyOnline = document.getElementById('topo-only-online')?.checked;
+
+    const swParams = new URLSearchParams({ page_size: 1000, ordering: 'hostname' });
+    if (onlyOnline) swParams.set('status', 'true');
+    if (search) swParams.set('search', search);
+    const swData = await apiGet(`/switches/?${swParams.toString()}`);
+
+    const nData = await apiGet('/neighbors/?page_size=2000&ordering=-last_seen');
+
+    const container = document.getElementById('topology-graph');
+    if (!swData || !swData.results) {
+      container.innerHTML = '<div class="text-red-500">Failed to load switches</div>';
+      return;
+    }
+
+    const switches = swData.results;
+
+    const macToSwitchId = new Map();
+    switches.forEach(s => {
+      if (s.switch_mac) macToSwitchId.set(normalizeMac(s.switch_mac), s.id);
+    });
+
+    const nodes = switches.map(s => ({
+      id: s.id,
+      label: `${s.hostname || '—'}\n${s.ip || ''}`,
+      shape: 'box',
+      color: (s.status === true) ? '#10b981' : '#ef4444',
+    }));
+
+    const edges = [];
+    if (nData && nData.results) {
+      nData.results.forEach(l => {
+        const fromId = l.local_switch;
+        const toId = macToSwitchId.get(normalizeMac(l.remote_mac));
+        if (!fromId || !toId) return;
+        if (onlyOnline) {
+          if (!switches.find(s => s.id === fromId) || !switches.find(s => s.id === toId)) return;
+        }
+        edges.push({
+          from: fromId,
+          to: toId,
+          label: l.local_interface_name ? String(l.local_interface_name) : '',
+          arrows: 'to',
+        });
+      });
+    }
+
+    const data = {
+      nodes: new vis.DataSet(nodes),
+      edges: new vis.DataSet(edges),
+    };
+
+    const options = {
+      physics: { stabilization: true },
+      interaction: { hover: true },
+      nodes: { font: { color: '#111827' } },
+      edges: { font: { align: 'top' } },
+    };
+
+    container.innerHTML = '';
+    network = new vis.Network(container, data, options);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderTopology();
+  });
 </script>
 {% endblock %}

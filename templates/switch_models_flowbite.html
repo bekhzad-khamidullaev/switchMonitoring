@@ -1,9 +1,34 @@
 {% extends 'base_flowbite.html' %}
 {% block title %}Switch Models - SNMP Manager{% endblock %}
 {% block content %}
-<div class="mb-4">
-  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Switch Models</h1>
-  <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/switch-models/</p>
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Switch Models</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/switch-models/</p>
+  </div>
+  <button data-modal-target="sm-modal" data-modal-toggle="sm-modal" onclick="openCreateModelModal()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+    <i class="fas fa-plus mr-2"></i>Add Model
+  </button>
+</div>
+
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="sm-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="Vendor or model" />
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Page size</label>
+      <select id="sm-page-size" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+        <option value="50">50</option>
+        <option value="200" selected>200</option>
+        <option value="500">500</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex justify-end mt-3">
+    <button onclick="loadModels(1)" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Apply</button>
+  </div>
 </div>
 
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -15,6 +40,7 @@
           <th class="px-6 py-3">Vendor</th>
           <th class="px-6 py-3">Model</th>
           <th class="px-6 py-3">Required MIBs</th>
+          <th class="px-6 py-3">Actions</th>
         </tr>
       </thead>
       <tbody id="sm-body">
@@ -23,12 +49,117 @@
     </table>
   </div>
 </div>
+
+<!-- Switch Model Modal -->
+<div id="sm-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-600">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="sm-modal-title">Add model</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8" data-modal-hide="sm-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-4">
+        <div id="sm-modal-error" class="hidden p-3 mb-3 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+        <input type="hidden" id="sm-id" />
+
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Vendor</label>
+            <select id="sm-vendor" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Device model</label>
+            <input id="sm-device-model" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="C2960" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Required MIBs</label>
+            <input id="sm-required-mibs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="IF-MIB, LLDP-MIB" />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+          <button data-modal-hide="sm-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+          <button onclick="saveModel()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  async function loadModels() {
-    const data = await apiGet('/switch-models/?page_size=200&ordering=device_model');
+  async function loadVendors() {
+    const v = await apiGet('/vendors/?page_size=500&ordering=name');
+    const sel = document.getElementById('sm-vendor');
+    sel.innerHTML = '<option value="">—</option>' + (v?.results || []).map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+  }
+
+  async function openCreateModelModal() {
+    document.getElementById('sm-modal-title').textContent = 'Add model';
+    document.getElementById('sm-id').value = '';
+    document.getElementById('sm-device-model').value = '';
+    document.getElementById('sm-required-mibs').value = '';
+    await loadVendors();
+    document.getElementById('sm-vendor').value = '';
+  }
+
+  async function openEditModelModal(id) {
+    await loadVendors();
+    const m = await apiGet(`/switch-models/${id}/`);
+    document.getElementById('sm-modal-title').textContent = 'Edit model';
+    document.getElementById('sm-id').value = m.id;
+    document.getElementById('sm-device-model').value = m.device_model || '';
+    document.getElementById('sm-required-mibs').value = m.required_mibs || '';
+    // vendor is nested; set vendor_id
+    document.getElementById('sm-vendor').value = m.vendor?.id || '';
+  }
+
+  async function saveModel() {
+    const err = document.getElementById('sm-modal-error');
+    err.classList.add('hidden');
+
+    const id = document.getElementById('sm-id').value;
+    const payload = {
+      vendor_id: document.getElementById('sm-vendor').value,
+      device_model: document.getElementById('sm-device-model').value,
+      required_mibs: document.getElementById('sm-required-mibs').value,
+    };
+
+    try {
+      if (id) {
+        await apiPatch(`/switch-models/${id}/`, payload);
+      } else {
+        await apiPost('/switch-models/', payload);
+      }
+      document.querySelectorAll('[data-modal-hide="sm-modal"]').forEach(b => b.click());
+      loadModels();
+    } catch (e) {
+      err.textContent = 'Failed to save model (need admin rights + vendor)';
+      err.classList.remove('hidden');
+    }
+  }
+
+  async function deleteModel(id) {
+    if (!confirm('Delete model?')) return;
+    await apiDelete(`/switch-models/${id}/`);
+    loadModels();
+  }
+
+  async function loadModels(page=1) {
+
+    const search = document.getElementById('sm-search')?.value?.trim();
+    const pageSize = document.getElementById('sm-page-size')?.value || '200';
+
+    const params = new URLSearchParams({ page: page, page_size: pageSize, ordering: 'device_model' });
+    if (search) params.set('search', search);
+
+    const data = await apiGet(`/switch-models/?${params.toString()}`);
     const body = document.getElementById('sm-body');
 
     if (!data || !data.results) {
@@ -47,9 +178,13 @@
         <td class="px-6 py-4">${m.vendor?.name || '—'}</td>
         <td class="px-6 py-4">${m.device_model || '—'}</td>
         <td class="px-6 py-4">${m.required_mibs || '—'}</td>
+        <td class="px-6 py-4">
+          <button class="text-green-600 hover:underline mr-3" data-modal-target="sm-modal" data-modal-toggle="sm-modal" onclick="openEditModelModal(${m.id})"><i class="fas fa-edit"></i></button>
+          <button class="text-red-600 hover:underline" onclick="deleteModel(${m.id})"><i class="fas fa-trash"></i></button>
+        </td>
       </tr>
     `).join('');
   }
-  document.addEventListener('DOMContentLoaded', loadModels);
+  document.addEventListener('DOMContentLoaded', () => loadModels(1));
 </script>
 {% endblock %}

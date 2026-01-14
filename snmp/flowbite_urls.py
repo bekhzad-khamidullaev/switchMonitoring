@@ -18,6 +18,7 @@ from snmp.views.flowbite_views import (
     switch_list_view,
     switch_models_view,
     topology_view,
+    vendors_view,
 )
 
 urlpatterns = [
@@ -38,6 +39,7 @@ urlpatterns = [
     path('ats/', ats_view, name='ats'),
     path('host-groups/', host_groups_view, name='host_groups'),
     path('switch-models/', switch_models_view, name='switch_models'),
+    path('vendors/', vendors_view, name='vendors'),
     path('neighbors/', neighbors_view, name='neighbors'),
     path('bandwidth/', bandwidth_view, name='bandwidth'),
 

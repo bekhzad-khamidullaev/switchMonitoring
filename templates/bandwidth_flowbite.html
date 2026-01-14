@@ -7,9 +7,19 @@
 </div>
 
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-  <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+  <div class="p-4 border-b dark:border-gray-700 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent samples</h2>
-    <button onclick="loadBandwidth()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Refresh</button>
+    <div class="flex gap-2 items-center">
+      <select id="bw-page-size" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" onchange="loadBandwidth(1)">
+        <option value="50">50</option>
+        <option value="200" selected>200</option>
+        <option value="500">500</option>
+      </select>
+      <select id="bw-interface" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" onchange="loadBandwidth(1)">
+        <option value="">All interfaces</option>
+      </select>
+      <button onclick="loadBandwidth(1)" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Refresh</button>
+    </div>
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -41,8 +51,19 @@
     return v+' bps';
   }
 
-  async function loadBandwidth() {
-    const data = await apiGet('/bandwidth/?page_size=200&ordering=-ts');
+  async function loadInterfacesSelect() {
+    const data = await apiGet('/interfaces/?page_size=500&ordering=switch,name');
+    const sel = document.getElementById('bw-interface');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All interfaces</option>' + (data?.results || []).map(i => `<option value="${i.id}">${i.switch_hostname || ''} :: ${i.name || i.ifindex}</option>`).join('');
+  }
+
+  async function loadBandwidth(page=1) {
+    const iface = document.getElementById('bw-interface')?.value;
+    const pageSize = document.getElementById('bw-page-size')?.value || '200';
+    const params = new URLSearchParams({ page: page, page_size: pageSize, ordering: '-ts' });
+    if (iface) params.set('interface', iface);
+    const data = await apiGet(`/bandwidth/?${params.toString()}`);
     const body = document.getElementById('bw-body');
 
     if (!data || !data.results) {
@@ -67,6 +88,9 @@
     `).join('');
   }
 
-  document.addEventListener('DOMContentLoaded', loadBandwidth);
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadInterfacesSelect();
+    await loadBandwidth(1);
+  });
 </script>
 {% endblock %}

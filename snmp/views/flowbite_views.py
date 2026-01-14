@@ -59,6 +59,10 @@ def bandwidth_view(request):
     return render(request, 'bandwidth_flowbite.html')
 
 
+def vendors_view(request):
+    return render(request, 'vendors_flowbite.html')
+
+
 def branches_view(request):
     return render(request, 'branches_flowbite.html')
 

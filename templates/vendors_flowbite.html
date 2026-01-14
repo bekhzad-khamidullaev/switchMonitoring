@@ -1,0 +1,151 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Vendors - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Vendors</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">CRUD via API: /api/v1/vendors/ (admin)</p>
+  </div>
+  <button data-modal-target="vendor-modal" data-modal-toggle="vendor-modal" onclick="openCreateVendorModal()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+    <i class="fas fa-plus mr-2"></i>Add Vendor
+  </button>
+</div>
+
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="v-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="Vendor name" />
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Page size</label>
+      <select id="v-page-size" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+        <option value="50">50</option>
+        <option value="200" selected>200</option>
+        <option value="500">500</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex justify-end mt-3">
+    <button onclick="loadVendors(1)" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Apply</button>
+  </div>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-6 py-3">ID</th>
+          <th class="px-6 py-3">Name</th>
+          <th class="px-6 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="v-body">
+        <tr><td colspan="3" class="px-6 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Vendor Modal -->
+<div id="vendor-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-600">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="vendor-modal-title">Add vendor</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8" data-modal-hide="vendor-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-4">
+        <div id="vendor-modal-error" class="hidden p-3 mb-3 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+        <input type="hidden" id="vendor-id" />
+        <div>
+          <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+          <input id="vendor-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button data-modal-hide="vendor-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+          <button onclick="saveVendor()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadVendors(page=1) {
+    const search = document.getElementById('v-search')?.value?.trim();
+    const pageSize = document.getElementById('v-page-size')?.value || '200';
+    const params = new URLSearchParams({ page: page, page_size: pageSize, ordering: 'name' });
+    if (search) params.set('search', search);
+
+    const data = await apiGet(`/vendors/?${params.toString()}`);
+    const body = document.getElementById('v-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Failed</td></tr>';
+      return;
+    }
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center">No vendors</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.results.map(v => `
+      <tr class="border-b dark:border-gray-700">
+        <td class="px-6 py-4">${v.id}</td>
+        <td class="px-6 py-4">${v.name}</td>
+        <td class="px-6 py-4">
+          <button class="text-green-600 hover:underline mr-3" data-modal-target="vendor-modal" data-modal-toggle="vendor-modal" onclick="openEditVendorModal(${v.id})"><i class="fas fa-edit"></i></button>
+          <button class="text-red-600 hover:underline" onclick="deleteVendor(${v.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openCreateVendorModal() {
+    document.getElementById('vendor-modal-title').textContent = 'Add vendor';
+    document.getElementById('vendor-id').value = '';
+    document.getElementById('vendor-name').value = '';
+  }
+
+  async function openEditVendorModal(id) {
+    const v = await apiGet(`/vendors/${id}/`);
+    document.getElementById('vendor-modal-title').textContent = 'Edit vendor';
+    document.getElementById('vendor-id').value = v.id;
+    document.getElementById('vendor-name').value = v.name || '';
+  }
+
+  async function saveVendor() {
+    const err = document.getElementById('vendor-modal-error');
+    err.classList.add('hidden');
+
+    const id = document.getElementById('vendor-id').value;
+    const payload = { name: document.getElementById('vendor-name').value };
+
+    try {
+      if (id) {
+        await apiPatch(`/vendors/${id}/`, payload);
+      } else {
+        await apiPost('/vendors/', payload);
+      }
+      document.querySelectorAll('[data-modal-hide="vendor-modal"]').forEach(b => b.click());
+      loadVendors(1);
+    } catch (e) {
+      err.textContent = 'Failed to save vendor (admin only)';
+      err.classList.remove('hidden');
+    }
+  }
+
+  async function deleteVendor(id) {
+    if (!confirm('Delete vendor?')) return;
+    await apiDelete(`/vendors/${id}/`);
+    loadVendors(1);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => loadVendors(1));
+</script>
+{% endblock %}

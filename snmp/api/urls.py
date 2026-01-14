@@ -16,6 +16,7 @@ from snmp.api.views import (
     ATSViewSet,
     BranchViewSet,
     HostGroupViewSet,
+    VendorViewSet,
     SwitchModelViewSet,
     SwitchViewSet,
     InterfaceViewSet,
@@ -28,6 +29,7 @@ router = DefaultRouter()
 router.register(r"ats", ATSViewSet, basename="ats")
 router.register(r"branches", BranchViewSet, basename="branches")
 router.register(r"host-groups", HostGroupViewSet, basename="host-groups")
+router.register(r"vendors", VendorViewSet, basename="vendors")
 router.register(r"switch-models", SwitchModelViewSet, basename="switch-models")
 router.register(r"switches", SwitchViewSet, basename="switches")
 router.register(r"interfaces", InterfaceViewSet, basename="interfaces")

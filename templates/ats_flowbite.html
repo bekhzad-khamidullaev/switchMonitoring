@@ -11,6 +11,26 @@
   </button>
 </div>
 
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="ats-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="Name or subnet" />
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Page size</label>
+      <select id="ats-page-size" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+        <option value="50">50</option>
+        <option value="200">200</option>
+        <option value="500" selected>500</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex justify-end mt-3">
+    <button onclick="loadAts(1)" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Apply</button>
+  </div>
+</div>
+
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
   <div class="overflow-x-auto">
     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -123,9 +143,14 @@
     loadAts();
   }
 
-  async function loadAts() { 
+  async function loadAts(page=1) {
+    const search = document.getElementById('ats-search')?.value?.trim();
+    const pageSize = document.getElementById('ats-page-size')?.value || '500';
 
-    const data = await apiGet('/ats/?page_size=500&ordering=name');
+    const params = new URLSearchParams({ page: page, page_size: pageSize, ordering: 'name' });
+    if (search) params.set('search', search);
+
+    const data = await apiGet(`/ats/?${params.toString()}`);
     const body = document.getElementById('ats-body');
 
     if (!data || !data.results) {
@@ -147,6 +172,6 @@
       </tr>
     `).join('');
   }
-  document.addEventListener('DOMContentLoaded', loadAts);
+  document.addEventListener('DOMContentLoaded', () => loadAts(1));
 </script>
 {% endblock %}

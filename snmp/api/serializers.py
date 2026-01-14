@@ -53,9 +53,37 @@ class AtsSerializer(serializers.ModelSerializer):
 
 
 class HostGroupSerializer(serializers.ModelSerializer):
+    branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=HostGroup.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+
     class Meta:
         model = HostGroup
         fields = ["id", "branch", "parent", "name", "sort_order"]
+
+    def validate(self, attrs):
+        # Default missing parent to None
+        if 'parent' not in attrs:
+            attrs['parent'] = None
+
+        branch = attrs.get('branch')
+        parent = attrs.get('parent')
+        name = attrs.get('name')
+
+        if branch and name:
+            qs = HostGroup.objects.filter(branch=branch, parent=parent, name=name)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'name': ['Group with this (branch, parent, name) already exists.']
+                })
+
+        return attrs
 
 
 class VendorSerializer(serializers.ModelSerializer):
@@ -66,12 +94,19 @@ class VendorSerializer(serializers.ModelSerializer):
 
 class SwitchModelSerializer(serializers.ModelSerializer):
     vendor = VendorSerializer(read_only=True)
+    vendor_id = serializers.PrimaryKeyRelatedField(
+        source='vendor',
+        queryset=Vendor.objects.all(),
+        write_only=True,
+        required=True,
+    )
 
     class Meta:
         model = SwitchModel
         fields = [
             "id",
             "vendor",
+            "vendor_id",
             "device_model",
             "rx_oid",
             "tx_oid",

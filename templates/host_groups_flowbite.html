@@ -1,9 +1,34 @@
 {% extends 'base_flowbite.html' %}
 {% block title %}Host Groups - SNMP Manager{% endblock %}
 {% block content %}
-<div class="mb-4">
-  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Host Groups</h1>
-  <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/host-groups/</p>
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Host Groups</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">API: /api/v1/host-groups/</p>
+  </div>
+  <button data-modal-target="hg-modal" data-modal-toggle="hg-modal" onclick="openCreateHgModal()" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+    <i class="fas fa-plus mr-2"></i>Add Group
+  </button>
+</div>
+
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="hg-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" placeholder="Group name" />
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Page size</label>
+      <select id="hg-page-size" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+        <option value="50">50</option>
+        <option value="200">200</option>
+        <option value="500" selected>500</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex justify-end mt-3">
+    <button onclick="loadHostGroups(1)" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">Apply</button>
+  </div>
 </div>
 
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -16,6 +41,7 @@
           <th class="px-6 py-3">Branch</th>
           <th class="px-6 py-3">Parent</th>
           <th class="px-6 py-3">Sort</th>
+          <th class="px-6 py-3">Actions</th>
         </tr>
       </thead>
       <tbody id="hg-body">
@@ -24,12 +50,134 @@
     </table>
   </div>
 </div>
+
+<!-- Host Group Modal -->
+<div id="hg-modal" tabindex="-1" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-xl max-h-full">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-600">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="hg-modal-title">Add group</h3>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8" data-modal-hide="hg-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-4">
+        <div id="hg-modal-error" class="hidden p-3 mb-3 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400"></div>
+        <input type="hidden" id="hg-id" />
+
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+            <input id="hg-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" />
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Branch</label>
+            <select id="hg-branch" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Parent group</label>
+            <select id="hg-parent" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white">
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Sort order</label>
+            <input id="hg-sort" type="number" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white" value="0" />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+          <button data-modal-hide="hg-modal" class="px-4 py-2 rounded-lg border">Cancel</button>
+          <button onclick="saveHg()" class="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  async function loadHostGroups() {
-    const data = await apiGet('/host-groups/?page_size=500&ordering=branch,name');
+  async function loadHgChoices() {
+    const branches = await apiGet('/branches/?page_size=500&ordering=name');
+    const groups = await apiGet('/host-groups/?page_size=500&ordering=name');
+
+    const bSel = document.getElementById('hg-branch');
+    const pSel = document.getElementById('hg-parent');
+
+    bSel.innerHTML = '<option value="">—</option>' + (branches?.results || []).map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    pSel.innerHTML = '<option value="">—</option>' + (groups?.results || []).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  }
+
+  async function openCreateHgModal() {
+    document.getElementById('hg-modal-title').textContent = 'Add group';
+    document.getElementById('hg-id').value = '';
+    document.getElementById('hg-name').value = '';
+    document.getElementById('hg-sort').value = 0;
+    await loadHgChoices();
+    document.getElementById('hg-branch').value = '';
+    document.getElementById('hg-parent').value = '';
+  }
+
+  async function openEditHgModal(id) {
+    await loadHgChoices();
+    const g = await apiGet(`/host-groups/${id}/`);
+    document.getElementById('hg-modal-title').textContent = 'Edit group';
+    document.getElementById('hg-id').value = g.id;
+    document.getElementById('hg-name').value = g.name || '';
+    document.getElementById('hg-branch').value = g.branch || '';
+    document.getElementById('hg-parent').value = g.parent || '';
+    document.getElementById('hg-sort').value = g.sort_order ?? 0;
+  }
+
+  async function saveHg() {
+    const err = document.getElementById('hg-modal-error');
+    err.classList.add('hidden');
+
+    const id = document.getElementById('hg-id').value;
+    const payload = {
+      name: document.getElementById('hg-name').value,
+      sort_order: parseInt(document.getElementById('hg-sort').value || '0', 10),
+    };
+
+    const branch = document.getElementById('hg-branch').value;
+    const parent = document.getElementById('hg-parent').value;
+    if (branch) payload.branch = branch;
+    if (parent) payload.parent = parent;
+
+    try {
+      if (id) {
+        await apiPatch(`/host-groups/${id}/`, payload);
+      } else {
+        await apiPost('/host-groups/', payload);
+      }
+      document.querySelectorAll('[data-modal-hide="hg-modal"]').forEach(b => b.click());
+      loadHostGroups();
+    } catch (e) {
+      err.textContent = 'Failed to save group';
+      err.classList.remove('hidden');
+    }
+  }
+
+  async function deleteHg(id) {
+    if (!confirm('Delete group?')) return;
+    await apiDelete(`/host-groups/${id}/`);
+    loadHostGroups();
+  }
+
+  async function loadHostGroups(page=1) {
+
+    const search = document.getElementById('hg-search')?.value?.trim();
+    const pageSize = document.getElementById('hg-page-size')?.value || '500';
+
+    const params = new URLSearchParams({ page: page, page_size: pageSize, ordering: 'branch,name' });
+    if (search) params.set('search', search);
+
+    const data = await apiGet(`/host-groups/?${params.toString()}`);
     const body = document.getElementById('hg-body');
 
     if (!data || !data.results) {
@@ -49,9 +197,13 @@
         <td class="px-6 py-4">${g.branch || '—'}</td>
         <td class="px-6 py-4">${g.parent || '—'}</td>
         <td class="px-6 py-4">${g.sort_order ?? '—'}</td>
+        <td class="px-6 py-4">
+          <button class="text-green-600 hover:underline mr-3" data-modal-target="hg-modal" data-modal-toggle="hg-modal" onclick="openEditHgModal(${g.id})"><i class="fas fa-edit"></i></button>
+          <button class="text-red-600 hover:underline" onclick="deleteHg(${g.id})"><i class="fas fa-trash"></i></button>
+        </td>
       </tr>
     `).join('');
   }
-  document.addEventListener('DOMContentLoaded', loadHostGroups);
+  document.addEventListener('DOMContentLoaded', () => loadHostGroups(1));
 </script>
 {% endblock %}

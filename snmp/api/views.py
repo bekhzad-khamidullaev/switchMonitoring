@@ -45,6 +45,7 @@ from snmp.api.serializers import (
     SwitchDetailSerializer,
     SwitchListSerializer,
     SwitchModelSerializer,
+    VendorSerializer,
 )
 from snmp.models import (
     Ats,
@@ -55,6 +56,7 @@ from snmp.models import (
     NeighborLink,
     Switch,
     SwitchModel,
+    Vendor,
 )
 
 
@@ -94,6 +96,16 @@ class HostGroupViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
     ordering_fields = ["branch", "parent", "sort_order", "name", "id"]
     ordering = ["branch", "parent", "sort_order", "name"]
+
+
+class VendorViewSet(viewsets.ModelViewSet):
+    queryset = Vendor.objects.all()
+    serializer_class = VendorSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name"]
+    ordering_fields = ["name", "id"]
+    ordering = ["name"]
 
 
 class SwitchModelViewSet(viewsets.ModelViewSet):
