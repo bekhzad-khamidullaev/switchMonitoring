@@ -31,6 +31,10 @@ def ports_monitoring_view(request):
     return render(request, 'ports_monitoring_flowbite.html')
 
 
+def optical_monitoring_view(request):
+    return render(request, 'optical_monitoring_flowbite.html')
+
+
 def topology_view(request):
     return render(request, 'topology_flowbite.html')
 

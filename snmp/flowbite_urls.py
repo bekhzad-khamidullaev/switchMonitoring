@@ -12,6 +12,7 @@ from snmp.views.flowbite_views import (
     host_groups_view,
     login_view,
     neighbors_view,
+    optical_monitoring_view,
     ports_monitoring_view,
     settings_view,
     switch_detail_view,
@@ -32,6 +33,7 @@ urlpatterns = [
     path('switches/<int:switch_id>/', switch_detail_view, name='switch_detail'),
 
     path('ports/', ports_monitoring_view, name='ports_monitoring'),
+    path('optical/', optical_monitoring_view, name='optical_monitoring'),
     path('topology/', topology_view, name='topology'),
     path('analytics/', analytics_view, name='analytics'),
 

@@ -1,0 +1,366 @@
+{% extends 'base_flowbite.html' %}
+{% block title %}Optical Signal Monitoring - SNMP Manager{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Optical Signal Monitoring</h1>
+  <p class="text-gray-600 dark:text-gray-400 mt-1">Monitor SFP/QSFP optical signal levels across all interfaces</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2 lg:grid-cols-5">
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center">
+      <div class="p-3 mr-4 bg-blue-100 rounded-full dark:bg-blue-900">
+        <i class="fas fa-ethernet text-blue-500 dark:text-blue-400"></i>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Total Optical</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white" id="stat-total">-</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center">
+      <div class="p-3 mr-4 bg-green-100 rounded-full dark:bg-green-900">
+        <i class="fas fa-check-circle text-green-500 dark:text-green-400"></i>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Normal</p>
+        <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="stat-normal">-</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center">
+      <div class="p-3 mr-4 bg-yellow-100 rounded-full dark:bg-yellow-900">
+        <i class="fas fa-exclamation-triangle text-yellow-500 dark:text-yellow-400"></i>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Warning</p>
+        <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="stat-warning">-</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center">
+      <div class="p-3 mr-4 bg-red-100 rounded-full dark:bg-red-900">
+        <i class="fas fa-times-circle text-red-500 dark:text-red-400"></i>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Critical</p>
+        <p class="text-2xl font-bold text-red-600 dark:text-red-400" id="stat-critical">-</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex items-center">
+      <div class="p-3 mr-4 bg-purple-100 rounded-full dark:bg-purple-900">
+        <i class="fas fa-signal text-purple-500 dark:text-purple-400"></i>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Avg RX</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white" id="stat-avg-rx">-</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+      <input id="f-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Hostname, IP, interface...">
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Signal Status</label>
+      <select id="f-status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        <option value="">All</option>
+        <option value="critical">Critical (≤ -25 dBm)</option>
+        <option value="warning">Warning (-25 to -20 dBm)</option>
+        <option value="normal">Normal (> -20 dBm)</option>
+      </select>
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Min RX (dBm)</label>
+      <input id="f-rx-min" type="number" step="0.1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="-30">
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Max RX (dBm)</label>
+      <input id="f-rx-max" type="number" step="0.1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="-10">
+    </div>
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Branch</label>
+      <select id="f-branch" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        <option value="">All Branches</option>
+      </select>
+    </div>
+    <div class="flex items-end gap-2">
+      <button onclick="loadOptical(1)" class="flex-1 text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5">
+        <i class="fas fa-search mr-1"></i> Search
+      </button>
+      <button onclick="resetFilters()" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-3 py-2.5 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+        <i class="fas fa-undo"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Results Table -->
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+  <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Optical Interfaces</h2>
+    <div class="flex gap-2">
+      <span id="result-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
+      <button onclick="exportData()" class="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        <i class="fas fa-download mr-1"></i> Export
+      </button>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+          <th class="px-4 py-3">Switch</th>
+          <th class="px-4 py-3">Interface</th>
+          <th class="px-4 py-3">RX (dBm)</th>
+          <th class="px-4 py-3">TX (dBm)</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">SFP Vendor</th>
+          <th class="px-4 py-3">Part Number</th>
+          <th class="px-4 py-3">Last Poll</th>
+        </tr>
+      </thead>
+      <tbody id="optical-body">
+        <tr><td colspan="8" class="px-4 py-4 text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Pagination -->
+  <div class="flex items-center justify-between p-4 border-t dark:border-gray-700">
+    <div class="text-sm text-gray-500 dark:text-gray-400">
+      Page <span id="pag-current">1</span> of <span id="pag-total">1</span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="loadOptical(currentPage - 1)" id="btn-prev" disabled class="px-3 py-1 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white dark:border-gray-600">
+        Previous
+      </button>
+      <button onclick="loadOptical(currentPage + 1)" id="btn-next" disabled class="px-3 py-1 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white dark:border-gray-600">
+        Next
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let currentPage = 1;
+  let totalPages = 1;
+
+  function getStatusBadge(status, rx) {
+    const rxText = rx !== null ? `${rx.toFixed(1)} dBm` : '—';
+    switch (status) {
+      case 'critical':
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                  <i class="fas fa-times-circle mr-1"></i> Critical
+                </span>`;
+      case 'warning':
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                  <i class="fas fa-exclamation-triangle mr-1"></i> Warning
+                </span>`;
+      case 'normal':
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                  <i class="fas fa-check-circle mr-1"></i> Normal
+                </span>`;
+      default:
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                  <i class="fas fa-question-circle mr-1"></i> Unknown
+                </span>`;
+    }
+  }
+
+  function getRxClass(rx) {
+    if (rx === null) return 'text-gray-400';
+    if (rx <= -25) return 'text-red-600 font-bold dark:text-red-400';
+    if (rx <= -20) return 'text-yellow-600 font-semibold dark:text-yellow-400';
+    return 'text-green-600 dark:text-green-400';
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function loadSummary() {
+    const data = await apiGet('/optical/summary/');
+    if (!data) return;
+
+    document.getElementById('stat-total').textContent = data.total_optical_ports || 0;
+    document.getElementById('stat-normal').textContent = data.normal_ports || 0;
+    document.getElementById('stat-warning').textContent = data.warning_ports || 0;
+    document.getElementById('stat-critical').textContent = data.critical_ports || 0;
+    document.getElementById('stat-avg-rx').textContent = data.avg_rx_dbm !== null ? `${data.avg_rx_dbm} dBm` : '—';
+  }
+
+  async function loadBranches() {
+    const data = await apiGet('/branches/?page_size=100');
+    if (!data || !data.results) return;
+
+    const select = document.getElementById('f-branch');
+    data.results.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.name;
+      select.appendChild(opt);
+    });
+  }
+
+  async function loadOptical(page = 1) {
+    currentPage = page;
+
+    const search = document.getElementById('f-search').value.trim();
+    const status = document.getElementById('f-status').value;
+    const rxMin = document.getElementById('f-rx-min').value;
+    const rxMax = document.getElementById('f-rx-max').value;
+    const branch = document.getElementById('f-branch').value;
+
+    const params = new URLSearchParams({ page: page, page_size: 25 });
+    if (search) params.set('search', search);
+    if (status) params.set('signal_status', status);
+    if (rxMin) params.set('rx_dbm_gte', rxMin);
+    if (rxMax) params.set('rx_dbm_lte', rxMax);
+    if (branch) params.set('branch', branch);
+
+    const data = await apiGet(`/optical/?${params.toString()}`);
+    const body = document.getElementById('optical-body');
+
+    if (!data || !data.results) {
+      body.innerHTML = '<tr><td colspan="8" class="px-4 py-4 text-center text-red-500">Failed to load data</td></tr>';
+      return;
+    }
+
+    document.getElementById('result-count').textContent = `${data.count || 0} interfaces found`;
+
+    if (data.results.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="px-4 py-4 text-center">No optical interfaces found</td></tr>';
+      updatePagination(0, 0);
+      return;
+    }
+
+    body.innerHTML = data.results.map(p => `
+      <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+        <td class="px-4 py-3">
+          <a href="/snmp/switches/${p.switch_id}/" class="text-blue-600 hover:underline dark:text-blue-400">${p.switch_hostname || '—'}</a>
+          <div class="text-xs text-gray-400">${p.switch_ip || ''}</div>
+          <div class="text-xs text-gray-500">${p.branch_name || ''} / ${p.ats_name || ''}</div>
+        </td>
+        <td class="px-4 py-3">
+          <div class="font-medium">${p.name || `ifIndex ${p.ifindex}`}</div>
+          <div class="text-xs text-gray-400">${p.description || ''}</div>
+        </td>
+        <td class="px-4 py-3 ${getRxClass(p.rx_dbm)}">${p.rx_dbm !== null ? p.rx_dbm.toFixed(1) : '—'}</td>
+        <td class="px-4 py-3">${p.tx_dbm !== null ? p.tx_dbm.toFixed(1) : '—'}</td>
+        <td class="px-4 py-3">${getStatusBadge(p.signal_status, p.rx_dbm)}</td>
+        <td class="px-4 py-3">${p.sfp_vendor || '—'}</td>
+        <td class="px-4 py-3 text-xs">${p.part_number || '—'}</td>
+        <td class="px-4 py-3 text-xs">${formatDate(p.optics_polled_at)}</td>
+      </tr>
+    `).join('');
+
+    // Pagination
+    const pageSize = 25;
+    totalPages = Math.ceil((data.count || 0) / pageSize);
+    updatePagination(currentPage, totalPages);
+  }
+
+  function updatePagination(current, total) {
+    document.getElementById('pag-current').textContent = current;
+    document.getElementById('pag-total').textContent = total || 1;
+
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    btnPrev.disabled = current <= 1;
+    btnNext.disabled = current >= total;
+  }
+
+  function resetFilters() {
+    document.getElementById('f-search').value = '';
+    document.getElementById('f-status').value = '';
+    document.getElementById('f-rx-min').value = '';
+    document.getElementById('f-rx-max').value = '';
+    document.getElementById('f-branch').value = '';
+    loadOptical(1);
+  }
+
+  async function exportData() {
+    const search = document.getElementById('f-search').value.trim();
+    const status = document.getElementById('f-status').value;
+    const rxMin = document.getElementById('f-rx-min').value;
+    const rxMax = document.getElementById('f-rx-max').value;
+    const branch = document.getElementById('f-branch').value;
+
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status) params.set('signal_status', status);
+    if (rxMin) params.set('rx_dbm_gte', rxMin);
+    if (rxMax) params.set('rx_dbm_lte', rxMax);
+    if (branch) params.set('branch', branch);
+
+    const data = await apiGet(`/optical/export/?${params.toString()}`);
+    if (!data || !data.data) {
+      alert('Export failed');
+      return;
+    }
+
+    // Generate CSV
+    const headers = ['Branch', 'ATS', 'Hostname', 'IP', 'Interface', 'ifIndex', 'RX (dBm)', 'TX (dBm)', 'Status', 'SFP Vendor', 'Part Number', 'Polled At'];
+    const rows = data.data.map(p => [
+      p.branch_name || '',
+      p.ats_name || '',
+      p.switch_hostname || '',
+      p.switch_ip || '',
+      p.name || '',
+      p.ifindex,
+      p.rx_dbm !== null ? p.rx_dbm : '',
+      p.tx_dbm !== null ? p.tx_dbm : '',
+      p.signal_status || '',
+      p.sfp_vendor || '',
+      p.part_number || '',
+      p.optics_polled_at || ''
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `optical_signals_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadSummary();
+    loadBranches();
+    loadOptical(1);
+
+    // Auto-refresh every 5 minutes
+    setInterval(() => {
+      loadSummary();
+      loadOptical(currentPage);
+    }, 300000);
+  });
+
+  // Search on Enter key
+  document.getElementById('f-search').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') loadOptical(1);
+  });
+</script>
+{% endblock %}

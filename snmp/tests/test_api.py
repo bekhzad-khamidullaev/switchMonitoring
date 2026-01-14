@@ -9,8 +9,8 @@ from rest_framework import status
 from decimal import Decimal
 
 from snmp.models import (
-    ATS, Branch, HostGroup, Switch, SwitchPort,
-    SwitchNeighbor, SwitchModel, BandwidthSample
+    Ats as ATS, Branch, HostGroup, Switch, Interface as SwitchPort,
+    NeighborLink as SwitchNeighbor, SwitchModel, InterfaceBandwidthSample as BandwidthSample
 )
 from users.models import UserProfile
 

@@ -17,12 +17,13 @@ from snmp.api.views import (
     BranchViewSet,
     HostGroupViewSet,
     VendorViewSet,
-    SwitchModelViewSet,
-    SwitchViewSet,
+    DeviceModelViewSet,
+    DeviceViewSet,
     InterfaceViewSet,
     NeighborLinkViewSet,
     InterfaceBandwidthSampleViewSet,
     DashboardViewSet,
+    OpticalMonitoringViewSet,
 )
 
 router = DefaultRouter()
@@ -30,12 +31,16 @@ router.register(r"ats", ATSViewSet, basename="ats")
 router.register(r"branches", BranchViewSet, basename="branches")
 router.register(r"host-groups", HostGroupViewSet, basename="host-groups")
 router.register(r"vendors", VendorViewSet, basename="vendors")
-router.register(r"switch-models", SwitchModelViewSet, basename="switch-models")
-router.register(r"switches", SwitchViewSet, basename="switches")
+router.register(r"device-models", DeviceModelViewSet, basename="device-models")
+router.register(r"devices", DeviceViewSet, basename="devices")
+# Backward compatibility aliases
+router.register(r"switch-models", DeviceModelViewSet, basename="switch-models")
+router.register(r"switches", DeviceViewSet, basename="switches")
 router.register(r"interfaces", InterfaceViewSet, basename="interfaces")
 router.register(r"neighbors", NeighborLinkViewSet, basename="neighbors")
 router.register(r"bandwidth", InterfaceBandwidthSampleViewSet, basename="bandwidth")
 router.register(r"dashboard", DashboardViewSet, basename="dashboard")
+router.register(r"optical", OpticalMonitoringViewSet, basename="optical")
 
 schema_view = get_schema_view(
     openapi.Info(

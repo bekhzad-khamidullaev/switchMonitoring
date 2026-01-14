@@ -5,15 +5,21 @@ Provides advanced filtering capabilities using django-filter.
 import django_filters
 from django.db.models import Q
 from snmp.models import (
-    Ats as ATS,  # Alias для совместимости
+    Ats as ATS,
     Branch, 
     HostGroup, 
-    Switch, 
-    Interface as SwitchPort,  # Используем Interface вместо SwitchPort
-    NeighborLink as SwitchNeighbor,  # Используем NeighborLink вместо SwitchNeighbor
-    SwitchModel, 
-    InterfaceBandwidthSample as BandwidthSample  # Используем InterfaceBandwidthSample
+    Device,
+    Interface,
+    NeighborLink,
+    DeviceModel,
+    InterfaceBandwidthSample as BandwidthSample
 )
+
+# Backward compatibility aliases
+Switch = Device
+SwitchPort = Interface
+SwitchNeighbor = NeighborLink
+SwitchModel = DeviceModel
 
 
 class ATSFilter(django_filters.FilterSet):
@@ -78,102 +84,68 @@ class SwitchModelFilter(django_filters.FilterSet):
         fields = ['vendor', 'model']
 
 
-class SwitchFilter(django_filters.FilterSet):
-    """Advanced filter for Switch model."""
+class DeviceFilter(django_filters.FilterSet):
+    """Advanced filter for Device model (switches, routers, etc.)."""
     # Basic text filters
-    name = django_filters.CharFilter(lookup_expr='icontains')
-    ip_address = django_filters.CharFilter(lookup_expr='icontains')
-    mac_address = django_filters.CharFilter(lookup_expr='icontains')
+    hostname = django_filters.CharFilter(lookup_expr='icontains')
+    ip = django_filters.CharFilter(lookup_expr='icontains')
+    device_mac = django_filters.CharFilter(lookup_expr='icontains')
     serial_number = django_filters.CharFilter(lookup_expr='icontains')
-    location = django_filters.CharFilter(lookup_expr='icontains')
     
-    # Status filters (Switch.status is BooleanField in existing model)
+    # Status filters (Device.status is BooleanField)
     status = django_filters.BooleanFilter()
-    is_active = django_filters.BooleanFilter()
-    is_monitored = django_filters.BooleanFilter()
     
     # Relationship filters
     ats = django_filters.NumberFilter(field_name='ats__id')
     ats_name = django_filters.CharFilter(field_name='ats__name', lookup_expr='icontains')
-    branch = django_filters.NumberFilter(field_name='branch__id')
-    branch_name = django_filters.CharFilter(field_name='branch__name', lookup_expr='icontains')
-    host_group = django_filters.NumberFilter(field_name='host_group__id')
-    host_group_name = django_filters.CharFilter(field_name='host_group__name', lookup_expr='icontains')
-    device_model = django_filters.NumberFilter(field_name='device_model__id')
-    device_model_name = django_filters.CharFilter(field_name='device_model__model', lookup_expr='icontains')
+    branch = django_filters.NumberFilter(field_name='ats__branch__id')
+    branch_name = django_filters.CharFilter(field_name='ats__branch__name', lookup_expr='icontains')
+    group = django_filters.NumberFilter(field_name='group__id')
+    group_name = django_filters.CharFilter(field_name='group__name', lookup_expr='icontains')
+    model = django_filters.NumberFilter(field_name='model__id')
+    model_name = django_filters.CharFilter(field_name='model__device_model', lookup_expr='icontains')
     
     # Date filters
-    last_seen_after = django_filters.DateTimeFilter(field_name='last_seen', lookup_expr='gte')
-    last_seen_before = django_filters.DateTimeFilter(field_name='last_seen', lookup_expr='lte')
-    created_after = django_filters.DateTimeFilter(field_name='created_at', lookup_expr='gte')
-    created_before = django_filters.DateTimeFilter(field_name='created_at', lookup_expr='lte')
-    
-    # Numeric range filters
-    cpu_usage_gte = django_filters.NumberFilter(field_name='cpu_usage', lookup_expr='gte')
-    cpu_usage_lte = django_filters.NumberFilter(field_name='cpu_usage', lookup_expr='lte')
-    memory_usage_gte = django_filters.NumberFilter(field_name='memory_usage', lookup_expr='gte')
-    memory_usage_lte = django_filters.NumberFilter(field_name='memory_usage', lookup_expr='lte')
-    temperature_gte = django_filters.NumberFilter(field_name='temperature', lookup_expr='gte')
-    temperature_lte = django_filters.NumberFilter(field_name='temperature', lookup_expr='lte')
-    
-    # SNMP filters
-    snmp_version = django_filters.ChoiceFilter(choices=[('1', 'v1'), ('2c', 'v2c'), ('3', 'v3')])
+    last_update_after = django_filters.DateTimeFilter(field_name='last_update', lookup_expr='gte')
+    last_update_before = django_filters.DateTimeFilter(field_name='last_update', lookup_expr='lte')
+    created_after = django_filters.DateTimeFilter(field_name='created', lookup_expr='gte')
+    created_before = django_filters.DateTimeFilter(field_name='created', lookup_expr='lte')
     
     # Custom filters
     search = django_filters.CharFilter(method='search_filter')
-    has_issues = django_filters.BooleanFilter(method='filter_has_issues')
     online = django_filters.BooleanFilter(method='filter_online')
     
     class Meta:
-        model = Switch
-        fields = [
-            'name', 'ip_address', 'status', 'ats', 'branch',
-            'host_group', 'device_model', 'is_active', 'is_monitored'
-        ]
+        model = Device
+        fields = ['hostname', 'ip', 'status', 'ats', 'group', 'model']
     
     def search_filter(self, queryset, name, value):
         """Global search across multiple fields."""
         return queryset.filter(
-            Q(name__icontains=value) |
-            Q(ip_address__icontains=value) |
-            Q(mac_address__icontains=value) |
-            Q(serial_number__icontains=value) |
-            Q(location__icontains=value) |
-            Q(description__icontains=value)
-        )
-    
-    def filter_has_issues(self, queryset, name, value):
-        """Filter switches with issues (high CPU, memory, temperature)."""
-        if value:
-            return queryset.filter(
-                Q(cpu_usage__gte=80) |
-                Q(memory_usage__gte=80) |
-                Q(temperature__gte=70) |
-                Q(status='error')
-            )
-        return queryset.exclude(
-            Q(cpu_usage__gte=80) |
-            Q(memory_usage__gte=80) |
-            Q(temperature__gte=70) |
-            Q(status='error')
+            Q(hostname__icontains=value) |
+            Q(ip__icontains=value) |
+            Q(device_mac__icontains=value) |
+            Q(serial_number__icontains=value)
         )
     
     def filter_online(self, queryset, name, value):
-        """Filter online/offline switches."""
-        if value:
-            return queryset.filter(status='online')
-        return queryset.exclude(status='online')
+        """Filter online/offline devices."""
+        return queryset.filter(status=value)
 
 
-class SwitchPortFilter(django_filters.FilterSet):
-    """Filter for SwitchPort model."""
-    switch = django_filters.NumberFilter(field_name='switch__id')
-    switch_name = django_filters.CharFilter(field_name='switch__name', lookup_expr='icontains')
-    switch_ip = django_filters.CharFilter(field_name='switch__ip_address', lookup_expr='icontains')
+# Backward compatibility alias
+SwitchFilter = DeviceFilter
+
+
+class InterfaceFilter(django_filters.FilterSet):
+    """Filter for Interface model."""
+    device = django_filters.NumberFilter(field_name='device__id')
+    device_hostname = django_filters.CharFilter(field_name='device__hostname', lookup_expr='icontains')
+    device_ip = django_filters.CharFilter(field_name='device__ip', lookup_expr='icontains')
     
-    port_name = django_filters.CharFilter(lookup_expr='icontains')
+    name = django_filters.CharFilter(lookup_expr='icontains')
+    ifindex = django_filters.NumberFilter()
     iftype = django_filters.NumberFilter()
-    # Status filters (Interface uses numeric fields)
     oper = django_filters.NumberFilter()
     admin = django_filters.NumberFilter()
     
@@ -181,110 +153,149 @@ class SwitchPortFilter(django_filters.FilterSet):
     speed_gte = django_filters.NumberFilter(field_name='speed', lookup_expr='gte')
     speed_lte = django_filters.NumberFilter(field_name='speed', lookup_expr='lte')
     
-    vlan = django_filters.NumberFilter()
     description = django_filters.CharFilter(lookup_expr='icontains')
-    mac_address = django_filters.CharFilter(lookup_expr='icontains')
-    
-    # POE filters
-    poe_enabled = django_filters.BooleanFilter()
-    poe_power_gte = django_filters.NumberFilter(field_name='poe_power', lookup_expr='gte')
+    alias = django_filters.CharFilter(lookup_expr='icontains')
     
     # Optical filters
-    has_optical = django_filters.BooleanFilter(method='filter_has_optical')
+    has_optics = django_filters.BooleanFilter(method='filter_has_optics')
     optical_weak_signal = django_filters.BooleanFilter(method='filter_optical_weak_signal')
     
-    # Status filters
-    has_errors = django_filters.BooleanFilter(method='filter_has_errors')
-    is_uplink = django_filters.BooleanFilter(method='filter_is_uplink')
+    # Discards filter
+    has_discards = django_filters.BooleanFilter(method='filter_has_discards')
     
     class Meta:
-        model = SwitchPort
-        fields = ['switch', 'iftype', 'oper', 'admin']
+        model = Interface
+        fields = ['device', 'ifindex', 'iftype', 'oper', 'admin']
     
-    def filter_has_optical(self, queryset, name, value):
-        """Filter ports with optical information."""
+    def filter_has_optics(self, queryset, name, value):
+        """Filter interfaces with optical information."""
         if value:
-            return queryset.filter(
-                port_type='sfp',
-                optical_tx_power__isnull=False
-            )
-        return queryset.exclude(
-            port_type='sfp',
-            optical_tx_power__isnull=False
-        )
+            return queryset.filter(optics__isnull=False)
+        return queryset.filter(optics__isnull=True)
     
     def filter_optical_weak_signal(self, queryset, name, value):
-        """Filter ports with weak optical signal."""
+        """Filter interfaces with weak optical signal."""
         if value:
-            return queryset.filter(
-                port_type='sfp',
-                optical_rx_power__lt=-20
-            )
+            return queryset.filter(optics__rx_dbm__lt=-20)
         return queryset
     
-    def filter_has_errors(self, queryset, name, value):
-        """Filter ports with errors."""
+    def filter_has_discards(self, queryset, name, value):
+        """Filter interfaces with discards."""
         if value:
             return queryset.filter(
-                Q(in_errors__gt=0) | Q(out_errors__gt=0)
+                Q(discards_in__gt=0) | Q(discards_out__gt=0)
             )
-        return queryset.filter(in_errors=0, out_errors=0)
-    
-    def filter_is_uplink(self, queryset, name, value):
-        """Filter uplink ports."""
-        if value:
-            return queryset.filter(port_type='uplink')
-        return queryset.exclude(port_type='uplink')
+        return queryset.filter(discards_in=0, discards_out=0)
 
 
-class SwitchNeighborFilter(django_filters.FilterSet):
-    """Filter for SwitchNeighbor model."""
-    switch = django_filters.NumberFilter(field_name='switch__id')
-    switch_name = django_filters.CharFilter(field_name='switch__name', lookup_expr='icontains')
-    port = django_filters.NumberFilter(field_name='port__id')
+# Backward compatibility alias
+SwitchPortFilter = InterfaceFilter
+
+
+class NeighborLinkFilter(django_filters.FilterSet):
+    """Filter for NeighborLink model."""
+    local_device = django_filters.NumberFilter(field_name='local_device__id')
+    local_device_hostname = django_filters.CharFilter(field_name='local_device__hostname', lookup_expr='icontains')
+    local_interface = django_filters.NumberFilter(field_name='local_interface__id')
     
-    neighbor_system_name = django_filters.CharFilter(lookup_expr='icontains')
-    neighbor_device_id = django_filters.CharFilter(lookup_expr='icontains')
-    # No protocol field in NeighborLink model, remove this filter
+    remote_mac = django_filters.CharFilter(lookup_expr='icontains')
+    remote_port = django_filters.CharFilter(lookup_expr='icontains')
     
-    discovered_after = django_filters.DateTimeFilter(field_name='discovered_at', lookup_expr='gte')
-    discovered_before = django_filters.DateTimeFilter(field_name='discovered_at', lookup_expr='lte')
     last_seen_after = django_filters.DateTimeFilter(field_name='last_seen', lookup_expr='gte')
     last_seen_before = django_filters.DateTimeFilter(field_name='last_seen', lookup_expr='lte')
     
     class Meta:
-        model = SwitchNeighbor
-        fields = ['local_switch']
+        model = NeighborLink
+        fields = ['local_device', 'local_interface']
+
+
+# Backward compatibility alias
+SwitchNeighborFilter = NeighborLinkFilter
 
 
 class BandwidthSampleFilter(django_filters.FilterSet):
     """Filter for BandwidthSample model."""
-    switch = django_filters.NumberFilter(field_name='switch__id')
-    switch_name = django_filters.CharFilter(field_name='switch__name', lookup_expr='icontains')
-    port = django_filters.NumberFilter(field_name='port__id')
-    port_name = django_filters.CharFilter(field_name='port__port_name', lookup_expr='icontains')
+    device = django_filters.NumberFilter(field_name='interface__device__id')
+    device_hostname = django_filters.CharFilter(field_name='interface__device__hostname', lookup_expr='icontains')
+    interface = django_filters.NumberFilter(field_name='interface__id')
+    interface_name = django_filters.CharFilter(field_name='interface__name', lookup_expr='icontains')
     
-    timestamp_after = django_filters.DateTimeFilter(field_name='timestamp', lookup_expr='gte')
-    timestamp_before = django_filters.DateTimeFilter(field_name='timestamp', lookup_expr='lte')
+    ts_after = django_filters.DateTimeFilter(field_name='ts', lookup_expr='gte')
+    ts_before = django_filters.DateTimeFilter(field_name='ts', lookup_expr='lte')
     
     in_bps_gte = django_filters.NumberFilter(field_name='in_bps', lookup_expr='gte')
     out_bps_gte = django_filters.NumberFilter(field_name='out_bps', lookup_expr='gte')
     
-    in_utilization_gte = django_filters.NumberFilter(field_name='in_utilization', lookup_expr='gte')
-    out_utilization_gte = django_filters.NumberFilter(field_name='out_utilization', lookup_expr='gte')
-    
-    high_utilization = django_filters.BooleanFilter(method='filter_high_utilization')
-    
     class Meta:
         model = BandwidthSample
-        fields = ['interface']  # InterfaceBandwidthSample uses 'interface' and 'ts'
+        fields = ['interface']
+
+
+class OpticalInterfaceFilter(django_filters.FilterSet):
+    """Filter for optical interfaces monitoring."""
     
-    def filter_high_utilization(self, queryset, name, value):
-        """Filter samples with high utilization (>80%)."""
+    # Device filters
+    device = django_filters.NumberFilter(field_name='device__id')
+    device_hostname = django_filters.CharFilter(field_name='device__hostname', lookup_expr='icontains')
+    device_ip = django_filters.CharFilter(field_name='device__ip', lookup_expr='icontains')
+    
+    # Location filters
+    branch = django_filters.NumberFilter(field_name='device__ats__branch__id')
+    branch_name = django_filters.CharFilter(field_name='device__ats__branch__name', lookup_expr='icontains')
+    ats = django_filters.NumberFilter(field_name='device__ats__id')
+    ats_name = django_filters.CharFilter(field_name='device__ats__name', lookup_expr='icontains')
+    
+    # Interface filters
+    ifindex = django_filters.NumberFilter()
+    name = django_filters.CharFilter(lookup_expr='icontains')
+    description = django_filters.CharFilter(lookup_expr='icontains')
+    alias = django_filters.CharFilter(lookup_expr='icontains')
+    oper = django_filters.NumberFilter()
+    admin = django_filters.NumberFilter()
+    
+    # Optical signal filters
+    rx_dbm_lte = django_filters.NumberFilter(field_name='optics__rx_dbm', lookup_expr='lte')
+    rx_dbm_gte = django_filters.NumberFilter(field_name='optics__rx_dbm', lookup_expr='gte')
+    tx_dbm_lte = django_filters.NumberFilter(field_name='optics__tx_dbm', lookup_expr='lte')
+    tx_dbm_gte = django_filters.NumberFilter(field_name='optics__tx_dbm', lookup_expr='gte')
+    
+    # SFP filters
+    sfp_vendor = django_filters.CharFilter(field_name='optics__sfp_vendor', lookup_expr='icontains')
+    part_number = django_filters.CharFilter(field_name='optics__part_number', lookup_expr='icontains')
+    
+    # Status filters
+    has_optics = django_filters.BooleanFilter(method='filter_has_optics')
+    signal_status = django_filters.CharFilter(method='filter_signal_status')
+    only_optical = django_filters.BooleanFilter(method='filter_only_optical')
+    
+    class Meta:
+        model = Interface
+        fields = ['device', 'ifindex', 'oper', 'admin']
+    
+    def filter_has_optics(self, queryset, name, value):
+        """Filter interfaces that have optics record."""
         if value:
-            return queryset.filter(
-                Q(in_utilization__gte=80) | Q(out_utilization__gte=80)
+            return queryset.filter(optics__isnull=False)
+        return queryset.filter(optics__isnull=True)
+    
+    def filter_only_optical(self, queryset, name, value):
+        """Filter only interfaces with both RX and TX signal present."""
+        if value:
+            return queryset.exclude(
+                optics__rx_dbm__isnull=True
+            ).exclude(
+                optics__tx_dbm__isnull=True
             )
-        return queryset.filter(
-            in_utilization__lt=80, out_utilization__lt=80
-        )
+        return queryset
+    
+    def filter_signal_status(self, queryset, name, value):
+        """Filter by signal status: critical, warning, normal, unknown."""
+        if value == 'critical':
+            return queryset.filter(optics__rx_dbm__lte=-25)
+        elif value == 'warning':
+            return queryset.filter(optics__rx_dbm__gt=-25, optics__rx_dbm__lte=-20)
+        elif value == 'normal':
+            return queryset.filter(optics__rx_dbm__gt=-20)
+        elif value == 'unknown':
+            return queryset.filter(Q(optics__isnull=True) | Q(optics__rx_dbm__isnull=True))
+        return queryset

@@ -52,7 +52,8 @@ class Vendor(models.Model):
     def __str__(self):
         return self.name
 
-class SwitchModel(models.Model):
+class DeviceModel(models.Model):
+    """Model/type of network device (e.g. Cisco 2960, Huawei S5720)."""
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
     device_model = models.CharField(max_length=200)
 
@@ -128,12 +129,16 @@ class SwitchModel(models.Model):
     
     class Meta:
         managed = True
-        db_table = 'switch_model'
+        db_table = 'switch_model'  # Keep same table name
         unique_together = (('vendor', 'device_model'),)
     
     
     def __str__(self):
         return self.device_model
+
+
+# Backward compatibility alias
+SwitchModel = DeviceModel
 
 
 class HostGroup(models.Model):
@@ -159,19 +164,20 @@ class HostGroup(models.Model):
         return self.name
 
 
-class Switch(models.Model):
+class Device(models.Model):
+    """Network device (switch, router, etc.)."""
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
+    model = models.ForeignKey('DeviceModel', on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
     last_update = models.DateTimeField(auto_now=True, null=True, blank=True)
     hostname = models.CharField(max_length=200, null=True, blank=True)
     ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
-    switch_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
+    device_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
     snmp_community_ro = models.CharField(max_length=20, default='eriwpirt', null=True, blank=True)
     snmp_community_rw = models.CharField(max_length=20, default='netman', null=True, blank=True)
     status = models.BooleanField(default=False, null=True, blank=True)
     ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
-    group = models.ForeignKey('HostGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='switches')
+    group = models.ForeignKey('HostGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='devices')
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
     history = HistoricalRecords()
@@ -179,7 +185,7 @@ class Switch(models.Model):
     
     class Meta:
         managed = True
-        db_table = 'switches'
+        db_table = 'switches'  # Keep same table name to avoid data migration
         unique_together = (('hostname', 'ip'),)
         indexes = [
             models.Index(fields=['status', 'hostname', 'ip']),
@@ -190,22 +196,31 @@ class Switch(models.Model):
         super().save(*args, **kwargs)
         
     def __str__(self):
-        return self.hostname
+        return self.hostname or str(self.ip)
+
+
+# Backward compatibility alias
+Switch = Device
     
     
-class SwitchStatus(models.Model):
-    switch = models.OneToOneField('Switch', on_delete=models.CASCADE, related_name='status_record')
+class DeviceStatus(models.Model):
+    """Real-time status of a network device."""
+    device = models.OneToOneField('Device', on_delete=models.CASCADE, related_name='status_record', db_column='switch_id')
     is_up = models.BooleanField(default=False)
     uptime = models.CharField(max_length=200, null=True, blank=True)
     last_poll_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         managed = True
-        db_table = 'switch_status'
+        db_table = 'switch_status'  # Keep same table name
+
+
+# Backward compatibility alias
+SwitchStatus = DeviceStatus
 
 
 class Interface(models.Model):
-    switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='interfaces')
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='interfaces', db_column='switch_id')
     ifindex = models.PositiveIntegerField()
 
     name = models.CharField(max_length=64, null=True, blank=True)
@@ -227,10 +242,19 @@ class Interface(models.Model):
     class Meta:
         managed = True
         db_table = 'interfaces'
-        unique_together = (('switch', 'ifindex'),)
+        unique_together = (('device', 'ifindex'),)
         indexes = [
-            models.Index(fields=['switch', 'ifindex']),
+            models.Index(fields=['device', 'ifindex']),
         ]
+    
+    # Backward compatibility property
+    @property
+    def switch(self):
+        return self.device
+    
+    @switch.setter
+    def switch(self, value):
+        self.device = value
 
 
 class InterfaceOptics(models.Model):
@@ -262,7 +286,7 @@ class InterfaceL2(models.Model):
 
 
 class MacEntry(models.Model):
-    switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='mac_entries')
+    device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='mac_entries', db_column='switch_id')
     interface = models.ForeignKey('Interface', on_delete=models.SET_NULL, null=True, blank=True, related_name='mac_entries')
     mac = models.CharField(max_length=17)
     vlan = models.PositiveIntegerField()
@@ -273,15 +297,20 @@ class MacEntry(models.Model):
     class Meta:
         managed = True
         db_table = 'mac_entries'
-        unique_together = (('switch', 'mac', 'vlan'),)
+        unique_together = (('device', 'mac', 'vlan'),)
         indexes = [
             models.Index(fields=['mac']),
-            models.Index(fields=['switch', 'interface']),
+            models.Index(fields=['device', 'interface']),
         ]
+    
+    # Backward compatibility
+    @property
+    def switch(self):
+        return self.device
 
 
 class NeighborLink(models.Model):
-    local_switch = models.ForeignKey('Switch', on_delete=models.CASCADE, related_name='neighbor_links')
+    local_device = models.ForeignKey('Device', on_delete=models.CASCADE, related_name='neighbor_links', db_column='local_switch_id')
     local_interface = models.ForeignKey('Interface', on_delete=models.SET_NULL, null=True, blank=True, related_name='neighbor_links')
     remote_mac = models.CharField(max_length=17)
     remote_port = models.CharField(max_length=64, null=True, blank=True)
@@ -291,9 +320,14 @@ class NeighborLink(models.Model):
         managed = True
         db_table = 'neighbor_links'
         indexes = [
-            models.Index(fields=['local_switch']),
+            models.Index(fields=['local_device']),
             models.Index(fields=['remote_mac']),
         ]
+    
+    # Backward compatibility
+    @property
+    def local_switch(self):
+        return self.local_device
 
 
 # Legacy models removed by normalization cleanup.
@@ -329,5 +363,83 @@ class InterfaceBandwidthSample(models.Model):
         indexes = [
             models.Index(fields=['interface', 'ts']),
         ]
+
+
+class OpticsHistorySample(models.Model):
+    """Historical optical signal samples for trending and graphs."""
+
+    interface = models.ForeignKey('Interface', on_delete=models.CASCADE, related_name='optics_history')
+    ts = models.DateTimeField(db_index=True)
+    rx_dbm = models.FloatField(null=True, blank=True)
+    tx_dbm = models.FloatField(null=True, blank=True)
+    temperature_c = models.FloatField(null=True, blank=True)
+    voltage_v = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'optics_history_sample'
+        indexes = [
+            models.Index(fields=['interface', 'ts']),
+            models.Index(fields=['ts']),
+        ]
+
+    @classmethod
+    def record_sample(cls, interface, optics):
+        """Record a historical sample from current InterfaceOptics data."""
+        if optics and (optics.rx_dbm is not None or optics.tx_dbm is not None):
+            return cls.objects.create(
+                interface=interface,
+                ts=timezone.now(),
+                rx_dbm=optics.rx_dbm,
+                tx_dbm=optics.tx_dbm,
+                temperature_c=optics.temperature_c,
+                voltage_v=optics.voltage_v,
+            )
+        return None
+
+
+class OpticsAlert(models.Model):
+    """Alert records for optical signal threshold violations."""
+    
+    SEVERITY_CRITICAL = 'critical'
+    SEVERITY_WARNING = 'warning'
+    SEVERITY_INFO = 'info'
+    SEVERITY_CHOICES = [
+        (SEVERITY_CRITICAL, 'Critical'),
+        (SEVERITY_WARNING, 'Warning'),
+        (SEVERITY_INFO, 'Info'),
+    ]
+    
+    STATUS_ACTIVE = 'active'
+    STATUS_ACKNOWLEDGED = 'acknowledged'
+    STATUS_RESOLVED = 'resolved'
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, 'Active'),
+        (STATUS_ACKNOWLEDGED, 'Acknowledged'),
+        (STATUS_RESOLVED, 'Resolved'),
+    ]
+
+    interface = models.ForeignKey('Interface', on_delete=models.CASCADE, related_name='optics_alerts')
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default=SEVERITY_WARNING)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
+    rx_dbm = models.FloatField(null=True, blank=True)
+    threshold = models.FloatField(null=True, blank=True)
+    message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_by = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = 'optics_alerts'
+        indexes = [
+            models.Index(fields=['status', 'severity']),
+            models.Index(fields=['interface', 'status']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.severity}: {self.interface} - {self.rx_dbm} dBm"
 
 
