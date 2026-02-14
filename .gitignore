@@ -1,58 +1,87 @@
-# Python
-*.pyc
-*.pyo
-__pycache__/
-
-# Virtual environment
-venv/
-env/
-Pipfile.lock
-Pipfile
-
-# IDE (example: VSCode)
-.vscode/
-.idea/
-
-# Database
-db.sqlite3
-
-# Static files
-/staticfiles/
-
-# Media files
-/media/
-
-# Environment variables
-.env
-
-# Compiled Python files
-*.pyc
-*.pyo
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-
-# Temporary files
+# --- System Files ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 *.log
 *.tmp
+*.bak
+*.swp
+*~
 
-# Caches
+# --- Python ---
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Django specific
-*.log
-*.pot
-*.pyc
-__pycache__/
+# --- Django ---
 local_settings.py
 db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+/static_files/
+.cache/
 
-# Dependency directories
-/.venv/
-/pip/
+# --- Environments ---
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Testing / Coverage ---
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+htmlcov/
+
+# --- Node.js (Theme) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
