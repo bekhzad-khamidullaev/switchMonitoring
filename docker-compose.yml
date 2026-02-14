@@ -1,0 +1,96 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: switchmonitor
+      POSTGRES_USER: switchmonitor
+      POSTGRES_PASSWORD: switchmonitor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U switchmonitor -d switchmonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/app/docker/entrypoint-web.sh"]
+    environment: &app_env
+      DJANGO_ENV: dev
+      DEBUG: "True"
+      DJANGO_SECRET_KEY: docker-dev-secret-key
+      ALLOWED_HOSTS: "*"
+      CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: switchmonitor
+      DB_USER: switchmonitor
+      DB_PASSWORD: switchmonitor
+      DB_HOST: db
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SNMP_DEFAULT_COMMUNITY_RO: public
+      SNMP_DEFAULT_COMMUNITY_RW: private
+      POLL_ALL_DEVICES_INTERVAL_SEC: "300"
+      LEGACY_TASKS_ENABLED: "False"
+      LOG_JSON: "True"
+      LOG_LEVEL: "INFO"
+    volumes:
+      - .:/app
+      - static_data:/app/static_files
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    environment: *app_env
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
+    environment: *app_env
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  static_data:
+  media_data:

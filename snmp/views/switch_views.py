@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from snmp.models import Switch
 from snmp.forms import SwitchForm
 import logging
@@ -44,6 +44,7 @@ def switch_detail(request, pk):
     return render(request, 'switch_detail.html', {'switch': switch})
 
 @login_required
+@permission_required('snmp.add_switch', raise_exception=True)
 def switch_create(request):
     error_message = None
     if request.method == 'POST':
@@ -60,6 +61,7 @@ def switch_create(request):
     return render(request, 'switch_form.html', {'form': form, 'error_message': error_message})
 
 @login_required
+@permission_required('snmp.change_switch', raise_exception=True)
 def switch_update(request, pk):
     error_message = None
     switch = get_object_or_404(Switch, pk=pk)
@@ -75,6 +77,7 @@ def switch_update(request, pk):
     return render(request, 'switch_form.html', {'form': form, 'error_message': error_message})
 
 @login_required
+@permission_required('snmp.delete_switch', raise_exception=True)
 def switch_delete(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
     if request.method == 'POST':
@@ -87,7 +90,8 @@ def switch_confirm_delete(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
     return render(request, 'switch_confirm_delete.html', {'switch': switch})
 
-# @login_required
+@login_required
+@permission_required('snmp.change_switch', raise_exception=True)
 def switch_status(request, pk):
     switch = get_object_or_404(Switch, pk=pk)
     status_response = update_switch_status(switch)

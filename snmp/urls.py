@@ -1,10 +1,12 @@
-from django.urls import path
+from django.urls import path, include
 # from . import views
 from .views.switch_views import *
 from .views.dashboard_views import *
 from .views.update_views import *
 from .views.requests_views import *
 from .views.export import *
+from .views.metrics_views import *
+from .api.urls import urlpatterns as api_urlpatterns
     
 urlpatterns = [
     path('', switches, name='switches'),
@@ -27,6 +29,13 @@ urlpatterns = [
     path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory'),
     path('switches/synch_zbx/', sync_hosts_from_zabbix, name='sync_zbx'),
     path('switches/export/high_sig', export_high_sig_switches_to_excel, name='export_high_sig_switches_to_excel'),
+    path('switches/<int:pk>/metrics/', switch_metrics, name='switch_metrics'),
+    path('metrics/subscriptions/<int:subscription_id>/update/', update_metric_subscription, name='update_metric_subscription'),
+    path('switches/<int:pk>/metrics/export.csv', export_device_metrics_csv, name='export_device_metrics_csv'),
 
     # path('switches/online_switches/', views.online_switches, name='online_switches'),
+]
+
+urlpatterns += [
+    path('api/', include((api_urlpatterns, 'snmp_api'))),
 ]

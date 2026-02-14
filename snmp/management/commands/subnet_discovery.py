@@ -2,6 +2,7 @@ import nmap
 import logging
 from ipaddress import IPv4Network
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from snmp.models import Switch, SwitchModel, Ats
 
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +26,7 @@ class Command(BaseCommand):
         for ip_address in hosts:
             is_reachable = self.check_host_reachability(ip_address)
             if is_reachable:
-                switch, created = Switch.objects.get_or_create(ip=ip_address, snmp_community_ro='eriwpirt', snmp_community_rw='pirteriw')
+                switch, created = Switch.objects.get_or_create(ip=ip_address, snmp_community_ro=settings.SNMP_DEFAULT_COMMUNITY_RO, snmp_community_rw=settings.SNMP_DEFAULT_COMMUNITY_RW)
                 logger.info(f"Processing switch at IP: {ip_address}")
                 switch.save()
                 if switch.save:

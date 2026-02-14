@@ -3,6 +3,7 @@ import logging
 import re
 from django.core.paginator import Paginator
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from snmp.models import Switch, SwitchModel, Ats
 from .snmp import perform_snmpwalk
 from django.db.models import Count
@@ -10,7 +11,7 @@ from django.db.models import Count
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SNMP RESPONSE")
 
-SNMP_COMMUNITY = "snmp2netread"
+SNMP_COMMUNITY = settings.SNMP_DEFAULT_COMMUNITY_RO
 OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
 OID_SYSTEM_UPTIME = 'iso.3.6.1.2.1.1.3.0'
 OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
@@ -38,7 +39,7 @@ class Command(BaseCommand):
                 ats = Ats.objects.all()
                 duplicate_ips = Switch.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
                 for selected_switch in selected_switches:
-                    SNMP_COMMUNITY = "snmp2netread"
+                    SNMP_COMMUNITY = settings.SNMP_DEFAULT_COMMUNITY_RO
                     snmp_response_hostname = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, SNMP_COMMUNITY)
                     snmp_response_uptime = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_UPTIME, SNMP_COMMUNITY)
                     for branch in ats:

@@ -2,6 +2,7 @@ import concurrent.futures
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from snmp.models import Switch
 from snmp.lib.update_port_info import SNMPUpdater
 from pysnmp.hlapi import *
@@ -461,7 +462,7 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
-        snmp_community = "snmp2netread"
+        snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
         loop = asyncio.get_event_loop()
 
         while True:

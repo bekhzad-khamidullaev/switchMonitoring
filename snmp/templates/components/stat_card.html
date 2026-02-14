@@ -1,0 +1,31 @@
+{% with tone=tone|default:'brand' %}
+  {% if tone == 'success' %}
+    {% with classes='bg-success-600' %}
+      <a href="{{ href }}" class="rounded-panel p-4 text-white shadow-soft {{ classes }}">
+        <p class="text-3xl font-bold">{{ value }}</p>
+        <p class="text-sm">{{ label }}</p>
+      </a>
+    {% endwith %}
+  {% elif tone == 'danger' %}
+    {% with classes='bg-danger-600' %}
+      <a href="{{ href }}" class="rounded-panel p-4 text-white shadow-soft {{ classes }}">
+        <p class="text-3xl font-bold">{{ value }}</p>
+        <p class="text-sm">{{ label }}</p>
+      </a>
+    {% endwith %}
+  {% elif tone == 'warning' %}
+    {% with classes='bg-amber-600' %}
+      <a href="{{ href }}" class="rounded-panel p-4 text-white shadow-soft {{ classes }}">
+        <p class="text-3xl font-bold">{{ value }}</p>
+        <p class="text-sm">{{ label }}</p>
+      </a>
+    {% endwith %}
+  {% else %}
+    {% with classes='bg-brand-700' %}
+      <a href="{{ href }}" class="rounded-panel p-4 text-white shadow-soft {{ classes }}">
+        <p class="text-3xl font-bold">{{ value }}</p>
+        <p class="text-sm">{{ label }}</p>
+      </a>
+    {% endwith %}
+  {% endif %}
+{% endwith %}

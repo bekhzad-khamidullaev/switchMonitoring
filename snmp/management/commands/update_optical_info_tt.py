@@ -6,6 +6,7 @@ import math
 from ipaddress import IPv4Network, IPv4Address, ip_address as parse_ip_address
 
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from pysnmp.hlapi import (
     SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity, nextCmd
 )
@@ -382,7 +383,7 @@ class Command(BaseCommand):
         # Добавляем только аргумент для community, подсеть жестко задана
         parser.add_argument(
             '--community',
-            default='snmp2netread', # Значение по умолчанию
+            default=settings.SNMP_DEFAULT_COMMUNITY_RO, # Значение по умолчанию
             help='SNMP community string to use.'
         )
 

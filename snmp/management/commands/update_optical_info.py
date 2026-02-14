@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from snmp.models import Switch
 from pysnmp.hlapi import *
 import math
@@ -270,7 +271,7 @@ class Command(BaseCommand):
     help = 'Update switch data'
 
     def handle(self, *args, **options):
-        snmp_community = "snmp2netread"
+        snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
 
         while True:
             selected_switches = Switch.objects.filter(status=True).order_by('-pk')

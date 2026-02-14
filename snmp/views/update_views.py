@@ -1,10 +1,8 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from snmp.models import Switch, SwitchModel
-from snmp.lib.update_port_info import SNMPUpdater, PortsInfo
-from django.views.decorators.csrf import csrf_exempt
-from snmp.management.commands.snmp import perform_snmpwalk
+from django.views.decorators.http import require_POST
 import re
 import logging
 from django.core.paginator import Paginator
@@ -12,9 +10,14 @@ from django.db.models import Q
 from django.db import transaction
 from .qoshimcha import get_permitted_branches, convert_uptime_to_human_readable
 import time
-from ping3 import ping
+from django.conf import settings
 
-SNMP_COMMUNITY = "snmp2netread"
+try:
+    from ping3 import ping as ping_host
+except Exception:  # pragma: no cover - optional dependency
+    ping_host = None
+
+SNMP_COMMUNITY = settings.SNMP_DEFAULT_COMMUNITY_RO
 OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
 OID_SYSTEM_UPTIME = 'iso.3.6.1.2.1.1.3.0'
 OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
@@ -28,9 +31,12 @@ def update_switch_status(switch):
     try:
         if ip_addr is None:
             return HttpResponse(status=400)
+        if ping_host is None:
+            logger.warning("ping3 is not installed; cannot update switch ICMP status")
+            return HttpResponse(status=503)
 
         start_time = time.time()
-        host_alive = ping(ip_addr, unit='ms', size=64, timeout=2)
+        host_alive = ping_host(ip_addr, unit='ms', size=64, timeout=2)
         elapsed_time = time.time() - start_time
 
         if host_alive is not None:
@@ -46,40 +52,40 @@ def update_switch_status(switch):
         return HttpResponse(status=500)
 
 
-# @login_required
-@csrf_exempt
+@login_required
+@permission_required('snmp.change_switch', raise_exception=True)
+@require_POST
 def update_optical_info(request, pk):
-    if request.method == 'POST':
-        switch = get_object_or_404(Switch, pk=pk)
-        snmp_community = 'snmp2netread'
-        try:
-            snmp_updater = SNMPUpdater(switch, snmp_community)
-            snmp_updater.update_switch_data()
-            return JsonResponse({
-                'rx_signal': switch.rx_signal,
-                'tx_signal': switch.tx_signal,
-                'sfp_vendor': switch.sfp_vendor,
-                'part_number': switch.part_number
-            })
-        except Exception as e:
-            return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)
-    else:
-        return HttpResponse(status=405)
+    from snmp.lib.update_port_info import SNMPUpdater
+
+    switch = get_object_or_404(Switch, pk=pk)
+    snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
+    try:
+        snmp_updater = SNMPUpdater(switch, snmp_community)
+        snmp_updater.update_switch_data()
+        return JsonResponse({
+            'rx_signal': switch.rx_signal,
+            'tx_signal': switch.tx_signal,
+            'sfp_vendor': switch.sfp_vendor,
+            'part_number': switch.part_number
+        })
+    except Exception:
+        return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)
     
 
 @login_required
-@csrf_exempt
+@permission_required('snmp.change_switch', raise_exception=True)
+@require_POST
 def update_switch_ports_data(request, pk):
-    if request.method == 'POST':
-        switch = get_object_or_404(Switch, pk=pk)
-        try:
-            port_info = PortsInfo()
-            port_info.create_switch_ports(switch)
-            return JsonResponse({'message': 'Switch ports data updated successfully.'})
-        except Exception as e:
-            return JsonResponse({'error': f'An error occurred during switch ports update: {str(e)}'}, status=500)
-    else:
-        return HttpResponse(status=405)
+    from snmp.lib.update_port_info import PortsInfo
+
+    switch = get_object_or_404(Switch, pk=pk)
+    try:
+        port_info = PortsInfo()
+        port_info.create_switch_ports(switch)
+        return JsonResponse({'message': 'Switch ports data updated successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': f'An error occurred during switch ports update: {str(e)}'}, status=500)
 
 
 @login_required
@@ -191,7 +197,11 @@ def switches_high_sig(request):
     })
 
 @login_required
+@permission_required('snmp.change_switch', raise_exception=True)
+@require_POST
 def update_switch_inventory(request, pk):
+        from snmp.management.commands.snmp import perform_snmpwalk
+
         try:
             selected_switch = Switch.objects.get(pk=pk)
         except Switch.DoesNotExist:

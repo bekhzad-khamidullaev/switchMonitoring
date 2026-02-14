@@ -4,16 +4,24 @@ from snmp.models import Switch
 from django.shortcuts import redirect
 import requests
 from urllib3.exceptions import InsecureRequestWarning
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
+from django.conf import settings
+from django.views.decorators.http import require_POST
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+if not settings.ZABBIX_VERIFY_SSL:
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 @login_required
+@permission_required('snmp.add_switch', raise_exception=True)
+@require_POST
 def sync_hosts_from_zabbix(request):
-    # Zabbix API token and endpoint
-    zabbix_url = 'https://monitoring.tshtt.uz/api_jsonrpc.php'
-    zabbix_token = '89296f0cae9f7d302495371e27be491100d516196608be0caace979572467cf7'
+    zabbix_url = settings.ZABBIX_URL
+    zabbix_token = settings.ZABBIX_TOKEN
+    verify_ssl = settings.ZABBIX_VERIFY_SSL
+    if not zabbix_url or not zabbix_token:
+        return redirect('dashboard')
+
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {zabbix_token}'
@@ -31,7 +39,7 @@ def sync_hosts_from_zabbix(request):
 
     try:
         # Fetch hosts from Zabbix
-        response = requests.post(zabbix_url, headers=headers, json=payload, verify=False)
+        response = requests.post(zabbix_url, headers=headers, json=payload, verify=verify_ssl, timeout=15)
         response.raise_for_status()
         hosts_result = response.json()
 
@@ -52,7 +60,13 @@ def sync_hosts_from_zabbix(request):
                 }
 
                 # Make a request to get interface information
-                interfaces_response = requests.post(zabbix_url, headers=headers, json=interfaces_payload, verify=False)
+                interfaces_response = requests.post(
+                    zabbix_url,
+                    headers=headers,
+                    json=interfaces_payload,
+                    verify=verify_ssl,
+                    timeout=15,
+                )
                 interfaces_response.raise_for_status()
                 interfaces_result = interfaces_response.json()
 

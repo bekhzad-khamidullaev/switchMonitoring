@@ -1,0 +1,11 @@
+{% with tone=tone|default:'neutral' %}
+  {% if tone == 'success' %}
+    <span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">{{ label }}</span>
+  {% elif tone == 'danger' %}
+    <span class="inline-flex rounded-full bg-danger-100 px-2.5 py-1 text-xs font-semibold text-danger-700">{{ label }}</span>
+  {% elif tone == 'warning' %}
+    <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{{ label }}</span>
+  {% else %}
+    <span class="inline-flex rounded-full bg-surface-100 px-2.5 py-1 text-xs font-semibold text-surface-700">{{ label }}</span>
+  {% endif %}
+{% endwith %}

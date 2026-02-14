@@ -3,213 +3,106 @@
 {% block title %}Switch Details{% endblock %}
 
 {% block content %}
-<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<div x-data="switchDetailPage({
+      switchId: {{ switch.pk }},
+      initialStatus: '{{ switch.status|yesno:'UP,DOWN' }}',
+      rxSignal: '{{ switch.rx_signal|default:'' }}',
+      txSignal: '{{ switch.tx_signal|default:'' }}',
+      sfpVendor: '{{ switch.sfp_vendor|default:''|escapejs }}',
+      partNumber: '{{ switch.part_number|default:''|escapejs }}'
+    })"
+  class="space-y-4">
 
-<script>
-  $(document).ready(function () {
-    function updatePartNumberValue(newPartNumberValue) {
-      // Update the content of the HTML element with the new value
-      $('#part-number').text(newPartNumberValue);
-    }
-    function updateSfpVendorValue(newSfpVendorValue) {
-      // Update the content of the HTML element with the new value
-      $('#sfp-vendor').text(newSfpVendorValue);
-    }
-    function updateRxSignalValue(newRxSignalValue) {
-      // Update the content of the HTML element with the new value
-      $('#rx-signal').text(newRxSignalValue);
-    }
-    function updateTxSignalValue(newTxSignalValue) {
-      // Update the content of the HTML element with the new value
-      $('#tx-signal').text(newTxSignalValue);
-    }
-    function updateSwitchStatus(switchId) {
-      $.ajax({
-        url: `/snmp/switches/switch_status/${switchId}/`,
-        method: 'GET',
-        dataType: 'json',
-        success: function (data) {
-          const switchStatusElement = $("#switch-status-" + switchId);
-          switchStatusElement.text(data.status);
-
-          if (data.status === 'UP') {
-            switchStatusElement.removeClass('bg-red-600 text-neutral-950 animate-pulse').addClass('bg-green-600 text-white');
-          } else {
-            switchStatusElement.removeClass('bg-green-600 text-white').addClass('bg-red-600 text-neutral-950 animate-pulse');
-          }
-        },
-        error: function (error) {
-          console.error('Error updating switch status:', error);
-        }
-      });
-    }
-    $('.update-optical-info').on('click', function () {
-      const switchId = $(this).data('switch-id');
-
-      // Perform AJAX request to update optical info
-      $.ajax({
-        url: `/snmp/switches/update_optical_info/${switchId}/`,
-        method: 'POST',
-        dataType: 'json',
-        cache: false,
-        success: function (data) {
-          console.log('Optical info updated successfully:', data);
-
-          // Update the Rx Signal value with the new value received from the server
-          updateRxSignalValue(data.rx_signal);
-          updateTxSignalValue(data.tx_signal);
-          updateSfpVendorValue(data.sfp_vendor);
-          updatePartNumberValue(data.part_number);
-
-        },
-        error: function (error) {
-          console.error('Error updating optical info:', error);
-        }
-      });
-    });
-
-    // function updateOpticalInfo(switchId) {
-    //   $.ajax({
-    //     url: `/snmp/switches/update_optical_info/${switchId}/`,
-    //     method: 'POST',
-    //     dataType: 'json',
-    //     cache: false,
-    //     success: function (data) {
-    //       console.log('Optical info updated successfully:', data);
-    //       $('#sfp-vendor-' + switchId).text(data.sfpVendor);
-    //       $('#part-number-' + switchId).text(data.partNumber);
-    //       $('#rx-signal-' + switchId).text(data.rxSignal);
-    //       $('#tx-signal-' + switchId).text(data.txSignal);
-    //     },
-    //     error: function (error) {
-    //       console.error('Error updating optical info:', error);
-    //     }
-    //   });
-    // }
-
-
-
-    setInterval(function () {
-      updateSwitchStatus('{{ switch.pk }}');
-
-    }, 3000);
-
-    $('.update-switch-status').on('click', function () {
-      updateSwitchStatus('{{ switch.pk }}');
-    //   const switchId = $(this).data('switch-id');
-
-    //   updateSwitchStatus(switchId);
-    //   if (data.status === 'UP') {
-    //         switchStatusElement.removeClass('bg-red-600 text-neutral-950 animate-pulse').addClass('bg-green-600 text-white');
-    //       } else {
-    //         switchStatusElement.removeClass('bg-green-600 text-white').addClass('bg-red-600 text-neutral-950 animate-pulse');
-    //       }
-    });
-  });
-</script>
-  <div class="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold text-neutral-900 dark:text-white mb-4">Switch Details</h2>
-
-
-    <table class="w-full text-xs text-center text-neutral-500 dark:text-neutral-400 mb-4">
-      <thead class="text-xs uppercase">
-        <tr class="bg-neutral-600 text-white dark:text-neutral-300">
-          <th class="border px-2 py-1">ID</th>
-          <th class="border px-2 py-1">Status</th>        
-          <th class="border px-2 py-1">Vendor</th>
-          <th class="border px-2 py-1">Model</th>
-          <th class="border px-2 py-1">Hostname</th>
-          <th class="border px-2 py-1">IP</th>        
-          <th class="border px-2 py-1">Uptime</th>
-          <th class="border px-2 py-1">Serial Number</th>
-          <th class="border px-2 py-1">Mac</th>
-          <th class="border px-2 py-1">Last check</th>
-          <th class="border px-2 py-1">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
-          <td class="border px-2 py-1">{{ switch.pk }}</td>
-          <td class="text-center border-1 font-medium {% if switch.status %}text-green-600 bg-green-100{% else %}text-red-600 bg-red-100{% endif %}">
-            {% if switch.status %}UP{% else %}DOWN{% endif %}
-          </td>        
-          <td class="border px-2 py-1">{{ switch.model.vendor.name }}</a></td>
-          <td class="border px-2 py-1">{{ switch.model.device_model }}</a></td>        
-          <td class="border px-2 py-1">{{ switch.hostname }}</a></td>        
-          <td class="border px-2 py-1">{{ switch.ip }}</a></td>
-          <td class="border px-2 py-1">{{ switch.uptime }}</td>
-          <td class="border px-2 py-1">{{ switch.serial_number | default:"N/A" }}</td>
-          <td class="border px-2 py-1">{{ switch.mac | default:"N/A" }}</td>
-          <td class="border px-2 py-1">{{ switch.last_update }}</td>
-          <td class="border px-2 py-1">
-          <!-- <a href="{% url 'switch_status' switch.pk %}"> -->
-            <button class="update-switch-status px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.pk }}">
-                Update switch status
-            </button>
-          <!-- </a> -->
-          <a href="{% url 'update_switch_inventory' switch.pk %}">
-            <button class="px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.pk }}">
-              Update switch inventory
-            </button>
-          </a>
-          </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <table class="w-full text-xs text-center text-neutral-500 dark:text-neutral-400 mb-4">
-      <thead class="text-xs uppercase">
-        <tr class="bg-neutral-600 text-white dark:text-neutral-300">
-          <th class="border px-2 py-1">Port Name</th>
-          <th class="border px-2 py-1">Port</th>
-          <th class="border px-2 py-1">Port Speed</th>
-          <th class="border px-2 py-1">Description</th>
-          <th class="border px-2 py-1">SFP Vendor Name</th>
-          <th class="border px-2 py-1">SFP Part Number</th>
-          <th class="border px-2 py-1">Rx Signal Value</th>
-          <th class="border px-2 py-1">Tx Signal Value</th>
-          <th class="border px-2 py-1">Get info</th>
-        </tr>
-      </thead>
-      <tbody>
-
-        <tr class="border-b border-neutral-300 dark:border-b-2 border-gray-100 text-black dark:text-neutral-200 bg-neutral-200 dark:bg-neutral-800 dark:border-neutral-700">
-          <td class="border px-2 py-1">{{ switch.switch_ports_reverse.name | default:"N/A" }}</td>
-          <td class="border px-2 py-1">{{ switch.switch_ports_reverse.port | default:"N/A" }}</td>
-          <td class="border px-2 py-1">{{ switch.switch_ports_reverse.speed | default:"N/A"  }}</td>
-          <td class="border px-2 py-1">{{ switch.switch_ports_reverse.description | default:"N/A"  }}</td>
-          <td class="border px-2 py-1" id="sfp-vendor">{{ switch.sfp_vendor }}</td>
-          <td class="border px-2 py-1" id="part-number">{{ switch.part_number }}</td>
-          <td class="border px-2 py-1" id="rx-signal">{{ switch.rx_signal }}</td>
-          <td class="border px-2 py-1" id="tx-signal">{{ switch.tx_signal }}</td>
-          <td class="border px-2 py-1">
-            <button class="update-optical-info px-2 py-1 font-medium text-center inline-flex items-center text-xs text-white bg-blue-500 hover:bg-blue-700 focus:ring-2 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800" data-switch-id="{{ switch.id }}">
-              Update Optical Info
-            </button>
-          </td>          
-        </tr>
-        
-      </tbody>
-    </table>
-
-    <!-- Action Buttons -->
-    <div class="mt-4 space-x-2">
-      {% if perms.snmp.change_switch %}
-      <a href="{% url 'switch_update' switch.pk %}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-        Edit
-        <i class="fa-solid fa-user-pen"></i>
-      </a>
-      
-      <a href="{% url 'switch_confirm_delete' switch.pk %}" class="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900">
-        Delete
-        <i class="fa-solid fa-trash"></i>
-      </a>
-      {% endif %}
-      <a href="{% url 'switches' %}" class="focus:outline-none text-white bg-yellow-400 hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:focus:ring-yellow-900">
-        Back to List
-        <i class="fa-solid fa-rotate-left"></i>
-      </a>
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h2 class="font-display text-lg font-semibold text-surface-900">Switch Details</h2>
     </div>
-  </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-surface-200 text-sm">
+        <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+          <tr>
+            <th class="px-3 py-2 text-left">ID</th>
+            <th class="px-3 py-2 text-left">Status</th>
+            <th class="px-3 py-2 text-left">Vendor</th>
+            <th class="px-3 py-2 text-left">Model</th>
+            <th class="px-3 py-2 text-left">Hostname</th>
+            <th class="px-3 py-2 text-left">IP</th>
+            <th class="px-3 py-2 text-left">Uptime</th>
+            <th class="px-3 py-2 text-left">Serial</th>
+            <th class="px-3 py-2 text-left">MAC</th>
+            <th class="px-3 py-2 text-left">Last Check</th>
+          </tr>
+        </thead>
+        <tbody class="bg-surface-0 text-surface-700">
+          <tr>
+            <td class="px-3 py-2">{{ switch.pk }}</td>
+            <td class="px-3 py-2">
+              <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                :class="status === 'UP' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
+                x-text="status"></span>
+            </td>
+            <td class="px-3 py-2">{{ switch.model.vendor.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.model.device_model|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.hostname|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.ip }}</td>
+            <td class="px-3 py-2">{{ switch.uptime|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.serial_number|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.switch_mac|default:'-' }}</td>
+            <td class="px-3 py-2">{{ switch.last_update }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex flex-wrap gap-2 border-t border-surface-200 px-4 py-3">
+      <button type="button" @click="fetchStatus()" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Refresh status</button>
+      <button type="button" @click="refreshOptics()" :disabled="busy"
+        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300">
+        <span x-show="!busy">Update optical info</span>
+        <span x-show="busy">Updating...</span>
+      </button>
+      <form method="post" action="{% url 'update_switch_inventory' switch.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Update inventory</button>
+      </form>
+      <a href="{% url 'switch_metrics' switch.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
+    </div>
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h3 class="text-base font-semibold text-surface-900">Optical Data</h3>
+    </div>
+    <div class="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">SFP Vendor</p>
+        <p class="text-sm font-semibold text-surface-900" x-text="sfpVendor || '-' "></p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">Part Number</p>
+        <p class="text-sm font-semibold text-surface-900" x-text="partNumber || '-' "></p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">RX Signal</p>
+        <p class="text-sm font-semibold text-surface-900" x-text="rxSignal || '-' "></p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">TX Signal</p>
+        <p class="text-sm font-semibold text-surface-900" x-text="txSignal || '-' "></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="flex flex-wrap gap-2">
+    {% if perms.snmp.change_switch %}
+    {% url 'switch_update' switch.pk as switch_edit_url %}
+    {% include 'components/link_button.html' with href=switch_edit_url label='Edit' tone='surface' %}
+    {% url 'switch_confirm_delete' switch.pk as switch_delete_url %}
+    {% include 'components/link_button.html' with href=switch_delete_url label='Delete' tone='danger' %}
+    {% endif %}
+    {% url 'switches' as switches_url %}
+    {% include 'components/link_button.html' with href=switches_url label='Back to list' tone='surface' %}
+  </section>
+</div>
 {% endblock %}

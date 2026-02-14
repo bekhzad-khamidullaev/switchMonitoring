@@ -1,0 +1,57 @@
+{% with tone=tone|default:'brand' size=size|default:'sm' %}
+  {% if size == 'xs' %}
+    {% with size_classes='px-2 py-1 text-xs' %}
+      {% if tone == 'brand' %}
+        {% with tone_classes='bg-brand-600 text-white hover:bg-brand-700' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% elif tone == 'brand_dark' %}
+        {% with tone_classes='bg-brand-900 text-white hover:bg-brand-700' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% elif tone == 'success' %}
+        {% with tone_classes='bg-success-600 text-white hover:bg-success-700' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% elif tone == 'danger' %}
+        {% with tone_classes='bg-danger-600 text-white hover:bg-danger-700' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% elif tone == 'surface' %}
+        {% with tone_classes='bg-surface-700 text-white hover:bg-surface-900' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% else %}
+        {% with tone_classes='bg-surface-100 text-surface-900 hover:bg-surface-200' %}
+          <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md {{ size_classes }} font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+        {% endwith %}
+      {% endif %}
+    {% endwith %}
+  {% else %}
+  {% if tone == 'brand' %}
+    {% with tone_classes='bg-brand-600 text-white hover:bg-brand-700' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% elif tone == 'brand_dark' %}
+    {% with tone_classes='bg-brand-900 text-white hover:bg-brand-700' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% elif tone == 'success' %}
+    {% with tone_classes='bg-success-600 text-white hover:bg-success-700' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% elif tone == 'danger' %}
+    {% with tone_classes='bg-danger-600 text-white hover:bg-danger-700' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% elif tone == 'surface' %}
+    {% with tone_classes='bg-surface-700 text-white hover:bg-surface-900' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% else %}
+    {% with tone_classes='bg-surface-100 text-surface-900 hover:bg-surface-200' %}
+      <a href="{{ href }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium {{ tone_classes }} {{ extra_classes|default:'' }}">{{ label }}</a>
+    {% endwith %}
+  {% endif %}
+  {% endif %}
+{% endwith %}
