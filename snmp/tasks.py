@@ -116,17 +116,32 @@ def poll_all_devices_metrics_task(self):
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
-def discover_all_devices_task(self):
-    success = 0
-    failed = 0
-    for device in Device.objects.select_related('managed_device').iterator(chunk_size=DISCOVERY_BATCH_SIZE):
+def discover_device_task(self, device_id):
+    try:
+        device = Device.objects.select_related('managed_device').get(id=device_id)
         community = device.effective_snmp_community()
-        try:
-            run_device_discovery(ip=str(device.ip), community=community, managed_device=device.managed_device)
-            success += 1
-        except SnmpReadError:
-            failed += 1
-        except Exception as exc:
-            logger.exception('discovery failed for device', extra={'device_id': device.id, 'error': str(exc)})
-            failed += 1
-    return {'success': success, 'failed': failed}
+        return run_device_discovery(ip=str(device.ip), community=community, managed_device=device.managed_device)
+    except Device.DoesNotExist:
+        logger.warning('discovery skipped because device does not exist', extra={'device_id': device_id})
+        return None
+    except SnmpReadError as exc:
+        logger.warning('discovery failed for device (SNMP error)', extra={'device_id': device_id, 'error': str(exc)})
+        raise
+    except Exception as exc:
+        logger.exception('discovery failed for device', extra={'device_id': device_id, 'error': str(exc)})
+        raise
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
+def discover_all_devices_task(self):
+    queue_depth = _redis_queue_depth('discovery')
+    # Discovery usually has a lower limit than polling as it's more heavy
+    if queue_depth is not None and queue_depth >= 1000:
+        logger.warning('discovery fanout throttled', extra={'queue': 'discovery', 'depth': queue_depth})
+        return {'queued': 0, 'mode': 'throttled'}
+
+    device_ids = list(Device.objects.values_list('id', flat=True))
+    for device_id in device_ids:
+        discover_device_task.delay(device_id)
+
+    return {'queued': len(device_ids), 'mode': 'fanout'}

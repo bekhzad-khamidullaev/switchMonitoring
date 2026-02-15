@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User, Group
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password, check_password
 import json
 import uuid
 
@@ -18,16 +19,22 @@ class UserProfile(models.Model):
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     email_verified = models.BooleanField(default=False)
     two_factor_enabled = models.BooleanField(default=False)
-    api_token = models.CharField(max_length=100, null=True, blank=True)
+    api_token = models.CharField(max_length=128, null=True, blank=True)
     
     def update_last_active(self):
         self.last_active = timezone.now()
         self.save()
 
     def generate_api_token(self):
-        self.api_token = str(uuid.uuid4())  # Generate a UUID for the API token
+        raw_token = str(uuid.uuid4())
+        self.api_token = make_password(raw_token)
         self.save()
-        return self.api_token
+        return raw_token
+
+    def verify_api_token(self, raw_token):
+        if not self.api_token or not raw_token:
+            return False
+        return check_password(raw_token, self.api_token)
 
     def export_data(self):
         user_data = {
@@ -35,7 +42,6 @@ class UserProfile(models.Model):
             'email': self.user.email,
             'date_of_birth': self.date_of_birth.isoformat() if self.date_of_birth else None,
             'bio': self.bio,
-            # Add more fields as needed
         }
         return json.dumps(user_data)
 
@@ -43,15 +49,12 @@ class UserProfile(models.Model):
         return self.user.username
 
     def set_role(self, role_name):
-        # Set role for the user
         group, created = Group.objects.get_or_create(name=role_name)
         if created:
-            # If the group doesn't exist, create it
             group.save()
         self.user.groups.add(group)
 
     def remove_role(self, role_name):
-        # Remove role for the user
         try:
             group = Group.objects.get(name=role_name)
             self.user.groups.remove(group)
@@ -59,5 +62,4 @@ class UserProfile(models.Model):
             pass
 
     def has_role(self, role_name):
-        # Check if the user has the specified role
         return self.user.groups.filter(name=role_name).exists()

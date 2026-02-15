@@ -51,6 +51,19 @@ class Command(BaseCommand):
             master.save(update_fields=['model_pattern'])
 
             with transaction.atomic():
+                # Safety check: ensure OIDs for the same metric don't conflict across profiles
+                metric_to_oids = {}
+                for p in vendor_profiles:
+                    for b in p.metric_bindings.all():
+                        if b.metric_id not in metric_to_oids:
+                            metric_to_oids[b.metric_id] = set()
+                        metric_to_oids[b.metric_id].add(b.oid_template)
+                
+                conflicting_metrics = [m_id for m_id, oids in metric_to_oids.items() if len(oids) > 1]
+                if conflicting_metrics:
+                    self.stdout.write(self.style.WARNING(f"Skipping vendor {vendor}: OID conflicts found for metrics {conflicting_metrics}"))
+                    continue
+
                 for secondary in secondaries:
                     # Move bindings
                     bindings = secondary.metric_bindings.all()

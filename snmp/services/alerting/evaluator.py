@@ -19,17 +19,12 @@ def _derive_direction(subscription: MetricSubscription) -> str:
     return AlertRule.Direction.LOWER_IS_WORSE
 
 
-def _has_consecutive_state(subscription: MetricSubscription, severity: str, threshold: float, direction: str, expect_breach: bool) -> bool:
-    required = settings.ALERT_MIN_CONSECUTIVE_BREACH if expect_breach else settings.ALERT_MIN_CONSECUTIVE_RECOVERY
-    recent = list(
-        MetricSample.objects
-        .filter(subscription=subscription, value_float__isnull=False)
-        .order_by('-ts')[:required]
-    )
-    if len(recent) < required:
+def _has_consecutive_state(recent_samples: list[MetricSample], required: int, threshold: float, direction: str, expect_breach: bool) -> bool:
+    if len(recent_samples) < required:
         return False
 
-    for sample in recent:
+    for i in range(required):
+        sample = recent_samples[i]
         is_breach = _is_breach(direction, float(sample.value_float), threshold)
         if is_breach != expect_breach:
             return False
@@ -48,17 +43,33 @@ def evaluate_subscription_thresholds(sample: MetricSample):
     if subscription.crit_threshold is not None:
         thresholds.append((AlertRule.Severity.CRITICAL, float(subscription.crit_threshold)))
 
+    if not thresholds:
+        return
+
+    # Fetch recent samples once to avoid N+1 queries in the loop
+    max_required = max(settings.ALERT_MIN_CONSECUTIVE_BREACH, settings.ALERT_MIN_CONSECUTIVE_RECOVERY)
+    recent_samples = list(
+        MetricSample.objects
+        .filter(subscription=subscription, value_float__isnull=False)
+        .order_by('-ts')[:max_required]
+    )
+
+    # Pre-fetch open events for this subscription
+    open_events = {
+        event.severity: event
+        for event in AlertEvent.objects.filter(
+            subscription=subscription,
+            state=AlertEvent.State.OPEN
+        )
+    }
+
     for severity, threshold in thresholds:
         breached = _is_breach(direction, sample.value_float, threshold)
-        open_event = (
-            AlertEvent.objects
-            .filter(subscription=subscription, severity=severity, state=AlertEvent.State.OPEN)
-            .order_by('-opened_at')
-            .first()
-        )
+        open_event = open_events.get(severity)
 
         if breached and not open_event:
-            if not _has_consecutive_state(subscription, severity, threshold, direction, expect_breach=True):
+            required = settings.ALERT_MIN_CONSECUTIVE_BREACH
+            if not _has_consecutive_state(recent_samples, required, threshold, direction, expect_breach=True):
                 continue
             event = AlertEvent.objects.create(
                 subscription=subscription,
@@ -74,7 +85,8 @@ def evaluate_subscription_thresholds(sample: MetricSample):
             open_event.save(update_fields=['last_value'])
 
         elif not breached and open_event:
-            if not _has_consecutive_state(subscription, severity, threshold, direction, expect_breach=False):
+            required = settings.ALERT_MIN_CONSECUTIVE_RECOVERY
+            if not _has_consecutive_state(recent_samples, required, threshold, direction, expect_breach=False):
                 continue
             open_event.state = AlertEvent.State.CLOSED
             open_event.closed_at = timezone.now()

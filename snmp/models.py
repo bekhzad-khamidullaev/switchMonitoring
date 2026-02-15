@@ -96,6 +96,8 @@ def create_branch_permission_on_save(sender, instance, **kwargs):
         if not still_used:
             _delete_branch_permission(previous_name)
 
+from functools import cached_property
+
 class Ats(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
     subnet = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
@@ -108,18 +110,29 @@ class Ats(models.Model):
     def __str__(self):
         return self.name
 
+    @cached_property
+    def network(self):
+        if not self.subnet:
+            return None
+        try:
+            return IPv4Network(self.subnet)
+        except ValueError:
+            return None
+
     def contains_ip(self, address):
         """
         Check if the given IP address falls within the subnet range of this branch.
         """
-        if self.subnet and address:
+        nw = self.network
+        if nw and address:
             try:
-                subnet = IPv4Network(self.subnet)
-                return ip_address(address) in subnet
+                return ip_address(address) in nw
             except ValueError:
-                # Invalid subnet or IP address
                 return False
         return False
+
+
+
 
 
 
@@ -605,3 +618,14 @@ ManagedDevice = Switch
 ManagedDeviceType = SwitchModel
 ManagedDevicePort = SwitchesPorts
 ManagedDeviceNeighbor = SwitchesNeighbors
+
+
+# Synchronization logic for Switch (ManagedDevice) status -> Device status
+@receiver(post_save, sender=Switch)
+def sync_device_status(sender, instance, **kwargs):
+    """
+    Ensure the modern Device model reflects the status of the legacy Switch model.
+    """
+    if instance.ip:
+        # Use Switch instead of ManagedDevice for clarity/safety within the file
+        Device.objects.filter(ip=instance.ip).update(active=instance.status)
