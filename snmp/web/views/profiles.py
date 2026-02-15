@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -59,12 +60,34 @@ def _build_profile_initial_from_managed_device(managed_device):
 @login_required
 @permission_required('snmp.change_device', raise_exception=True)
 def device_profiles(request):
+    search_query = request.GET.get('q', '').strip()
     profiles = (
         DeviceProfile.objects
         .annotate(bindings_count=Count('metric_bindings'), devices_count=Count('device', distinct=True))
-        .order_by('priority', 'vendor', 'model_pattern')
     )
-    return render(request, 'device_profiles.html', {'profiles': profiles})
+
+    if search_query:
+        profiles = profiles.filter(
+            Q(vendor__icontains=search_query) |
+            Q(model_pattern__icontains=search_query)
+        )
+
+    profiles = profiles.order_by('priority', 'vendor', 'model_pattern')
+
+    paginator = Paginator(profiles, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request, 
+        'device_profiles.html', 
+        {
+            'profiles': page_obj,
+            'search_query': search_query,
+            'is_paginated': page_obj.has_other_pages(),
+            'page_obj': page_obj,
+        }
+    )
 
 
 @login_required

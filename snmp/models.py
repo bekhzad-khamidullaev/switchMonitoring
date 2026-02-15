@@ -419,6 +419,7 @@ class MetricBinding(models.Model):
 
     class Converter(models.TextChoices):
         IDENTITY = 'identity', 'Identity'
+        DIV10 = 'div10', 'Divide by 10'
         DIV100 = 'div100', 'Divide by 100'
         DIV1000 = 'div1000', 'Divide by 1000'
         MW_TO_DBM = 'mw_to_dbm', 'mW to dBm'
