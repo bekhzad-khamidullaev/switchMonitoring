@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
-from snmp.models import Switch, Ats
+from snmp.models import Ats, ManagedDevice
 
 class Command(BaseCommand):
     help = 'Assign switches to branches based on their IP addresses'
 
     def handle(self, *args, **options):
-        switches = Switch.objects.all()
+        switches = ManagedDevice.objects.all()
         ats = Ats.objects.all()
 
         for switch in switches:

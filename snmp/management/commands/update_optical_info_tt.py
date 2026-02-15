@@ -11,7 +11,7 @@ from pysnmp.hlapi import (
     SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity, nextCmd
 )
 # Убедитесь, что путь импорта модели Switch корректен для вашей структуры проекта
-from snmp.models import Switch
+from snmp.models import ManagedDevice
 
 # Настройка базового логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -410,7 +410,7 @@ class Command(BaseCommand):
         while True:
             logger.info(f"Starting switch update cycle for subnet {hardcoded_subnet_str}...")
             # Получаем свитчи из БД со статусом True
-            selected_switches = Switch.objects.filter(status=True).order_by('-pk')
+            selected_switches = ManagedDevice.objects.filter(status=True).order_by('-pk')
             processed_count = 0
             skipped_count = 0
 

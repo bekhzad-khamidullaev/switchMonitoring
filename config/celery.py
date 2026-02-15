@@ -13,6 +13,8 @@ app = Celery('config')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
 app.conf.broker_connection_retry_on_startup = True
+app.conf.worker_cancel_long_running_tasks_on_connection_loss = True
+app.conf.task_acks_on_failure_or_timeout = True
 
 
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)

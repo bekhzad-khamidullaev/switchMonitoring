@@ -8,11 +8,11 @@ from snmp.models import (
     Device,
     DeviceProfile,
     Interface,
+    ManagedDevice,
     MetricBinding,
     MetricDefinition,
     MetricSample,
     MetricSubscription,
-    Switch,
 )
 from snmp.services.polling.poller import poll_device_metrics
 
@@ -108,17 +108,17 @@ class ApiIntegrationTests(TestCase):
 
     def test_api_device_metrics_respects_branch_permissions(self):
         branch = Branch.objects.create(name="North Zone")
-        switch = Switch.objects.create(hostname="sw-1", ip="10.0.0.2", branch=branch)
-        device = Device.objects.create(ip="10.0.0.2", switch=switch, hostname="sw-1")
+        managed_device = ManagedDevice.objects.create(hostname="sw-1", ip="10.0.0.2", branch=branch)
+        device = Device.objects.create(ip="10.0.0.2", managed_device=managed_device, hostname="sw-1")
 
         denied = self.client.get(f"/snmp/api/devices/{device.id}/metrics")
         self.assertEqual(denied.status_code, 403)
 
         content_type = ContentType.objects.get_for_model(Branch)
-        branch_perm, _ = Permission.objects.get_or_create(
+        branch_perm, _ = Permission.objects.update_or_create(
             codename="view_north_zone",
-            name="Can view switches in North Zone",
             content_type=content_type,
+            defaults={"name": "Can view devices in North Zone"},
         )
         self.user.user_permissions.add(branch_perm)
 

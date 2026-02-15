@@ -35,23 +35,55 @@ def _check_redis():
 
 def _check_celery():
     try:
-        response = celery_app.control.ping(timeout=1.5)
+        inspect = celery_app.control.inspect(timeout=1.5)
+        response = inspect.ping() or []
+        stats = inspect.stats() or {}
+        active = inspect.active() or {}
+        reserved = inspect.reserved() or {}
+        workers = list(stats.keys()) if isinstance(stats, dict) else []
+        details = {
+            "workers": workers,
+            "workers_count": len(workers),
+            "active_tasks": sum(len(v) for v in active.values()) if isinstance(active, dict) else 0,
+            "reserved_tasks": sum(len(v) for v in reserved.values()) if isinstance(reserved, dict) else 0,
+        }
         if response:
-            return True, "ok"
-        return False, "no active celery workers"
+            return True, "ok", details
+        return False, "no active celery workers", details
     except Exception as exc:
-        return False, str(exc)
+        return False, str(exc), {}
+
+
+def _queue_depths():
+    broker_url = getattr(settings, "CELERY_BROKER_URL", "")
+    parsed = urlparse(broker_url) if broker_url else None
+    if not parsed or not parsed.scheme.startswith("redis"):
+        return {"supported": False, "reason": "non-redis broker"}
+
+    queue_names = ["default", "polling", "discovery", "maintenance"]
+    try:
+        client = redis.Redis.from_url(broker_url, socket_timeout=2, socket_connect_timeout=2)
+        depths = {name: int(client.llen(name)) for name in queue_names}
+        max_depth = max(depths.values()) if depths else 0
+        return {
+            "supported": True,
+            "depths": depths,
+            "max_depth": max_depth,
+        }
+    except Exception as exc:
+        return {"supported": True, "error": str(exc)}
 
 
 def healthcheck_view(request):
     db_ok, db_message = _check_db()
     redis_ok, redis_message = _check_redis()
-    celery_ok, celery_message = _check_celery()
+    celery_ok, celery_message, celery_details = _check_celery()
+    queue_depth = _queue_depths()
 
     checks = {
         "db": {"ok": db_ok, "message": db_message},
         "redis": {"ok": redis_ok, "message": redis_message},
-        "celery": {"ok": celery_ok, "message": celery_message},
+        "celery": {"ok": celery_ok, "message": celery_message, "details": celery_details},
     }
     overall_ok = all(item["ok"] for item in checks.values())
     status_code = 200 if overall_ok else 503
@@ -60,6 +92,7 @@ def healthcheck_view(request):
         {
             "status": "ok" if overall_ok else "degraded",
             "checks": checks,
+            "queues": queue_depth,
         },
         status=status_code,
     )

@@ -1,15 +1,16 @@
 {% load static %}
 <!doctype html>
-<html lang="en" class="h-full bg-slate-100">
+<html lang="en" class="h-full bg-surface-100">
 <head>
-  <title>{% block title %}Switch Monitoring{% endblock %}</title>
+  <title>{% block title %}Device Monitoring{% endblock %}</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
-  <script src="{% static 'js/tailwind.config.js' %}"></script>
+  <style>[x-cloak]{display:none !important;}</style>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{% static 'js/tailwind.config.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>

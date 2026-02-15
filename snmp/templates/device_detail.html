@@ -1,21 +1,21 @@
 {% extends 'index.html' %}
 
-{% block title %}Switch Details{% endblock %}
+{% block title %}Device Details{% endblock %}
 
 {% block content %}
-<div x-data="switchDetailPage({
-      switchId: {{ switch.pk }},
-      initialStatus: '{{ switch.status|yesno:'UP,DOWN' }}',
-      rxSignal: '{{ switch.rx_signal|default:'' }}',
-      txSignal: '{{ switch.tx_signal|default:'' }}',
-      sfpVendor: '{{ switch.sfp_vendor|default:''|escapejs }}',
-      partNumber: '{{ switch.part_number|default:''|escapejs }}'
+<div x-data="deviceDetailPage({
+      deviceId: {{ managed_device.pk }},
+      initialStatus: '{{ managed_device.status|yesno:'UP,DOWN' }}',
+      rxSignal: '{{ managed_device.rx_signal|default:'' }}',
+      txSignal: '{{ managed_device.tx_signal|default:'' }}',
+      sfpVendor: '{{ managed_device.sfp_vendor|default:''|escapejs }}',
+      partNumber: '{{ managed_device.part_number|default:''|escapejs }}'
     })"
   class="space-y-4">
 
   <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
     <div class="border-b border-surface-200 px-4 py-3">
-      <h2 class="font-display text-lg font-semibold text-surface-900">Switch Details</h2>
+      <h2 class="font-display text-lg font-semibold text-surface-900">Device Details</h2>
     </div>
 
     <div class="overflow-x-auto">
@@ -36,20 +36,20 @@
         </thead>
         <tbody class="bg-surface-0 text-surface-700">
           <tr>
-            <td class="px-3 py-2">{{ switch.pk }}</td>
+            <td class="px-3 py-2">{{ managed_device.pk }}</td>
             <td class="px-3 py-2">
               <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
                 :class="status === 'UP' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
                 x-text="status"></span>
             </td>
-            <td class="px-3 py-2">{{ switch.model.vendor.name|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.model.device_model|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.hostname|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.ip }}</td>
-            <td class="px-3 py-2">{{ switch.uptime|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.serial_number|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.switch_mac|default:'-' }}</td>
-            <td class="px-3 py-2">{{ switch.last_update }}</td>
+            <td class="px-3 py-2">{{ managed_device.model.vendor.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.model.device_model|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.hostname|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.ip }}</td>
+            <td class="px-3 py-2">{{ managed_device.uptime|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.serial_number|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.switch_mac|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.last_update }}</td>
           </tr>
         </tbody>
       </table>
@@ -58,15 +58,15 @@
     <div class="flex flex-wrap gap-2 border-t border-surface-200 px-4 py-3">
       <button type="button" @click="fetchStatus()" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Refresh status</button>
       <button type="button" @click="refreshOptics()" :disabled="busy"
-        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300">
+        class="rounded-md bg-info-600 px-3 py-2 text-sm font-medium text-white hover:bg-info-700 disabled:cursor-not-allowed disabled:bg-info-300">
         <span x-show="!busy">Update optical info</span>
         <span x-show="busy">Updating...</span>
       </button>
-      <form method="post" action="{% url 'update_switch_inventory' switch.pk %}">
+      <form method="post" action="{% url 'refresh_device_inventory' managed_device.pk %}">
         {% csrf_token %}
         <button type="submit" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Update inventory</button>
       </form>
-      <a href="{% url 'switch_metrics' switch.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
+      <a href="{% url 'device_metrics' managed_device.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
     </div>
   </section>
 
@@ -96,13 +96,13 @@
 
   <section class="flex flex-wrap gap-2">
     {% if perms.snmp.change_switch %}
-    {% url 'switch_update' switch.pk as switch_edit_url %}
-    {% include 'components/link_button.html' with href=switch_edit_url label='Edit' tone='surface' %}
-    {% url 'switch_confirm_delete' switch.pk as switch_delete_url %}
-    {% include 'components/link_button.html' with href=switch_delete_url label='Delete' tone='danger' %}
+    {% url 'device_update' managed_device.pk as device_edit_url %}
+    {% include 'components/link_button.html' with href=device_edit_url label='Edit' tone='surface' %}
+    {% url 'device_confirm_delete' managed_device.pk as device_delete_url %}
+    {% include 'components/link_button.html' with href=device_delete_url label='Delete' tone='danger' %}
     {% endif %}
-    {% url 'switches' as switches_url %}
-    {% include 'components/link_button.html' with href=switches_url label='Back to list' tone='surface' %}
+    {% url 'devices' as devices_url %}
+    {% include 'components/link_button.html' with href=devices_url label='Back to list' tone='surface' %}
   </section>
 </div>
 {% endblock %}

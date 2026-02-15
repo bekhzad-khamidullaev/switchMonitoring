@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import importlib.util
 from celery.schedules import crontab
+from kombu import Exchange, Queue
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -94,6 +95,8 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', ''),
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        'CONN_HEALTH_CHECKS': env_bool('DB_CONN_HEALTH_CHECKS', True),
     }
 }
 
@@ -115,7 +118,18 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'uz-UZ'
 TIME_ZONE = 'Asia/Tashkent'
 USE_I18N = True
-USE_TZ = False
+USE_TZ = True
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': str(BASE_DIR / '.cache' / 'django'),
+        'TIMEOUT': 300,
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000,
+        },
+    }
+}
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static_files'
@@ -138,6 +152,61 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ENABLE_UTC = True
+CELERY_TASK_ACKS_LATE = env_bool('CELERY_TASK_ACKS_LATE', True)
+CELERY_TASK_REJECT_ON_WORKER_LOST = env_bool('CELERY_TASK_REJECT_ON_WORKER_LOST', True)
+CELERY_WORKER_PREFETCH_MULTIPLIER = int(os.getenv('CELERY_WORKER_PREFETCH_MULTIPLIER', '1'))
+CELERY_WORKER_CONCURRENCY = int(os.getenv('CELERY_WORKER_CONCURRENCY', '4'))
+CELERY_WORKER_MAX_TASKS_PER_CHILD = int(os.getenv('CELERY_WORKER_MAX_TASKS_PER_CHILD', '200'))
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = int(os.getenv('CELERY_WORKER_MAX_MEMORY_PER_CHILD', '262144'))
+CELERY_TASK_SOFT_TIME_LIMIT = int(os.getenv('CELERY_TASK_SOFT_TIME_LIMIT', '120'))
+CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT', '180'))
+CELERY_TASK_DEFAULT_QUEUE = os.getenv('CELERY_TASK_DEFAULT_QUEUE', 'default')
+CELERY_RESULT_EXPIRES = int(os.getenv('CELERY_RESULT_EXPIRES', '3600'))
+CELERY_BROKER_CONNECTION_RETRY = env_bool('CELERY_BROKER_CONNECTION_RETRY', True)
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = env_bool('CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP', True)
+CELERY_BROKER_CONNECTION_MAX_RETRIES = int(os.getenv('CELERY_BROKER_CONNECTION_MAX_RETRIES', '0')) or None
+CELERY_BROKER_POOL_LIMIT = int(os.getenv('CELERY_BROKER_POOL_LIMIT', '10'))
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': int(os.getenv('CELERY_VISIBILITY_TIMEOUT', '21600')),
+    'socket_connect_timeout': int(os.getenv('CELERY_SOCKET_CONNECT_TIMEOUT', '5')),
+    'socket_timeout': int(os.getenv('CELERY_SOCKET_TIMEOUT', '30')),
+    'retry_on_timeout': True,
+}
+CELERY_TASK_ROUTES = {
+    'snmp.tasks.poll_device_metrics_task': {'queue': 'polling'},
+    'snmp.tasks.poll_all_devices_metrics_task': {'queue': 'polling'},
+    'snmp.tasks.discover_all_devices_task': {'queue': 'discovery'},
+    'snmp.tasks.update_device_status_task': {'queue': 'maintenance'},
+    'snmp.tasks.update_device_optical_info_task': {'queue': 'maintenance'},
+    'snmp.tasks.update_device_inventory_task': {'queue': 'maintenance'},
+    'snmp.tasks.subnet_discovery_task': {'queue': 'discovery'},
+}
+CELERY_ENABLE_DEAD_LETTER = env_bool('CELERY_ENABLE_DEAD_LETTER', True)
+_is_amqp_broker = str(CELERY_BROKER_URL).startswith(('amqp://', 'pyamqp://'))
+_dead_letter_exchange = os.getenv('CELERY_DEAD_LETTER_EXCHANGE', 'celery.dlx')
+_default_exchange = Exchange(os.getenv('CELERY_DEFAULT_EXCHANGE', 'celery'), type='direct')
+
+def _queue_args(queue_name: str):
+    if CELERY_ENABLE_DEAD_LETTER and _is_amqp_broker:
+        return {
+            'x-dead-letter-exchange': _dead_letter_exchange,
+            'x-dead-letter-routing-key': f'{queue_name}.dead',
+        }
+    return None
+
+CELERY_TASK_QUEUES = (
+    Queue('default', exchange=_default_exchange, routing_key='default', queue_arguments=_queue_args('default')),
+    Queue('polling', exchange=_default_exchange, routing_key='polling', queue_arguments=_queue_args('polling')),
+    Queue('discovery', exchange=_default_exchange, routing_key='discovery', queue_arguments=_queue_args('discovery')),
+    Queue('maintenance', exchange=_default_exchange, routing_key='maintenance', queue_arguments=_queue_args('maintenance')),
+)
+if CELERY_ENABLE_DEAD_LETTER and _is_amqp_broker:
+    CELERY_TASK_QUEUES += (
+        Queue('default.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='default.dead'),
+        Queue('polling.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='polling.dead'),
+        Queue('discovery.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='discovery.dead'),
+        Queue('maintenance.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='maintenance.dead'),
+    )
 LEGACY_TASKS_ENABLED = env_bool('LEGACY_TASKS_ENABLED', False)
 
 CELERY_BEAT_SCHEDULE = {
@@ -153,16 +222,16 @@ CELERY_BEAT_SCHEDULE = {
 
 if LEGACY_TASKS_ENABLED:
     CELERY_BEAT_SCHEDULE.update({
-        'update-switch-status': {
-            'task': 'snmp.tasks.update_switch_status_task',
+        'update-device-status': {
+            'task': 'snmp.tasks.update_device_status_task',
             'schedule': 300,
         },
         'update-optical-info': {
-            'task': 'snmp.tasks.update_optical_info_task',
+            'task': 'snmp.tasks.update_device_optical_info_task',
             'schedule': 14400,
         },
-        'update-switch-inventory': {
-            'task': 'snmp.tasks.update_switch_inventory_task',
+        'update-device-inventory': {
+            'task': 'snmp.tasks.update_device_inventory_task',
             'schedule': crontab(minute=0, hour=9),
         },
         'subnet_discovery': {
@@ -171,7 +240,7 @@ if LEGACY_TASKS_ENABLED:
         },
     })
 
-LOGIN_REDIRECT_URL = '/snmp/switches/'
+LOGIN_REDIRECT_URL = '/snmp/devices/'
 
 COMPRESS_ROOT = BASE_DIR / 'static'
 COMPRESS_ENABLED = _is_available('compressor')

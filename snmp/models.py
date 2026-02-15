@@ -5,35 +5,27 @@ from django.conf import settings
 from ipaddress import ip_address, IPv4Network
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import post_migrate
+from django.db.models.signals import post_migrate, post_save, pre_save
 from django.dispatch import receiver
-from django.contrib.auth.models import Group
 from django.db.models import Q
 
-@receiver(post_migrate)
-def create_branch_permissions(sender, **kwargs):
-    # This function creates custom permissions for each branch after migration
 
-    # Get the content type for the Branch model
-    content_type = ContentType.objects.get_for_model(Branch)
+class ManagedDeviceQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(status=True)
 
-    # Define the branches for which you want to create permissions
-    branches = Branch.objects.all()
+    def with_branch(self, branch_id):
+        return self.filter(branch_id=branch_id)
 
-    # Create a permission for each branch
-    for branch in branches:
-        codename = f'view_{branch.name.lower().replace(" ", "_")}'
-        name = f'Can view switches in {branch.name}'
-        permission, created = Permission.objects.get_or_create(
-            codename=codename,
-            name=name,
-            content_type=content_type,
-        )
 
-        # Optionally, assign the permission to a specific group
-        # For example, if you have a group named "Branch Managers"
-        # group = Group.objects.get(name='Branch Managers')
-        # group.permissions.add(permission)
+class ManagedDeviceManager(models.Manager.from_queryset(ManagedDeviceQuerySet)):
+    pass
+
+
+def _branch_permission_codename(branch_name):
+    if not branch_name:
+        return None
+    return f'view_{branch_name.lower().replace(" ", "_")}'
 
 
 
@@ -48,6 +40,61 @@ class Branch(models.Model):
         return self.name
 
 
+
+def _sync_branch_permission(branch):
+    codename = _branch_permission_codename(branch.name)
+    if not codename:
+        return
+    content_type = ContentType.objects.get_for_model(Branch)
+    Permission.objects.update_or_create(
+        codename=codename,
+        content_type=content_type,
+        defaults={
+            'name': f'Can view devices in {branch.name}',
+        },
+    )
+
+
+def _delete_branch_permission(branch_name):
+    codename = _branch_permission_codename(branch_name)
+    if not codename:
+        return
+    content_type = ContentType.objects.get_for_model(Branch)
+    Permission.objects.filter(codename=codename, content_type=content_type).delete()
+
+
+@receiver(post_migrate)
+def create_branch_permissions(sender, **kwargs):
+    active_codenames = set()
+    for branch in Branch.objects.all():
+        _sync_branch_permission(branch)
+        codename = _branch_permission_codename(branch.name)
+        if codename:
+            active_codenames.add(codename)
+
+    content_type = ContentType.objects.get_for_model(Branch)
+    stale_permissions = Permission.objects.filter(content_type=content_type, codename__startswith='view_')
+    stale_permissions = stale_permissions.exclude(codename__in=active_codenames)
+    stale_permissions.delete()
+
+
+@receiver(pre_save, sender=Branch)
+def capture_previous_branch_name(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_name = None
+        return
+    previous = sender.objects.filter(pk=instance.pk).values_list('name', flat=True).first()
+    instance._previous_name = previous
+
+
+@receiver(post_save, sender=Branch)
+def create_branch_permission_on_save(sender, instance, **kwargs):
+    previous_name = getattr(instance, '_previous_name', None)
+    _sync_branch_permission(instance)
+    if previous_name and previous_name != instance.name:
+        still_used = sender.objects.exclude(pk=instance.pk).filter(name=previous_name).exists()
+        if not still_used:
+            _delete_branch_permission(previous_name)
 
 class Ats(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
@@ -113,6 +160,8 @@ class SwitchModel(models.Model):
 
 
 class Switch(models.Model):
+    objects = ManagedDeviceManager()
+
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
@@ -139,6 +188,8 @@ class Switch(models.Model):
     class Meta:
         managed = True
         db_table = 'switches'
+        verbose_name = 'Device'
+        verbose_name_plural = 'Devices'
         unique_together = (('hostname', 'ip'),)
         indexes = [
             models.Index(fields=['status', 'hostname', 'ip', 'rx_signal', 'tx_signal']),
@@ -149,12 +200,39 @@ class Switch(models.Model):
         super().save(*args, **kwargs)
         
     def __str__(self):
-        return self.hostname
+        return self.hostname or str(self.ip or self.pk)
+
+    @property
+    def management_ip(self):
+        return self.ip
+
+    @management_ip.setter
+    def management_ip(self, value):
+        self.ip = value
+
+    @property
+    def device_type(self):
+        return self.model
+
+    @device_type.setter
+    def device_type(self, value):
+        self.model = value
+
+    @property
+    def is_online(self):
+        return bool(self.status)
+
+    @is_online.setter
+    def is_online(self, value):
+        self.status = bool(value)
+
+    def get_snmp_community(self):
+        return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
     
     
 class SwitchesPorts(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
-    switch = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
+    managed_device = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
     port = models.SmallIntegerField(blank=False)
     description = models.CharField(max_length=200, default='')
     speed = models.IntegerField()
@@ -182,7 +260,7 @@ class SwitchesPorts(models.Model):
     class Meta:
         managed = True
         db_table = 'switches_ports'
-        unique_together = (('switch', 'port'),)
+        unique_together = (('managed_device', 'port'),)
         
 class SwitchesNeighbors(models.Model):
     mac1 = models.CharField(max_length=17)
@@ -196,7 +274,7 @@ class SwitchesNeighbors(models.Model):
         unique_together = (('mac1', 'port1', 'mac2'),)
 
 class Mac(models.Model):
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0)
+    managed_device = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0)
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
     port = models.ForeignKey("SwitchesPorts", models.DO_NOTHING, blank=False, null=False, default=0)
     vlan = models.SmallIntegerField()
@@ -206,13 +284,21 @@ class Mac(models.Model):
     class Meta:
         managed = True
         db_table = 'mac'
-        unique_together = (('switch', 'mac', 'vlan'),)
+        unique_together = (('managed_device', 'mac', 'vlan'),)
 
 class ListMacHistory(models.Model):
     """
     Read-only class. The mat_listMacHistory is a materialized view to speed up searches upon mac history
     """
-    switch = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0, related_name='hist_switch')
+    managed_device = models.ForeignKey(
+        'Switch',
+        models.DO_NOTHING,
+        db_column='switch',
+        blank=False,
+        null=False,
+        default=0,
+        related_name='hist_switch',
+    )
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
     port = models.SmallIntegerField()
     vlan = models.SmallIntegerField()
@@ -287,7 +373,7 @@ class Device(models.Model):
         V2C = '2c', 'SNMPv2c'
         V3 = '3', 'SNMPv3'
 
-    switch = models.OneToOneField(
+    managed_device = models.OneToOneField(
         'Switch',
         on_delete=models.SET_NULL,
         null=True,
@@ -318,6 +404,11 @@ class Device(models.Model):
 
     def __str__(self):
         return self.hostname or str(self.ip)
+
+    def effective_snmp_community(self):
+        if self.managed_device_id and self.managed_device:
+            return self.managed_device.get_snmp_community()
+        return settings.SNMP_DEFAULT_COMMUNITY_RO
 
 
 class MetricBinding(models.Model):
@@ -506,3 +597,10 @@ class AlertEvent(models.Model):
 
     def __str__(self):
         return f'{self.subscription_id}:{self.severity}:{self.state}'
+
+
+# Universal naming aliases. Legacy names stay supported for compatibility.
+ManagedDevice = Switch
+ManagedDeviceType = SwitchModel
+ManagedDevicePort = SwitchesPorts
+ManagedDeviceNeighbor = SwitchesNeighbors

@@ -1,27 +1,29 @@
 from rest_framework import serializers
 
-from snmp.models import Device, MetricSample, MetricSubscription, Switch
+from snmp.models import Device, MetricSample, MetricSubscription
 
 
 class DeviceOnboardSerializer(serializers.Serializer):
     ip = serializers.IPAddressField(required=False)
-    switch_id = serializers.IntegerField(required=False)
+    managed_device_id = serializers.IntegerField(required=False, min_value=1)
 
     def validate(self, attrs):
         ip = attrs.get('ip')
-        switch_id = attrs.get('switch_id')
-        if not ip and not switch_id:
-            raise serializers.ValidationError('Provide ip or switch_id')
+        managed_device_id = attrs.get('managed_device_id')
+        if not ip and not managed_device_id:
+            raise serializers.ValidationError('Provide ip or managed_device_id')
         return attrs
 
 
 class DeviceSerializer(serializers.ModelSerializer):
+    managed_device_id = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Device
         fields = [
             'id', 'ip', 'hostname', 'vendor', 'model', 'firmware', 'sys_object_id',
             'snmp_version', 'auth_profile', 'status', 'profile_id', 'last_discovered_at',
-            'switch_id',
+            'managed_device_id',
         ]
 
 

@@ -26,7 +26,7 @@ def notify_alert_event(event: AlertEvent) -> None:
     if settings.ALERT_EMAIL_TO:
         try:
             send_mail(
-                subject=f"SwitchMonitoring alert: {event.severity} {event.state}",
+                subject=f"Device monitoring alert: {event.severity} {event.state}",
                 message=message,
                 from_email=settings.ALERT_EMAIL_FROM,
                 recipient_list=settings.ALERT_EMAIL_TO,

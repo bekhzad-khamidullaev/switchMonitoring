@@ -1,0 +1,6 @@
+{% extends "index.html" %}
+{% block title %}Offline Devices{% endblock %}
+
+{% block content %}
+  {% include 'partials/device_table.html' with devices_page=down_devices page_title='Offline Devices' page_subtitle='Devices currently unreachable' %}
+{% endblock %}

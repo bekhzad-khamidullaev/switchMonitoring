@@ -1,0 +1,24 @@
+{% extends "index.html" %}
+{% load static %}
+{% block title %}Device Network Map{% endblock %}
+
+{% block content %}
+<h1>Neighbor Devices Map</h1>
+
+<ul>
+    {% for managed_device in devices %}
+        <li>
+            {{ managed_device.hostname }}
+            <ul>
+                {% for neighbor in neighbors %}
+                    {% if managed_device.switch_mac == neighbor.mac1 %}
+                        <li>{{ neighbor.mac2 }} on port {{ neighbor.port2 }}</li>
+                    {% elif managed_device.switch_mac == neighbor.mac2 %}
+                        <li>{{ neighbor.mac1 }} on port {{ neighbor.port1 }}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}

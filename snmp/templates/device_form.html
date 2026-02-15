@@ -1,7 +1,7 @@
 {% extends 'index.html' %}
 
 {% block title %}
-  {% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}
+  {% if form.instance.pk %}Edit Device{% else %}Create Device{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
   </div>
 
   <div class="rounded-panel border border-surface-200 bg-surface-0 p-5 shadow-soft">
-    <h2 class="font-display mb-4 text-xl font-semibold text-surface-900">{% if form.instance.pk %}Edit Switch{% else %}Create Switch{% endif %}</h2>
+    <h2 class="font-display mb-4 text-xl font-semibold text-surface-900">{% if form.instance.pk %}Edit Device{% else %}Create Device{% endif %}</h2>
 
     <form method="post" class="space-y-4">
       {% csrf_token %}
@@ -35,8 +35,8 @@
         <button type="submit" class="rounded-md bg-success-600 px-4 py-2 text-sm font-medium text-white hover:bg-success-700">
           {% if form.instance.pk %}Update{% else %}Create{% endif %}
         </button>
-        {% url 'switches' as switches_url %}
-        {% include 'components/link_button.html' with href=switches_url label='Cancel' tone='surface' %}
+        {% url 'devices' as devices_url %}
+        {% include 'components/link_button.html' with href=devices_url label='Cancel' tone='surface' %}
       </div>
     </form>
   </div>

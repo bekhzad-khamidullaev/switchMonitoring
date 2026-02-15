@@ -2,7 +2,7 @@ import asyncio
 import logging
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from snmp.models import Switch
+from snmp.models import ManagedDevice
 from pysnmp.hlapi import *
 import math
 
@@ -268,14 +268,11 @@ class SNMPUpdater:
 
 
 class Command(BaseCommand):
-    help = 'Update switch data'
+    help = 'Update device optical data'
 
     def handle(self, *args, **options):
         snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
-
-        while True:
-            selected_switches = Switch.objects.filter(status=True).order_by('-pk')
-
-            for selected_switch in selected_switches:
-                snmp_updater = SNMPUpdater(selected_switch, snmp_community)
-                snmp_updater.update_switch_data()
+        selected_switches = ManagedDevice.objects.filter(status=True).order_by('-pk')
+        for selected_switch in selected_switches:
+            snmp_updater = SNMPUpdater(selected_switch, snmp_community)
+            snmp_updater.update_switch_data()

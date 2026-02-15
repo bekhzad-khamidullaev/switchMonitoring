@@ -1,0 +1,6 @@
+{% extends "index.html" %}
+{% block title %}Critical Signal Devices{% endblock %}
+
+{% block content %}
+  {% include 'partials/device_table.html' with devices_page=devices_high_signal page_title='Signal <= -20 dBm' page_subtitle='Critical optical signal level' %}
+{% endblock %}

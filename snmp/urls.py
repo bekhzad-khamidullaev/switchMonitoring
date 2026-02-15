@@ -1,41 +1,53 @@
-from django.urls import path, include
-# from . import views
-from .views.switch_views import *
-from .views.dashboard_views import *
-from .views.update_views import *
-from .views.requests_views import *
-from .views.export import *
-from .views.metrics_views import *
-from .api.urls import urlpatterns as api_urlpatterns
-    
+from django.urls import include, path
+
+from snmp.api.urls import urlpatterns as api_urlpatterns
+from snmp.web.views.dashboard import devices_updown, neighbor_devices_map
+from snmp.web.views.device_operations import (
+    devices_high_signal_10,
+    devices_high_signal_11,
+    devices_high_signal_15,
+    devices_high_signal_20,
+    devices_offline,
+    refresh_device_inventory,
+    update_device_ports_data,
+    update_optical_info,
+)
+from snmp.web.views.devices import (
+    device_confirm_delete,
+    device_create,
+    device_delete,
+    device_detail,
+    device_status,
+    device_update,
+    devices,
+)
+from snmp.web.views.exports import export_low_signal_devices_to_excel
+from snmp.web.views.integrations import sync_hosts_from_zabbix
+from snmp.web.views.metrics import device_metrics, export_device_metrics_csv, update_metric_subscription
+
 urlpatterns = [
-    path('', switches, name='switches'),
-    path('switches/', switches, name='switches'),
-    path('switches/create/', switch_create, name='switch_create'),
-    path('switches/<int:pk>/', switch_detail, name='switch_detail'),
-    path('switches/<int:pk>/update/', switch_update, name='switch_update'),
-    path('switch/<int:pk>/delete/', switch_delete, name='switch_delete'),
-    path('switches/<int:pk>/confirm_delete/', switch_confirm_delete, name='switch_confirm_delete'),
-    path('switches/switch_status/<int:pk>/', switch_status, name='switch_status'),
-    path('switches/update_optical_info/<int:pk>/', update_optical_info, name='update_optical_info'),
-    path('switches/neighbor-switches-map/', neighbor_switches_map, name='neighbor_switches_map'),
-    path('switches/offline/', switches_offline, name='offline'),
-    path('switches/switches_high_sig/', switches_high_sig, name='switches_high_sig'),
-    path('switches/switches_high_sig_15/', switches_high_sig_15, name='switches_high_sig_15'),
-    path('switches/switches_high_sig_10/', switches_high_sig_10, name='switches_high_sig_10'),
-    path('switches/switches_high_sig_11/', switches_high_sig_11, name='switches_high_sig_11'),
-    path('dashboard/', switches_updown, name='dashboard'),
-    path('switches/update_switch_ports_data/<int:pk>/', update_switch_ports_data, name='update_switch_ports_data'),
-    path('switches/update_switch_inventory/<int:pk>/', update_switch_inventory, name='update_switch_inventory'),
-    path('switches/synch_zbx/', sync_hosts_from_zabbix, name='sync_zbx'),
-    path('switches/export/high_sig', export_high_sig_switches_to_excel, name='export_high_sig_switches_to_excel'),
-    path('switches/<int:pk>/metrics/', switch_metrics, name='switch_metrics'),
+    path('', devices, name='devices'),
+    path('devices/', devices, name='devices'),
+    path('devices/create/', device_create, name='device_create'),
+    path('devices/<int:pk>/', device_detail, name='device_detail'),
+    path('devices/<int:pk>/update/', device_update, name='device_update'),
+    path('devices/<int:pk>/delete/', device_delete, name='device_delete'),
+    path('devices/<int:pk>/confirm_delete/', device_confirm_delete, name='device_confirm_delete'),
+    path('devices/<int:pk>/status/', device_status, name='device_status'),
+    path('devices/<int:pk>/optics/update/', update_optical_info, name='update_optical_info'),
+    path('devices/network-map/', neighbor_devices_map, name='neighbor_devices_map'),
+    path('devices/offline/', devices_offline, name='devices_offline'),
+    path('devices/signals/high-20/', devices_high_signal_20, name='devices_high_signal_20'),
+    path('devices/signals/high-15/', devices_high_signal_15, name='devices_high_signal_15'),
+    path('devices/signals/high-10/', devices_high_signal_10, name='devices_high_signal_10'),
+    path('devices/signals/high-11/', devices_high_signal_11, name='devices_high_signal_11'),
+    path('dashboard/', devices_updown, name='dashboard'),
+    path('devices/<int:pk>/ports/update/', update_device_ports_data, name='update_device_ports_data'),
+    path('devices/<int:pk>/inventory/update/', refresh_device_inventory, name='refresh_device_inventory'),
+    path('devices/sync/zabbix/', sync_hosts_from_zabbix, name='sync_zbx'),
+    path('devices/export/low-signal/', export_low_signal_devices_to_excel, name='export_low_signal_devices_to_excel'),
+    path('devices/<int:pk>/metrics/', device_metrics, name='device_metrics'),
     path('metrics/subscriptions/<int:subscription_id>/update/', update_metric_subscription, name='update_metric_subscription'),
-    path('switches/<int:pk>/metrics/export.csv', export_device_metrics_csv, name='export_device_metrics_csv'),
-
-    # path('switches/online_switches/', views.online_switches, name='online_switches'),
-]
-
-urlpatterns += [
+    path('devices/<int:pk>/metrics/export.csv', export_device_metrics_csv, name='export_device_metrics_csv'),
     path('api/', include((api_urlpatterns, 'snmp_api'))),
 ]

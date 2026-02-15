@@ -1,17 +1,19 @@
+{% load static %}
 <!doctype html>
-<html lang="en" class="h-full bg-slate-100">
+<html lang="en" class="h-full bg-surface-100">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>405 Method Not Allowed</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{% static 'js/tailwind.config.js' %}"></script>
 </head>
 <body class="grid min-h-full place-items-center p-6">
-  <div class="w-full max-w-md rounded-xl border border-amber-200 bg-white p-6 text-center shadow-sm">
-    <p class="text-3xl font-bold text-amber-700">405</p>
-    <h1 class="mt-1 text-lg font-semibold text-slate-900">Method Not Allowed</h1>
-    <p class="mt-2 text-sm text-slate-600">The requested HTTP method is not allowed for this endpoint.</p>
-    <a href="/snmp/switches/" class="mt-4 inline-block rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">Back to switches</a>
+  <div class="w-full max-w-md rounded-xl border border-warning-200 bg-white p-6 text-center shadow-sm">
+    <p class="text-3xl font-bold text-warning-700">405</p>
+    <h1 class="mt-1 text-lg font-semibold text-surface-900">Method Not Allowed</h1>
+    <p class="mt-2 text-sm text-surface-700">The requested HTTP method is not allowed for this endpoint.</p>
+    <a href="/snmp/devices/" class="mt-4 inline-block rounded-md bg-surface-700 px-4 py-2 text-sm font-medium text-white hover:bg-surface-900">Back to devices</a>
   </div>
 </body>
 </html>

@@ -4,6 +4,8 @@ from typing import List
 
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Max
+from django.utils import timezone
 
 from snmp.models import Device, MetricSample, MetricSubscription
 from snmp.services.discovery.read_base_snmp import snmp_get_many
@@ -37,16 +39,27 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
     snmp_errors = 0
     saved_count = 0
     try:
-        device = Device.objects.get(pk=device_id)
+        try:
+            device = Device.objects.get(pk=device_id)
+        except Device.DoesNotExist:
+            logger.warning('poll skipped because device does not exist', extra={'device_id': device_id})
+            return 0
         subscriptions = list(
             MetricSubscription.objects
             .filter(device=device, enabled=True)
             .select_related('metric', 'binding', 'interface')
+            .annotate(last_sample_ts=Max('samples__ts'))
         )
 
         samples: List[MetricSample] = []
         resolved = []
+        now = timezone.now()
         for subscription in subscriptions:
+            interval = subscription.poll_interval_sec or subscription.metric.default_interval_sec
+            if subscription.last_sample_ts and interval:
+                elapsed = (now - subscription.last_sample_ts).total_seconds()
+                if elapsed < interval:
+                    continue
             if not subscription.binding_id:
                 continue
             try:
@@ -67,7 +80,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 )
 
         oid_to_value = {}
-        community = device.switch.snmp_community_ro if device.switch_id else 'public'
+        community = device.effective_snmp_community()
         unique_oids = sorted({item[1] for item in resolved})
         if unique_oids:
             oid_to_value = snmp_get_many(
@@ -127,13 +140,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
         with transaction.atomic():
             MetricSample.objects.bulk_create(samples, batch_size=1000)
 
-        saved_samples = list(
-            MetricSample.objects
-            .filter(subscription__device_id=device_id)
-            .order_by('-id')[: len(samples)]
-            .select_related('subscription', 'subscription__binding')
-        )
-        for sample in saved_samples:
+        for sample in samples:
             evaluate_subscription_thresholds(sample)
 
         logger.info(

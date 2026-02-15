@@ -4,8 +4,8 @@ if (window.axios && window.Cookies) {
 }
 
 if (window.Alpine) {
-  Alpine.data('switchDetailPage', (config) => ({
-    switchId: config.switchId,
+  Alpine.data('deviceDetailPage', (config) => ({
+    deviceId: config.deviceId,
     status: config.initialStatus,
     rxSignal: config.rxSignal,
     txSignal: config.txSignal,
@@ -19,14 +19,14 @@ if (window.Alpine) {
     },
     async fetchStatus() {
       try {
-        const response = await axios.get(`/snmp/switches/switch_status/${this.switchId}/`);
+        const response = await axios.get(`/snmp/devices/${this.deviceId}/status/`);
         this.status = response.data.status || this.status;
       } catch (_err) {}
     },
     async refreshOptics() {
       this.busy = true;
       try {
-        const response = await axios.post(`/snmp/switches/update_optical_info/${this.switchId}/`);
+        const response = await axios.post(`/snmp/devices/${this.deviceId}/optics/update/`);
         this.rxSignal = response.data.rx_signal;
         this.txSignal = response.data.tx_signal;
         this.sfpVendor = response.data.sfp_vendor;

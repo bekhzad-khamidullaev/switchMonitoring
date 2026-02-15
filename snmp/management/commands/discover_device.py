@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from snmp.models import Switch
+from snmp.models import ManagedDevice
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 
@@ -11,7 +11,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--ip', dest='ip', help='Device IP address')
-        parser.add_argument('--switch-id', dest='switch_id', type=int, help='Existing Switch ID')
+        parser.add_argument('--managed-device-id', dest='managed_device_id', type=int, help='Existing managed device ID')
+        parser.add_argument('--switch-id', dest='managed_device_id_legacy', type=int, help='Deprecated alias for --managed-device-id')
         parser.add_argument(
             '--community',
             dest='community',
@@ -23,23 +24,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         ip = options.get('ip')
-        switch = None
+        managed_device = None
+        managed_device_id = options.get('managed_device_id') or options.get('managed_device_id_legacy')
 
-        if options.get('switch_id'):
+        if managed_device_id:
             try:
-                switch = Switch.objects.get(pk=options['switch_id'])
-            except Switch.DoesNotExist as exc:
-                raise CommandError(f"Switch with id={options['switch_id']} not found") from exc
-            ip = ip or switch.ip
+                managed_device = ManagedDevice.objects.get(pk=managed_device_id)
+            except ManagedDevice.DoesNotExist as exc:
+                raise CommandError(f"Managed device with id={managed_device_id} not found") from exc
+            ip = ip or managed_device.ip
 
         if not ip:
-            raise CommandError('Provide --ip or --switch-id')
+            raise CommandError('Provide --ip or --managed-device-id')
 
         try:
             result = run_device_discovery(
                 ip=str(ip),
                 community=options['community'],
-                switch=switch,
+                managed_device=managed_device,
                 timeout=options['timeout'],
                 retries=options['retries'],
             )

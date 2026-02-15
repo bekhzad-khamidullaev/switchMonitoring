@@ -3,7 +3,7 @@ import asyncio
 import logging
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from snmp.models import Switch
+from snmp.models import ManagedDevice
 from snmp.lib.update_port_info import SNMPUpdater
 from pysnmp.hlapi import *
 import math
@@ -459,14 +459,18 @@ class SNMPUpdater:
 
 
 class Command(BaseCommand):
-    help = 'Update switch data'
+    help = 'Update device optical data'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--continuous', action='store_true', help='Run continuously until interrupted.')
 
     def handle(self, *args, **options):
         snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
         loop = asyncio.get_event_loop()
+        continuous = options.get('continuous', False)
 
         while True:
-            selected_switches = Switch.objects.filter(status=True).order_by('-model')
+            selected_switches = ManagedDevice.objects.filter(status=True).order_by('-model')
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 futures = []
@@ -476,3 +480,5 @@ class Command(BaseCommand):
                     futures.append(executor.submit(loop.run_until_complete, snmp_updater.update_switch_data_async()))
 
                 concurrent.futures.wait(futures, timeout=None, return_when=concurrent.futures.ALL_COMPLETED)
+            if not continuous:
+                break

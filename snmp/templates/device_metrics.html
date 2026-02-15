@@ -7,7 +7,7 @@
   <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
     <div class="border-b border-surface-200 px-4 py-3">
       <h2 class="font-display text-lg font-semibold text-surface-900">Metric Subscriptions</h2>
-      <p class="text-sm text-surface-700">Switch: {{ switch.hostname }} ({{ switch.ip }})</p>
+      <p class="text-sm text-surface-700">Device: {{ managed_device.hostname }} ({{ managed_device.ip }})</p>
     </div>
 
     {% if messages %}
@@ -24,8 +24,8 @@
         <input type="hidden" name="action" value="run_discovery" />
         <h3 class="mb-2 text-sm font-semibold text-surface-900">Run Discovery</h3>
         <div class="flex gap-2">
-          <input type="text" name="community" value="{{ switch.snmp_community_ro|default:'public' }}" class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm" placeholder="SNMP community" />
-          <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">Run</button>
+          <input type="text" name="community" value="{{ managed_device.snmp_community_ro|default:'public' }}" class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm" placeholder="SNMP community" />
+          <button type="submit" class="rounded-md bg-info-600 px-3 py-2 text-sm font-medium text-white hover:bg-info-700">Run</button>
         </div>
       </form>
 
@@ -118,7 +118,7 @@
   <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-200 px-4 py-3">
       <h3 class="text-base font-semibold text-surface-900">Timeseries</h3>
-      <a href="{% url 'export_device_metrics_csv' switch.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Export CSV</a>
+      <a href="{% url 'export_device_metrics_csv' managed_device.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Export CSV</a>
     </div>
 
     {% if subscriptions %}

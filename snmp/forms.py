@@ -1,9 +1,8 @@
 from django import forms
-from .models import Switch
+from .models import ManagedDevice
 
-class SwitchForm(forms.ModelForm):
-    # device_model = forms.ModelChoiceField(queryset=SwitchModel.objects.all(), label='Switch Model')
+class ManagedDeviceForm(forms.ModelForm):
 
     class Meta:
-        model = Switch
+        model = ManagedDevice
         fields = ['ip', 'hostname']

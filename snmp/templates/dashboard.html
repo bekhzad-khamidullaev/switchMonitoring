@@ -4,8 +4,8 @@
 {% block content %}
 <div class="space-y-4">
   <div class="flex flex-wrap gap-2">
-    {% url 'export_high_sig_switches_to_excel' as export_url %}
-    {% include 'components/link_button.html' with href=export_url label='Export low-signal switches' tone='brand_dark' %}
+    {% url 'export_low_signal_devices_to_excel' as export_url %}
+    {% include 'components/link_button.html' with href=export_url label='Export low-signal devices' tone='brand_dark' %}
     <form method="post" action="{% url 'sync_zbx' %}">
       {% csrf_token %}
       <button type="submit" class="inline-flex items-center justify-center rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Sync with Zabbix</button>
@@ -13,22 +13,22 @@
   </div>
 
   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-    {% url 'switches' as switches_url %}
-    {% include 'components/stat_card.html' with href=switches_url value=up_count label='Total switches UP' tone='success' %}
+    {% url 'devices' as devices_url %}
+    {% include 'components/stat_card.html' with href=devices_url value=up_count label='Total devices UP' tone='success' %}
 
-    {% url 'offline' as offline_url %}
-    {% include 'components/stat_card.html' with href=offline_url value=down_count label='Total switches DOWN' tone='danger' %}
+    {% url 'devices_offline' as offline_url %}
+    {% include 'components/stat_card.html' with href=offline_url value=down_count label='Total devices DOWN' tone='danger' %}
 
-    {% url 'switches_high_sig' as hs20_url %}
+    {% url 'devices_high_signal_20' as hs20_url %}
     {% include 'components/stat_card.html' with href=hs20_url value=high_sig_sw label='Signal <= -20 dBm' tone='warning' %}
 
-    {% url 'switches_high_sig_15' as hs15_url %}
+    {% url 'devices_high_signal_15' as hs15_url %}
     {% include 'components/stat_card.html' with href=hs15_url value=high_sig_sw_15 label='Signal between -20 and -15 dBm' tone='warning' %}
 
-    {% url 'switches_high_sig_10' as hs10_url %}
+    {% url 'devices_high_signal_10' as hs10_url %}
     {% include 'components/stat_card.html' with href=hs10_url value=high_sig_sw_10 label='Signal between -15 and -11 dBm' tone='warning' %}
 
-    {% url 'switches_high_sig_11' as hs11_url %}
+    {% url 'devices_high_signal_11' as hs11_url %}
     {% include 'components/stat_card.html' with href=hs11_url value=high_sig_sw_11 label='Signal <= -11 dBm' tone='warning' %}
   </div>
 </div>

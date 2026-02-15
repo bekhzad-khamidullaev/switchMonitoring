@@ -1,0 +1,6 @@
+{% extends "index.html" %}
+{% block title %}Degraded Signal Devices{% endblock %}
+
+{% block content %}
+  {% include 'partials/device_table.html' with devices_page=devices_high_signal page_title='Signal from -20 to -15 dBm' page_subtitle='Degraded optical signal level' %}
+{% endblock %}

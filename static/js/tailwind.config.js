@@ -1,5 +1,4 @@
-window.tailwind = window.tailwind || {};
-window.tailwind.config = {
+tailwind.config = {
   theme: {
     extend: {
       fontFamily: {
@@ -20,6 +19,19 @@ window.tailwind.config = {
           600: '#16a34a',
           700: '#15803d',
         },
+        warning: {
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          600: '#d97706',
+          700: '#b45309',
+        },
+        info: {
+          100: '#e0e7ff',
+          300: '#a5b4fc',
+          600: '#4f46e5',
+          700: '#4338ca',
+        },
         danger: {
           100: '#fee2e2',
           600: '#dc2626',
@@ -30,6 +42,9 @@ window.tailwind.config = {
           50: '#f8fafc',
           100: '#f1f5f9',
           200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          600: '#475569',
           700: '#334155',
           900: '#0f172a',
         },

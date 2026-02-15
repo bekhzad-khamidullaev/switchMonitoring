@@ -79,7 +79,7 @@
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
-from snmp.models import Switch
+from snmp.models import ManagedDevice
 from ping3 import ping
 from asgiref.sync import sync_to_async
 import time
@@ -88,7 +88,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ICMP RESPONSE")
 
 class Command(BaseCommand):
-    help = 'Update switch data'
+    help = 'Update device ICMP data'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--continuous', action='store_true', help='Run continuously until interrupted.')
 
     @sync_to_async
     def save_switch(self, switch):
@@ -105,13 +108,13 @@ class Command(BaseCommand):
             
             elapsed_time = time.time() - start_time
 
-            switch = await sync_to_async(Switch.objects.filter(ip=ip).first)()
+            switch = await sync_to_async(ManagedDevice.objects.filter(ip=ip).first)()
 
             if switch is None:
                 status = False
                 logger.info(f"Switch with IP {ip} not found.")
             else:
-                status = bool(host_alive)
+                status = host_alive is not None
                 logger.info(f"Switch {ip} is {'alive' if status else 'down'}")
                 switch.status = status
                 await self.save_switch(switch)
@@ -122,14 +125,15 @@ class Command(BaseCommand):
     async def handle_async(self, *args, **options):
         total_start_time = time.time()
         switches_per_batch = 5
+        continuous = options.get('continuous', False)
 
         try:
             while True:
-                switches_count = await sync_to_async(Switch.objects.count)()
+                switches_count = await sync_to_async(ManagedDevice.objects.count)()
 
                 for offset in range(0, switches_count, switches_per_batch):
                     ip_addresses = await sync_to_async(list)(
-                        Switch.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
+                        ManagedDevice.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
                     )
 
                     batch_start_time = time.time()
@@ -146,6 +150,8 @@ class Command(BaseCommand):
 
                 total_elapsed_time = time.time() - total_start_time
                 logger.info(f"Total elapsed time: {total_elapsed_time:.2f} seconds")
+                if not continuous:
+                    break
 
         except KeyboardInterrupt:
             logger.info("Received KeyboardInterrupt. Stopping the update process.")

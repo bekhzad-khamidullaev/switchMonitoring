@@ -19,7 +19,7 @@ from pysnmp.smi import builder, view, compiler, error as pysnmp_error, rfc1902
 # --- Предполагаемые импорты ваших моделей ---
 # Замените 'your_snmp_app' на имя вашего Django приложения
 try:
-    from snmp.models import Switch, SwitchModel, SwitchesPorts, Vendor
+    from snmp.models import ManagedDevice, ManagedDevicePort, ManagedDeviceType, Vendor
 except ImportError:
     print("ERROR: Could not import models from 'snmp.models'. Please ensure the app name and models are correct.")
     raise
@@ -96,7 +96,7 @@ def mw_to_dbm(mw: float) -> Optional[float]:
     except (ValueError, TypeError, OverflowError): return None
 
 
-def parse_snmp_value(mib_var: Tuple, switch_model: Optional[SwitchModel] = None) -> Any:
+def parse_snmp_value(mib_var: Tuple, switch_model: Optional[ManagedDeviceType] = None) -> Any:
     oid, val = mib_var
     if val is None or isinstance(val, (rfc1902.NoSuchObject, rfc1902.NoSuchInstance)):
         return None
@@ -262,7 +262,7 @@ async def snmp_walk_symbolic(snmp_engine: SnmpEngine, community: str, target: st
 
 
 class SNMPDevicePoller:
-    def __init__(self, switch: Switch, snmp_port: int = 161, timeout: int = 5, retries: int = 1):
+    def __init__(self, switch: ManagedDevice, snmp_port: int = 161, timeout: int = 5, retries: int = 1):
         self.switch = switch
         self.ip = switch.ip
         self.community = switch.snmp_community_ro or 'public'
@@ -272,7 +272,7 @@ class SNMPDevicePoller:
         self.snmp_engine = SnmpEngine()
         self.mib_builder = mibBuilder
         self.mib_view = mibView
-        self.switch_model: Optional[SwitchModel] = switch.model
+        self.switch_model: Optional[ManagedDeviceType] = switch.model
         self.symbolic_config: Dict[str, Optional[str]] = {}
         self.interfaces: Dict[int, Dict[str, Any]] = {}
         self.entity_map: Dict[int, int] = {}
@@ -542,8 +542,8 @@ class SNMPDevicePoller:
                         # Добавить temperature/voltage если нужно
                     }
                     try:
-                        obj, created = await SwitchesPorts.objects.aupdate_or_create(
-                            switch=self.switch, port=if_index, defaults=defaults
+                        obj, created = await ManagedDevicePort.objects.aupdate_or_create(
+                            managed_device=self.switch, port=if_index, defaults=defaults
                         )
                         if created: created_count += 1
                         else: updated_count += 1
@@ -561,28 +561,31 @@ class Command(BaseCommand):
     help = 'Update optical port DDM/DOM info using MIB symbolic names.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--switch-id', type=int, help='Poll only switch with this DB ID.')
-        parser.add_argument('--ip', type=str, help='Poll only switch with this IP address.')
-        parser.add_argument('--limit', type=int, default=0, help='Limit number of switches (0=no limit).')
+        parser.add_argument('--device-id', type=int, help='Poll only device with this DB ID.')
+        parser.add_argument('--switch-id', dest='device_id_legacy', type=int, help='Deprecated alias for --device-id.')
+        parser.add_argument('--ip', type=str, help='Poll only device with this IP address.')
+        parser.add_argument('--limit', type=int, default=0, help='Limit number of devices (0=no limit).')
         parser.add_argument('--community', type=str, help='Override SNMP community string.')
         parser.add_argument('--timeout', type=int, default=5, help='SNMP timeout seconds.')
         parser.add_argument('--retries', type=int, default=1, help='SNMP retries.')
-        parser.add_argument('--workers', type=int, default=10, help='Concurrent switch polling workers.')
-        parser.add_argument('--run-once', action='store_true', help='Run once and exit.')
+        parser.add_argument('--workers', type=int, default=10, help='Concurrent device polling workers.')
+        parser.add_argument('--run-once', action='store_true', help='Run once and exit (deprecated, default behavior).')
+        parser.add_argument('--continuous', action='store_true', help='Run continuously until interrupted.')
         parser.add_argument('--sleep', type=int, default=300, help='Sleep seconds between cycles.')
 
     async def handle_async(self, *args, **options):
         timeout, retries, max_workers = options['timeout'], options['retries'], options['workers']
         limit, override_community = options['limit'], options['community']
+        device_id = options.get('device_id') or options.get('device_id_legacy')
 
-        switches_qs = Switch.objects.select_related('model', 'model__vendor').filter(status=True).order_by('?')
-        if options['switch_id']: switches_qs = switches_qs.filter(pk=options['switch_id'])
+        switches_qs = ManagedDevice.objects.select_related('model', 'model__vendor').filter(status=True).order_by('?')
+        if device_id: switches_qs = switches_qs.filter(pk=device_id)
         elif options['ip']: switches_qs = switches_qs.filter(ip=options['ip'])
         if limit > 0: switches_qs = switches_qs[:limit]
 
         switches_to_poll = [s async for s in switches_qs]
-        if not switches_to_poll: self.stdout.write(self.style.WARNING('No active switches found to poll.')); return
-        self.stdout.write(f"Starting poll cycle for {len(switches_to_poll)} switches...")
+        if not switches_to_poll: self.stdout.write(self.style.WARNING('No active devices found to poll.')); return
+        self.stdout.write(f"Starting poll cycle for {len(switches_to_poll)} devices...")
 
         tasks = []
         for switch in switches_to_poll:
@@ -598,14 +601,15 @@ class Command(BaseCommand):
                 except Exception as e: logger.error(f"Unhandled poll task exception: {e}", exc_info=True)
 
         await asyncio.gather(*(run_with_semaphore(task) for task in tasks))
-        self.stdout.write(self.style.SUCCESS(f"Poll cycle finished for {len(switches_to_poll)} switches."))
+        self.stdout.write(self.style.SUCCESS(f"Poll cycle finished for {len(switches_to_poll)} devices."))
 
     def handle(self, *args, **options):
-        run_once, sleep_interval = options['run_once'], options['sleep']
+        continuous, sleep_interval = options['continuous'], options['sleep']
         loop_func = self.handle_async
 
         async def main_loop():
-            if run_once: await loop_func(*args, **options)
+            if not continuous:
+                await loop_func(*args, **options)
             else:
                 self.stdout.write(self.style.WARNING(f"Continuous mode. Press Ctrl+C to stop."))
                 while True:
