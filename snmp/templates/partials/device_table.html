@@ -36,8 +36,8 @@
               {% include 'components/badge.html' with tone='danger' label='DOWN' %}
             {% endif %}
           </td>
-          <td class="px-3 py-2">{{ managed_device.model.vendor.name|default:'-' }}</td>
-          <td class="px-3 py-2">{{ managed_device.model.device_model|default:'-' }}</td>
+          <td class="px-3 py-2">{{ managed_device.device_type.vendor.name|default:'-' }}</td>
+          <td class="px-3 py-2">{{ managed_device.device_type.device_model|default:'-' }}</td>
           <td class="px-3 py-2 font-medium text-surface-900">
             {{ managed_device.hostname|default:'-' }}
             {% if managed_device.rx_signal and managed_device.rx_signal <= -11 %}
@@ -46,12 +46,12 @@
           </td>
           <td class="px-3 py-2">{{ managed_device.ip }}</td>
           <td class="px-3 py-2">{{ managed_device.uptime|default:'-' }}</td>
-          <td class="px-3 py-2">{{ managed_device.last_update }}</td>
+          <td class="px-3 py-2">{{ managed_device.updated|date:"Y-m-d H:i:s" }}</td>
           <td class="px-3 py-2">
             <div class="flex flex-wrap gap-1">
               {% url 'device_detail' managed_device.pk as detail_url %}
               {% include 'components/link_button.html' with href=detail_url label='Details' tone='brand' size='xs' %}
-              {% if perms.snmp.change_switch %}
+              {% if perms.snmp.change_device %}
               {% url 'device_update' managed_device.pk as edit_url %}
               {% include 'components/link_button.html' with href=edit_url label='Edit' tone='surface' size='xs' %}
               {% url 'device_confirm_delete' managed_device.pk as delete_url %}

@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from snmp.models import Device, MetricSubscription, ManagedDevice as ManagedDeviceModel
+from snmp.models import Device, MetricSubscription, Device as DeviceModel
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 from snmp.services.metrics.registry import get_active_bindings_for_device
@@ -33,27 +33,15 @@ def _validate_thresholds(subscription: MetricSubscription, warn_value, crit_valu
 @login_required
 @permission_required('snmp.change_device', raise_exception=True)
 def device_metrics(request, pk):
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
-    if not user_can_access_managed_device(request.user, managed_device):
+    device = get_object_or_404(Device, pk=pk)
+    if not user_can_access_managed_device(request.user, device):
         return HttpResponse(status=403)
 
-    telemetry_device, _ = Device.objects.get_or_create(
-        ip=managed_device.ip,
-        defaults={
-            'managed_device': managed_device,
-            'hostname': managed_device.hostname or '',
-            'status': bool(managed_device.status),
-        },
-    )
-    if not telemetry_device.managed_device_id:
-        telemetry_device.managed_device = managed_device
-        telemetry_device.save(update_fields=['managed_device'])
-
-    bindings = list(get_active_bindings_for_device(telemetry_device))
-    interfaces = list(telemetry_device.interfaces.order_by('if_index'))
+    bindings = list(get_active_bindings_for_device(device))
+    interfaces = list(device.interfaces.order_by('if_index'))
     subscriptions = (
         MetricSubscription.objects
-        .filter(device=telemetry_device)
+        .filter(device=device)
         .select_related('metric', 'interface', 'binding')
         .order_by('interface__if_index', 'metric__key')
     )
@@ -62,21 +50,21 @@ def device_metrics(request, pk):
         action = request.POST.get('action')
 
         if action == 'run_discovery':
-            community = request.POST.get('community', '').strip() or managed_device.snmp_community_ro or 'public'
+            community = request.POST.get('community', '').strip() or device.snmp_community_ro or 'public'
             try:
-                result = run_device_discovery(ip=str(managed_device.ip), community=community, managed_device=managed_device)
+                result = run_device_discovery(ip=str(device.ip), community=community, device=device)
                 messages.success(
                     request,
                     f"Discovery completed: interfaces={result.get('interfaces_count', 0)} profile_id={result.get('profile_id', 0)}",
                 )
             except SnmpReadError as exc:
                 messages.error(request, f'Discovery failed: {exc}')
-            return redirect('device_metrics', pk=managed_device.pk)
+            return redirect('device_metrics', pk=device.pk)
 
         if action == 'poll_now':
-            saved_count = poll_device_metrics(telemetry_device.id)
+            saved_count = poll_device_metrics(device.id)
             messages.success(request, f'Polling completed. Saved samples: {saved_count}.')
-            return redirect('device_metrics', pk=managed_device.pk)
+            return redirect('device_metrics', pk=device.pk)
 
         if action == 'apply_profile':
             selected_binding_ids = request.POST.getlist('binding_ids')
@@ -85,7 +73,7 @@ def device_metrics(request, pk):
             selected_bindings = [binding for binding in bindings if str(binding.id) in selected_binding_ids]
             if not selected_bindings:
                 messages.warning(request, 'Select at least one metric binding.')
-                return redirect('device_metrics', pk=managed_device.pk)
+                return redirect('device_metrics', pk=device.pk)
 
             if scope == 'device':
                 target_interfaces = [None]
@@ -104,14 +92,14 @@ def device_metrics(request, pk):
                     }
                     if interface is None:
                         MetricSubscription.objects.update_or_create(
-                            device=telemetry_device,
+                            device=device,
                             interface__isnull=True,
                             metric=binding.metric,
                             defaults={**defaults, 'interface': None},
                         )
                     else:
                         MetricSubscription.objects.update_or_create(
-                            device=telemetry_device,
+                            device=device,
                             interface=interface,
                             metric=binding.metric,
                             defaults=defaults,
@@ -119,14 +107,13 @@ def device_metrics(request, pk):
                     created_or_updated += 1
 
             messages.success(request, f'Applied {created_or_updated} metric subscriptions.')
-            return redirect('device_metrics', pk=managed_device.pk)
+            return redirect('device_metrics', pk=device.pk)
 
     return render(
         request,
         'device_metrics.html',
         {
-            'managed_device': managed_device,
-            'device': telemetry_device,
+            'device': device,
             'bindings': bindings,
             'interfaces': interfaces,
             'subscriptions': subscriptions,
@@ -139,7 +126,7 @@ def device_metrics(request, pk):
 @require_POST
 def update_metric_subscription(request, subscription_id):
     subscription = get_object_or_404(MetricSubscription, pk=subscription_id)
-    if subscription.device.managed_device_id and not user_can_access_managed_device(request.user, subscription.device.managed_device):
+    if not user_can_access_managed_device(request.user, subscription.device):
         return HttpResponse(status=403)
 
     subscription.enabled = request.POST.get('enabled') == 'on'
@@ -183,11 +170,9 @@ def update_metric_subscription(request, subscription_id):
 @login_required
 @permission_required('snmp.view_metricsample', raise_exception=True)
 def export_device_metrics_csv(request, pk):
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
-    if not user_can_access_managed_device(request.user, managed_device):
+    device = get_object_or_404(Device, pk=pk)
+    if not user_can_access_managed_device(request.user, device):
         return HttpResponse(status=403)
-
-    telemetry_device = get_object_or_404(Device, managed_device=managed_device)
 
     metric = request.GET.get('metric', '').strip()
     if_index = request.GET.get('if_index', '').strip()

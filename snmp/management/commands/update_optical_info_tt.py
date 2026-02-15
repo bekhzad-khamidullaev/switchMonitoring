@@ -10,8 +10,8 @@ from django.conf import settings
 from pysnmp.hlapi import (
     SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity, nextCmd
 )
-# Убедитесь, что путь импорта модели Switch корректен для вашей структуры проекта
-from snmp.models import ManagedDevice
+# Убедитесь, что путь импорта модели Device корректен для вашей структуры проекта
+from snmp.models import Device
 
 # Настройка базового логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -71,7 +71,7 @@ class SNMPUpdater:
             self.model = selected_switch.model.device_model
         else:
             self.model = None
-            logger.warning(f"Switch {self.ip} ({self.hostname}) has no associated model.")
+            logger.warning(f"Device {self.ip} ({self.hostname}) has no associated model.")
 
         # Получаем OIDы; будут None, если модель не найдена или не определена
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
@@ -293,7 +293,7 @@ class SNMPUpdater:
                     processed_tx = None
                     processed_rx = None
 
-            # --- Обновление объекта Switch ---
+            # --- Обновление объекта Device ---
             switch = self.selected_switch
 
             # Округляем до 2 знаков после запятой, если значение - конечное число
@@ -410,7 +410,7 @@ class Command(BaseCommand):
         while True:
             logger.info(f"Starting switch update cycle for subnet {hardcoded_subnet_str}...")
             # Получаем свитчи из БД со статусом True
-            selected_switches = ManagedDevice.objects.filter(status=True).order_by('-pk')
+            selected_switches = Device.objects.filter(status=True).order_by('-pk')
             processed_count = 0
             skipped_count = 0
 
@@ -420,7 +420,7 @@ class Command(BaseCommand):
                     # --- Проверка IP адреса ---
                     switch_ip_str = selected_switch.ip
                     if not switch_ip_str:
-                        logger.warning(f"Switch hostname '{selected_switch.hostname}' (PK: {selected_switch.pk}) has no IP address. Skipping.")
+                        logger.warning(f"Device hostname '{selected_switch.hostname}' (PK: {selected_switch.pk}) has no IP address. Skipping.")
                         skipped_count += 1
                         continue
 
@@ -457,7 +457,7 @@ class Command(BaseCommand):
                     skipped_count += 1 # Считаем как пропущенный из-за ошибки
 
             # Логируем итоги цикла
-            logger.info(f"Switch update cycle finished. Processed: {processed_count}, Skipped (outside subnet or error): {skipped_count}.")
+            logger.info(f"Device update cycle finished. Processed: {processed_count}, Skipped (outside subnet or error): {skipped_count}.")
 
             # --- Управление циклом ---
             # Если команда должна выполниться только один раз, используйте break

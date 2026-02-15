@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from django.core.management.base import BaseCommand
 from ping3 import ping
 
-from snmp.models import ManagedDevice
+from snmp.models import Device
 
 logger = logging.getLogger("ICMP RESPONSE")
 SUBNET = ipaddress.ip_network("10.47.64.0/19", strict=False)
@@ -36,7 +36,7 @@ class Command(BaseCommand):
             logger.error("Error updating switch status for %s: %s", switch.ip, exc)
 
     async def handle_async(self):
-        all_switches = await sync_to_async(lambda: list(ManagedDevice.objects.all()), thread_sensitive=True)()
+        all_switches = await sync_to_async(lambda: list(Device.objects.all()), thread_sensitive=True)()
         filtered_switches = [
             switch for switch in all_switches if ipaddress.IPv4Address(switch.ip) in SUBNET
         ]

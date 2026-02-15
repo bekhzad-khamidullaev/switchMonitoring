@@ -10,8 +10,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from snmp.models import ManagedDevice as ManagedDeviceModel
-from snmp.models import SwitchModel as ManagedDeviceTypeModel
+from snmp.models import Device as DeviceModel
+from snmp.models import DeviceModel as DeviceModelModel
 
 from .access import (
     convert_uptime_to_human_readable,
@@ -58,7 +58,7 @@ def refresh_device_status(managed_device):
 def update_optical_info(request, pk):
     from snmp.lib.update_port_info import SNMPUpdater
 
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
+    managed_device = get_object_or_404(DeviceModel, pk=pk)
     if not user_can_access_managed_device(request.user, managed_device):
         return JsonResponse({'error': 'Forbidden'}, status=403)
 
@@ -83,7 +83,7 @@ def update_optical_info(request, pk):
 def update_device_ports_data(request, pk):
     from snmp.lib.update_port_info import PortsInfo
 
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
+    managed_device = get_object_or_404(DeviceModel, pk=pk)
     if not user_can_access_managed_device(request.user, managed_device):
         return JsonResponse({'error': 'Forbidden'}, status=403)
 
@@ -98,7 +98,7 @@ def update_device_ports_data(request, pk):
 @login_required
 def devices_offline(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    offline_items = ManagedDeviceModel.objects.filter(
+    offline_items = DeviceModel.objects.filter(
         status=False,
         branch__in=user_permitted_branches,
     ).order_by('ats')
@@ -107,10 +107,10 @@ def devices_offline(request):
     if search_query:
         offline_items = offline_items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -127,7 +127,7 @@ def devices_offline(request):
 @login_required
 def devices_high_signal_15(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = ManagedDeviceModel.objects.filter(
+    items = DeviceModel.objects.filter(
         rx_signal__lte=-15,
         rx_signal__gt=-20,
         branch__in=user_permitted_branches,
@@ -137,10 +137,10 @@ def devices_high_signal_15(request):
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -156,7 +156,7 @@ def devices_high_signal_15(request):
 @login_required
 def devices_high_signal_10(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = ManagedDeviceModel.objects.filter(
+    items = DeviceModel.objects.filter(
         rx_signal__lte=-11,
         rx_signal__gt=-15,
         branch__in=user_permitted_branches,
@@ -166,10 +166,10 @@ def devices_high_signal_10(request):
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -185,7 +185,7 @@ def devices_high_signal_10(request):
 @login_required
 def devices_high_signal_20(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = ManagedDeviceModel.objects.filter(
+    items = DeviceModel.objects.filter(
         rx_signal__lte=-20,
         branch__in=user_permitted_branches,
     ).order_by('rx_signal')
@@ -194,10 +194,10 @@ def devices_high_signal_20(request):
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -213,7 +213,7 @@ def devices_high_signal_20(request):
 @login_required
 def devices_high_signal_11(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = ManagedDeviceModel.objects.filter(
+    items = DeviceModel.objects.filter(
         rx_signal__lte=-11,
         branch__in=user_permitted_branches,
     ).order_by('rx_signal')
@@ -222,10 +222,10 @@ def devices_high_signal_11(request):
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -244,7 +244,7 @@ def devices_high_signal_11(request):
 def refresh_device_inventory(request, pk):
     from snmp.management.commands.snmp import perform_snmpwalk
 
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
+    managed_device = get_object_or_404(DeviceModel, pk=pk)
     if not user_can_access_managed_device(request.user, managed_device):
         return JsonResponse({'error': 'Forbidden'}, status=403)
 
@@ -267,14 +267,14 @@ def refresh_device_inventory(request, pk):
     if description_resp:
         response_description = str(description_resp[0]).strip().split()
         with transaction.atomic():
-            if not managed_device.model:
-                model_instance = ManagedDeviceTypeModel.objects.filter(device_model__in=response_description).first()
+            if not managed_device.device_type:
+                model_instance = DeviceModelModel.objects.filter(device_model__in=response_description).first()
                 if model_instance:
-                    managed_device.model = model_instance
-            elif managed_device.model.device_model not in response_description:
-                model_instance = ManagedDeviceTypeModel.objects.filter(device_model__in=response_description).first()
+                    managed_device.device_type = model_instance
+            elif managed_device.device_type.device_model not in response_description:
+                model_instance = DeviceModelModel.objects.filter(device_model__in=response_description).first()
                 if model_instance:
-                    managed_device.model = model_instance
+                    managed_device.device_type = model_instance
 
     managed_device.save()
     return redirect('device_detail', pk=pk)

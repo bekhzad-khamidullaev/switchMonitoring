@@ -19,7 +19,7 @@ from pysnmp.smi import builder, view, compiler, error as pysnmp_error, rfc1902
 # --- Предполагаемые импорты ваших моделей ---
 # Замените 'your_snmp_app' на имя вашего Django приложения
 try:
-    from snmp.models import ManagedDevice, ManagedDevicePort, ManagedDeviceType, Vendor
+    from snmp.models import Device, DevicePort, DeviceModel, Vendor
 except ImportError:
     print("ERROR: Could not import models from 'snmp.models'. Please ensure the app name and models are correct.")
     raise
@@ -96,7 +96,7 @@ def mw_to_dbm(mw: float) -> Optional[float]:
     except (ValueError, TypeError, OverflowError): return None
 
 
-def parse_snmp_value(mib_var: Tuple, switch_model: Optional[ManagedDeviceType] = None) -> Any:
+def parse_snmp_value(mib_var: Tuple, switch_model: Optional[DeviceModel] = None) -> Any:
     oid, val = mib_var
     if val is None or isinstance(val, (rfc1902.NoSuchObject, rfc1902.NoSuchInstance)):
         return None
@@ -121,7 +121,7 @@ def parse_snmp_value(mib_var: Tuple, switch_model: Optional[ManagedDeviceType] =
 
     if switch_model:
         config = {
-            'tx_power': (switch_model.tx_power_object, switch_model.power_unit),
+            'tx_power': (getattr(switch_model, 'tx_power_object', None), switch_model.power_unit),
             'rx_power': (switch_model.rx_power_object, switch_model.power_unit),
             'temperature': (switch_model.temperature_object, switch_model.temperature_unit),
             'sfp_vendor': (switch_model.sfp_vendor_object, 'string'),
@@ -262,7 +262,7 @@ async def snmp_walk_symbolic(snmp_engine: SnmpEngine, community: str, target: st
 
 
 class SNMPDevicePoller:
-    def __init__(self, switch: ManagedDevice, snmp_port: int = 161, timeout: int = 5, retries: int = 1):
+    def __init__(self, switch: Device, snmp_port: int = 161, timeout: int = 5, retries: int = 1):
         self.switch = switch
         self.ip = switch.ip
         self.community = switch.snmp_community_ro or 'public'
@@ -272,7 +272,7 @@ class SNMPDevicePoller:
         self.snmp_engine = SnmpEngine()
         self.mib_builder = mibBuilder
         self.mib_view = mibView
-        self.switch_model: Optional[ManagedDeviceType] = switch.model
+        self.switch_model: Optional[DeviceModel] = switch.model
         self.symbolic_config: Dict[str, Optional[str]] = {}
         self.interfaces: Dict[int, Dict[str, Any]] = {}
         self.entity_map: Dict[int, int] = {}
@@ -294,7 +294,7 @@ class SNMPDevicePoller:
     def _load_symbolic_config(self):
         if not self.switch_model: return False
         self.symbolic_config = {
-            'tx_power': self.switch_model.tx_power_object, 'rx_power': self.switch_model.rx_power_object,
+            'tx_power': self.getattr(switch_model, 'tx_power_object', None), 'rx_power': self.switch_model.rx_power_object,
             'sfp_vendor': self.switch_model.sfp_vendor_object, 'part_num': self.switch_model.part_num_object,
             'serial_num': self.switch_model.serial_num_object, 'temperature': self.switch_model.temperature_object,
             'voltage': self.switch_model.voltage_object, 'ddm_index_type': self.switch_model.ddm_index_type,
@@ -542,7 +542,7 @@ class SNMPDevicePoller:
                         # Добавить temperature/voltage если нужно
                     }
                     try:
-                        obj, created = await ManagedDevicePort.objects.aupdate_or_create(
+                        obj, created = await DevicePort.objects.aupdate_or_create(
                             managed_device=self.switch, port=if_index, defaults=defaults
                         )
                         if created: created_count += 1
@@ -552,8 +552,8 @@ class SNMPDevicePoller:
         except Exception as e:
              logger.error(f"[{self.ip}] DB transaction failed: {e}")
 
-        if created_count > 0: logger.info(f"[{self.ip}] Created {created_count} SwitchesPorts.")
-        if updated_count > 0: logger.info(f"[{self.ip}] Updated {updated_count} SwitchesPorts.")
+        if created_count > 0: logger.info(f"[{self.ip}] Created {created_count} DevicePort.")
+        if updated_count > 0: logger.info(f"[{self.ip}] Updated {updated_count} DevicePort.")
         logger.info(f"----- Finished MIB poll for {self.switch.hostname or self.ip} -----")
 
 
@@ -578,7 +578,7 @@ class Command(BaseCommand):
         limit, override_community = options['limit'], options['community']
         device_id = options.get('device_id') or options.get('device_id_legacy')
 
-        switches_qs = ManagedDevice.objects.select_related('model', 'model__vendor').filter(status=True).order_by('?')
+        switches_qs = Device.objects.select_related('device_type', 'device_type__vendor').filter(status=True).order_by('?')
         if device_id: switches_qs = switches_qs.filter(pk=device_id)
         elif options['ip']: switches_qs = switches_qs.filter(ip=options['ip'])
         if limit > 0: switches_qs = switches_qs[:limit]
@@ -589,7 +589,7 @@ class Command(BaseCommand):
 
         tasks = []
         for switch in switches_to_poll:
-             if not switch.ip: logger.warning(f"Switch '{switch.hostname or switch.id}' has no IP. Skipping."); continue
+             if not switch.ip: logger.warning(f"Device '{switch.hostname or switch.id}' has no IP. Skipping."); continue
              if override_community: switch.snmp_community_ro = override_community
              poller = SNMPDevicePoller(switch, timeout=timeout, retries=retries)
              tasks.append(poller.poll_and_update())

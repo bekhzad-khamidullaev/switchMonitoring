@@ -3,7 +3,7 @@ import asyncio
 import logging
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from snmp.models import ManagedDevice
+from snmp.models import Device
 from snmp.lib.update_port_info import SNMPUpdater
 from pysnmp.hlapi import *
 import math
@@ -470,7 +470,7 @@ class Command(BaseCommand):
         continuous = options.get('continuous', False)
 
         while True:
-            selected_switches = ManagedDevice.objects.filter(status=True).order_by('-model')
+            selected_switches = Device.objects.filter(status=True).order_by('-model')
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 futures = []

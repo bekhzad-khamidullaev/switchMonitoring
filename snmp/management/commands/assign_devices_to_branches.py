@@ -1,0 +1,19 @@
+from django.core.management.base import BaseCommand
+from snmp.models import Ats, Device
+
+class Command(BaseCommand):
+    help = 'Assign devices to branches based on their IP addresses'
+
+    def handle(self, *args, **options):
+        devices = Device.objects.all()
+        ats_list = Ats.objects.all()
+
+        for device in devices:
+            device_ip = device.ip
+            for ats in ats_list:
+                if ats.contains_ip(device_ip):
+                    device.branch = ats.branch
+                    device.ats = ats
+                    device.save()
+                    self.stdout.write(self.style.SUCCESS(f'Device {device.id} assigned to branch {ats.name}'))
+                    break

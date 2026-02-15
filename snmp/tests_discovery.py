@@ -18,7 +18,7 @@ class DiscoveryNormalizeTests(SimpleTestCase):
     def test_normalize_unknown_vendor(self):
         data = normalize_vendor_model(
             "1.3.6.1.4.1.9999.1.1",
-            "Generic Ethernet Switch firmware 1.0.0",
+            "Generic Ethernet Device firmware 1.0.0",
         )
         self.assertEqual(data["vendor"], "unknown")
         self.assertEqual(data["model"], "")

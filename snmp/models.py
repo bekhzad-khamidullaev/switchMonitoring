@@ -10,7 +10,7 @@ from django.dispatch import receiver
 from django.db.models import Q
 
 
-class ManagedDeviceQuerySet(models.QuerySet):
+class DeviceQuerySet(models.QuerySet):
     def active(self):
         return self.filter(status=True)
 
@@ -18,7 +18,7 @@ class ManagedDeviceQuerySet(models.QuerySet):
         return self.filter(branch_id=branch_id)
 
 
-class ManagedDeviceManager(models.Manager.from_queryset(ManagedDeviceQuerySet)):
+class DeviceManager(models.Manager.from_queryset(DeviceQuerySet)):
     pass
 
 
@@ -31,12 +31,15 @@ def _branch_permission_codename(branch_name):
 
 class Branch(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     
     class Meta:
         managed = True
         db_table = 'branch'
 
     def __str__(self):
+        if self.parent:
+            return f"{self.parent} > {self.name}"
         return self.name
 
 
@@ -147,7 +150,7 @@ class Vendor(models.Model):
     def __str__(self):
         return self.name
 
-class SwitchModel(models.Model):
+class DeviceModel(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
     device_model = models.CharField(max_length=200)
     rx_oid = models.CharField(max_length=200, null=True, blank=True)
@@ -164,7 +167,7 @@ class SwitchModel(models.Model):
     
     class Meta:
         managed = True
-        db_table = 'switch_model'
+        db_table = 'device_type'
         unique_together = (('vendor', 'device_model'),)
     
     
@@ -172,80 +175,12 @@ class SwitchModel(models.Model):
         return self.device_model
 
 
-class Switch(models.Model):
-    objects = ManagedDeviceManager()
-
-    created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    model = models.ForeignKey(SwitchModel, on_delete=models.SET_NULL, blank=True, null=True)
-    uptime = models.CharField(max_length=200, blank=True, null=True)
-    last_update = models.DateTimeField(auto_now=True, null=True, blank=True)
-    hostname = models.CharField(max_length=200, null=True, blank=True)
-    ip = models.GenericIPAddressField(protocol='both', null=True, blank=True)
-    switch_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
-    snmp_community_ro = models.CharField(max_length=20, default=settings.SNMP_DEFAULT_COMMUNITY_RO, null=True, blank=True)
-    snmp_community_rw = models.CharField(max_length=20, default=settings.SNMP_DEFAULT_COMMUNITY_RW, null=True, blank=True)
-    status = models.BooleanField(default=False, null=True, blank=True)
-    neighbor = models.ForeignKey("SwitchesNeighbors", on_delete=models.SET_NULL, blank=True, null=True)
-    port = models.ForeignKey("SwitchesPorts", on_delete=models.SET_NULL, blank=True, null=True, related_name='switch_ports')
-    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True)
-    ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
-    soft_version = models.CharField(max_length=80, blank=True, null=True)
-    serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
-    rx_signal = models.FloatField(null=True, blank=True)
-    tx_signal = models.FloatField(null=True, blank=True)
-    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
-    part_number = models.CharField(max_length=50, null=True, blank=True)
-    history = HistoricalRecords()
 
     
-    class Meta:
-        managed = True
-        db_table = 'switches'
-        verbose_name = 'Device'
-        verbose_name_plural = 'Devices'
-        unique_together = (('hostname', 'ip'),)
-        indexes = [
-            models.Index(fields=['status', 'hostname', 'ip', 'rx_signal', 'tx_signal']),
-        ]
     
-    def save(self, *args, **kwargs):
-        self.last_update = timezone.now()
-        super().save(*args, **kwargs)
-        
-    def __str__(self):
-        return self.hostname or str(self.ip or self.pk)
-
-    @property
-    def management_ip(self):
-        return self.ip
-
-    @management_ip.setter
-    def management_ip(self, value):
-        self.ip = value
-
-    @property
-    def device_type(self):
-        return self.model
-
-    @device_type.setter
-    def device_type(self, value):
-        self.model = value
-
-    @property
-    def is_online(self):
-        return bool(self.status)
-
-    @is_online.setter
-    def is_online(self, value):
-        self.status = bool(value)
-
-    def get_snmp_community(self):
-        return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
-    
-    
-class SwitchesPorts(models.Model):
+class DevicePort(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
-    managed_device = models.ForeignKey(Switch, models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
+    managed_device = models.ForeignKey('Device', models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
     port = models.SmallIntegerField(blank=False)
     description = models.CharField(max_length=200, default='')
     speed = models.IntegerField()
@@ -272,10 +207,10 @@ class SwitchesPorts(models.Model):
     
     class Meta:
         managed = True
-        db_table = 'switches_ports'
+        db_table = 'device_ports'
         unique_together = (('managed_device', 'port'),)
         
-class SwitchesNeighbors(models.Model):
+class DeviceNeighbor(models.Model):
     mac1 = models.CharField(max_length=17)
     port1 = models.SmallIntegerField()
     mac2 = models.CharField(max_length=17)
@@ -283,13 +218,13 @@ class SwitchesNeighbors(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'switches_neighbors'
+        db_table = 'device_neighbors'
         unique_together = (('mac1', 'port1', 'mac2'),)
 
 class Mac(models.Model):
-    managed_device = models.ForeignKey('Switch', models.DO_NOTHING, blank=False, null=False, default=0)
+    managed_device = models.ForeignKey('Device', models.DO_NOTHING, blank=False, null=False, default=0)
     mac = models.CharField(max_length=17, default='', blank=False, null=False)
-    port = models.ForeignKey("SwitchesPorts", models.DO_NOTHING, blank=False, null=False, default=0)
+    port = models.ForeignKey("DevicePort", models.DO_NOTHING, blank=False, null=False, default=0)
     vlan = models.SmallIntegerField()
     ip =  models.GenericIPAddressField(protocol='both', null=True, blank=True)
     data = models.DateTimeField(auto_now_add=True, blank=False)
@@ -304,7 +239,7 @@ class ListMacHistory(models.Model):
     Read-only class. The mat_listMacHistory is a materialized view to speed up searches upon mac history
     """
     managed_device = models.ForeignKey(
-        'Switch',
+        'Device',
         models.DO_NOTHING,
         db_column='switch',
         blank=False,
@@ -386,13 +321,6 @@ class Device(models.Model):
         V2C = '2c', 'SNMPv2c'
         V3 = '3', 'SNMPv3'
 
-    managed_device = models.OneToOneField(
-        'Switch',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='device',
-    )
     ip = models.GenericIPAddressField(protocol='both', unique=True)
     hostname = models.CharField(max_length=200, blank=True, default="")
     vendor = models.CharField(max_length=120, blank=True, default="")
@@ -402,10 +330,29 @@ class Device(models.Model):
     snmp_version = models.CharField(max_length=4, choices=SnmpVersion.choices, default=SnmpVersion.V2C)
     auth_profile = models.CharField(max_length=120, blank=True, default="")
     status = models.BooleanField(default=False)
+    
+    # Legacy Device integration fields
+    device_type = models.ForeignKey('DeviceModel', on_delete=models.SET_NULL, blank=True, null=True)
+    uptime = models.CharField(max_length=200, blank=True, null=True)
+    switch_mac = models.CharField(unique=True, max_length=17, null=True, blank=True)
+    snmp_community_ro = models.CharField(max_length=100, null=True, blank=True)
+    snmp_community_rw = models.CharField(max_length=100, null=True, blank=True)
+    neighbor = models.ForeignKey("DeviceNeighbor", on_delete=models.SET_NULL, blank=True, null=True)
+    parent_port = models.ForeignKey("DevicePort", on_delete=models.SET_NULL, blank=True, null=True, related_name='parent_devices')
+    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True)
+    ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
+    soft_version = models.CharField(max_length=80, blank=True, null=True)
+    serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
+    rx_signal = models.FloatField(null=True, blank=True)
+    tx_signal = models.FloatField(null=True, blank=True)
+    sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
+    part_number = models.CharField(max_length=50, null=True, blank=True)
+    
     profile = models.ForeignKey('DeviceProfile', on_delete=models.SET_NULL, null=True, blank=True)
     last_discovered_at = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+    history = HistoricalRecords()
 
     class Meta:
         managed = True
@@ -413,15 +360,14 @@ class Device(models.Model):
         indexes = [
             models.Index(fields=['vendor', 'model']),
             models.Index(fields=['status', 'updated']),
+            models.Index(fields=['ip', 'hostname']),
         ]
 
     def __str__(self):
         return self.hostname or str(self.ip)
 
     def effective_snmp_community(self):
-        if self.managed_device_id and self.managed_device:
-            return self.managed_device.get_snmp_community()
-        return settings.SNMP_DEFAULT_COMMUNITY_RO
+        return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
 
 
 class MetricBinding(models.Model):
@@ -614,18 +560,11 @@ class AlertEvent(models.Model):
 
 
 # Universal naming aliases. Legacy names stay supported for compatibility.
-ManagedDevice = Switch
-ManagedDeviceType = SwitchModel
-ManagedDevicePort = SwitchesPorts
-ManagedDeviceNeighbor = SwitchesNeighbors
+# Universal naming aliases.
+Device = Device
+DeviceModel = DeviceModel
+DevicePort = DevicePort
+DeviceNeighbor = DeviceNeighbor
 
 
-# Synchronization logic for Switch (ManagedDevice) status -> Device status
-@receiver(post_save, sender=Switch)
-def sync_device_status(sender, instance, **kwargs):
-    """
-    Ensure the modern Device model reflects the status of the legacy Switch model.
-    """
-    if instance.ip:
-        # Use Switch instead of ManagedDevice for clarity/safety within the file
-        Device.objects.filter(ip=instance.ip).update(active=instance.status)
+

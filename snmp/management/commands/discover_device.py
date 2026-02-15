@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from snmp.models import ManagedDevice
+from snmp.models import Device
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 
@@ -29,8 +29,8 @@ class Command(BaseCommand):
 
         if managed_device_id:
             try:
-                managed_device = ManagedDevice.objects.get(pk=managed_device_id)
-            except ManagedDevice.DoesNotExist as exc:
+                managed_device = Device.objects.get(pk=managed_device_id)
+            except Device.DoesNotExist as exc:
                 raise CommandError(f"Managed device with id={managed_device_id} not found") from exc
             ip = ip or managed_device.ip
 

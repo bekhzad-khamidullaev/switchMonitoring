@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from snmp.models import Device, Interface, ManagedDevice
+from snmp.models import Device, Interface, Device
 from .normalize import normalize_vendor_model
 from .profile_matcher import match_device_profile
 from .read_base_snmp import read_base_snmp
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 def run_device_discovery(
     ip: str,
     community: str,
-    managed_device: Optional[ManagedDevice] = None,
-    switch: Optional[ManagedDevice] = None,  # legacy alias
+    managed_device: Optional[Device] = None,
+    switch: Optional[Device] = None,  # legacy alias
     timeout: int = 2,
     retries: int = 1,
 ) -> Dict[str, int]:

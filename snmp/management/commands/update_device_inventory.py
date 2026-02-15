@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django.core.paginator import Paginator
 from django.db.models import Count
 
-from snmp.models import Ats, ManagedDevice, ManagedDeviceType
+from snmp.models import Ats, Device, DeviceModel
 from .snmp import perform_snmpwalk
 
 logger = logging.getLogger("SNMP RESPONSE")
@@ -24,57 +24,57 @@ def convert_uptime_to_human_readable(uptime_in_hundredths):
 
 
 class Command(BaseCommand):
-    help = 'Update switch inventory in one pass'
+    help = 'Update device inventory in one pass'
 
     def handle(self, *args, **options):
         snmp_community = settings.SNMP_DEFAULT_COMMUNITY_RO
         ats_list = list(Ats.objects.all())
-        switch_models = list(ManagedDeviceType.objects.all())
+        device_models = list(DeviceModel.objects.all())
 
-        paginator = Paginator(ManagedDevice.objects.filter(status=True).order_by('-pk'), 10)
+        paginator = Paginator(Device.objects.filter(status=True).order_by('-pk'), 10)
         for page_number in range(1, paginator.num_pages + 1):
-            selected_switches = paginator.page(page_number)
-            for selected_switch in selected_switches:
-                hostname_resp = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_HOSTNAME, snmp_community)
-                uptime_resp = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_UPTIME, snmp_community)
+            selected_devices = paginator.page(page_number)
+            for device in selected_devices:
+                hostname_resp = perform_snmpwalk(device.ip, OID_SYSTEM_HOSTNAME, snmp_community)
+                uptime_resp = perform_snmpwalk(device.ip, OID_SYSTEM_UPTIME, snmp_community)
                 if not hostname_resp or not uptime_resp:
-                    logger.warning("No SNMP response for ip=%s", selected_switch.ip)
+                    logger.warning("No SNMP response for ip=%s", device.ip)
                     continue
 
                 for ats in ats_list:
-                    if ats.contains_ip(selected_switch.ip):
-                        selected_switch.branch = ats.branch
-                        selected_switch.ats = ats
+                    if ats.contains_ip(device.ip):
+                        device.branch = ats.branch
+                        device.ats = ats
                         break
 
                 match_hostname = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', hostname_resp[0])
                 if match_hostname:
-                    selected_switch.hostname = match_hostname.group(1).strip()
+                    device.hostname = match_hostname.group(1).strip()
                 else:
-                    logger.error("Unexpected hostname response for ip=%s", selected_switch.ip)
+                    logger.error("Unexpected hostname response for ip=%s", device.ip)
                     continue
 
                 match_uptime = re.search(r'SNMPv2-MIB::sysUpTime.0\s*=\s*(\d+)', uptime_resp[0])
                 if match_uptime:
-                    selected_switch.uptime = convert_uptime_to_human_readable(match_uptime.group(1).strip())
+                    device.uptime = convert_uptime_to_human_readable(match_uptime.group(1).strip())
                 else:
-                    logger.error("Unexpected uptime response for ip=%s", selected_switch.ip)
+                    logger.error("Unexpected uptime response for ip=%s", device.ip)
                     continue
 
-                descr_resp = perform_snmpwalk(selected_switch.ip, OID_SYSTEM_DESCRIPTION, snmp_community)
+                descr_resp = perform_snmpwalk(device.ip, OID_SYSTEM_DESCRIPTION, snmp_community)
                 if not descr_resp:
                     continue
                 response_description = str(descr_resp[0]).strip().split()
-                for db_model_instance in switch_models:
+                for db_model_instance in device_models:
                     if db_model_instance.device_model in response_description:
-                        selected_switch.model = db_model_instance
+                        device.device_type = db_model_instance
                         break
 
-                selected_switch.save()
+                device.save()
 
-        duplicate_ips = ManagedDevice.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
+        duplicate_ips = Device.objects.values('ip').annotate(count=Count('ip')).filter(count__gt=1)
         for duplicate_ip in duplicate_ips:
             ip = duplicate_ip['ip']
-            duplicate_hosts = ManagedDevice.objects.filter(ip=ip).order_by('-id')[1:]
+            duplicate_hosts = Device.objects.filter(ip=ip).order_by('-id')[1:]
             for duplicate_host in duplicate_hosts:
                 duplicate_host.delete()

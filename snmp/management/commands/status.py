@@ -27,7 +27,7 @@
             
 #             elapsed_time = time.time() - start_time
 
-#             switch = await sync_to_async(Switch.objects.filter(ip=ip).first)()
+#             switch = await sync_to_async(Device.objects.filter(ip=ip).first)()
 
 #             if switch is None:
 #                 status = False
@@ -48,11 +48,11 @@
 #         switches_per_batch = 5
 
 #         while True:
-#             switches_count = await sync_to_async(Switch.objects.count)()
+#             switches_count = await sync_to_async(Device.objects.count)()
 
 #             for offset in range(0, switches_count, switches_per_batch):
 #                 ip_addresses = await sync_to_async(list)(
-#                     Switch.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
+#                     Device.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
 #                 )
 
 #                 batch_start_time = time.time()
@@ -79,7 +79,7 @@
 import asyncio
 import logging
 from django.core.management.base import BaseCommand
-from snmp.models import ManagedDevice
+from snmp.models import Device
 from ping3 import ping
 from asgiref.sync import sync_to_async
 import time
@@ -94,10 +94,10 @@ class Command(BaseCommand):
         parser.add_argument('--continuous', action='store_true', help='Run continuously until interrupted.')
 
     @sync_to_async
-    def save_switch(self, switch):
-        switch.save()
+    def save_device(self, device):
+        device.save()
 
-    async def update_switch_status(self, ip):
+    async def update_device_status(self, ip):
         try:
             if ip is None:
                 return
@@ -108,38 +108,38 @@ class Command(BaseCommand):
             
             elapsed_time = time.time() - start_time
 
-            switch = await sync_to_async(ManagedDevice.objects.filter(ip=ip).first)()
+            device = await sync_to_async(Device.objects.filter(ip=ip).first)()
 
-            if switch is None:
+            if device is None:
                 status = False
-                logger.info(f"Switch with IP {ip} not found.")
+                logger.info(f"Device with IP {ip} not found.")
             else:
                 status = host_alive is not None
-                logger.info(f"Switch {ip} is {'alive' if status else 'down'}")
-                switch.status = status
-                await self.save_switch(switch)
+                logger.info(f"Device {ip} is {'alive' if status else 'down'}")
+                device.status = status
+                await self.save_device(device)
 
         except Exception as e:
-            logger.error(f"Error updating switch status for {ip}: {e}")
+            logger.error(f"Error updating device status for {ip}: {e}")
 
     async def handle_async(self, *args, **options):
         total_start_time = time.time()
-        switches_per_batch = 5
+        devices_per_batch = 5
         continuous = options.get('continuous', False)
 
         try:
             while True:
-                switches_count = await sync_to_async(ManagedDevice.objects.count)()
+                devices_count = await sync_to_async(Device.objects.count)()
 
-                for offset in range(0, switches_count, switches_per_batch):
+                for offset in range(0, devices_count, devices_per_batch):
                     ip_addresses = await sync_to_async(list)(
-                        ManagedDevice.objects.values_list('ip', flat=True)[offset:offset + switches_per_batch]
+                        Device.objects.values_list('ip', flat=True)[offset:offset + devices_per_batch]
                     )
 
                     batch_start_time = time.time()
-                    logger.info(f"Processing batch with {len(ip_addresses)} switches.")
+                    logger.info(f"Processing batch with {len(ip_addresses)} devices.")
 
-                    tasks = [self.update_switch_status(ip) for ip in ip_addresses]
+                    tasks = [self.update_device_status(ip) for ip in ip_addresses]
                     await asyncio.gather(*tasks)
 
                     batch_elapsed_time = time.time() - batch_start_time

@@ -2,7 +2,7 @@ from pysnmp.hlapi import *
 from pysnmp import error
 import math
 from django.core.paginator import Paginator
-from ..models import Mac, ManagedDevice, ManagedDeviceNeighbor, ManagedDevicePort
+from ..models import Mac, Device, DeviceNeighbor, DevicePort
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -285,7 +285,7 @@ class PortsInfo():
             speed = int(speed) if speed is not None else 0  # Adjust this default value as needed
 
             # Create port record with retrieved data
-            ManagedDevicePort.objects.create(
+            DevicePort.objects.create(
                 managed_device=switch,
                 port=port_num,
                 speed=speed,
@@ -296,7 +296,7 @@ class PortsInfo():
             
     def update_port_data(self, switch):
         # Get all ports for the given switch
-        ports = ManagedDevicePort.objects.filter(managed_device=switch)
+        ports = DevicePort.objects.filter(managed_device=switch)
 
         for port in ports:
             self.update_port_info_from_snmp(switch, port)

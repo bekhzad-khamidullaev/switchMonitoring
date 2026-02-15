@@ -7,8 +7,8 @@ from snmp.models import (
     Device,
     DeviceProfile,
     Interface,
-    ManagedDevice,
-    ManagedDeviceNeighbor,
+    Device,
+    DeviceNeighbor,
     MetricDefinition,
     MetricSample,
     MetricSubscription,
@@ -19,7 +19,7 @@ from snmp.tasks import discover_all_devices_task, poll_all_devices_metrics_task
 
 class EndpointAccessTests(TestCase):
     def setUp(self):
-        self.managed_device = ManagedDevice.objects.create(hostname='sw-test', ip='10.0.0.1')
+        self.managed_device = Device.objects.create(hostname='sw-test', ip='10.0.0.1')
         self.user = User.objects.create_user(username='u1', password='p1')
 
     def test_unauthorized_user_is_redirected_to_login(self):
@@ -61,7 +61,7 @@ class DeviceCreateSnmpFieldsTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        managed_device = ManagedDevice.objects.get(ip='10.1.1.1')
+        managed_device = Device.objects.get(ip='10.1.1.1')
         self.assertEqual(managed_device.snmp_community_ro, 'public_ro')
         self.assertEqual(managed_device.snmp_community_rw, 'private_rw')
 
@@ -71,7 +71,7 @@ class DeviceCreateSnmpFieldsTests(TestCase):
 
 class MetricsPageActionTests(TestCase):
     def setUp(self):
-        self.managed_device = ManagedDevice.objects.create(hostname='sw-metrics', ip='10.0.0.50')
+        self.managed_device = Device.objects.create(hostname='sw-metrics', ip='10.0.0.50')
         self.user = User.objects.create_user(username='metrics_user', password='p1')
         change_device_perm = Permission.objects.get(codename='change_device')
         self.user.user_permissions.add(change_device_perm)
@@ -128,14 +128,14 @@ class ApiOnboardValidationTests(TestCase):
         self.url = '/snmp/api/devices/onboard'
 
     def test_onboard_forbidden_without_device_permissions(self):
-        managed_device = ManagedDevice.objects.create(hostname='dev-1', ip='10.20.0.1')
+        managed_device = Device.objects.create(hostname='dev-1', ip='10.20.0.1')
         response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
         self.assertEqual(response.status_code, 403)
 
     def test_onboard_requires_ip_when_managed_device_has_no_ip(self):
         view_device_perm = Permission.objects.get(codename='view_device')
         self.user.user_permissions.add(view_device_perm)
-        managed_device = ManagedDevice.objects.create(hostname='dev-no-ip', ip=None)
+        managed_device = Device.objects.create(hostname='dev-no-ip', ip=None)
         response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
         self.assertEqual(response.status_code, 400)
         self.assertIn('IP address is required', response.content.decode('utf-8'))
@@ -143,7 +143,7 @@ class ApiOnboardValidationTests(TestCase):
     def test_onboard_rejects_ip_mismatch_with_managed_device(self):
         view_device_perm = Permission.objects.get(codename='view_device')
         self.user.user_permissions.add(view_device_perm)
-        managed_device = ManagedDevice.objects.create(hostname='dev-2', ip='10.20.0.2')
+        managed_device = Device.objects.create(hostname='dev-2', ip='10.20.0.2')
         response = self.client.post(
             self.url,
             data={'managed_device_id': managed_device.id, 'ip': '10.20.0.3'},
@@ -154,7 +154,7 @@ class ApiOnboardValidationTests(TestCase):
     def test_onboard_success_with_permission(self):
         view_device_perm = Permission.objects.get(codename='view_device')
         self.user.user_permissions.add(view_device_perm)
-        managed_device = ManagedDevice.objects.create(hostname='dev-ok', ip='10.20.0.10')
+        managed_device = Device.objects.create(hostname='dev-ok', ip='10.20.0.10')
         response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Device.objects.filter(ip='10.20.0.10').exists())
@@ -162,7 +162,7 @@ class ApiOnboardValidationTests(TestCase):
 
 class DeviceStatusIcmpTests(TestCase):
     def test_zero_rtt_is_treated_as_up(self):
-        managed_device = ManagedDevice.objects.create(hostname='icmp-dev', ip='10.30.0.1', status=False)
+        managed_device = Device.objects.create(hostname='icmp-dev', ip='10.30.0.1', status=False)
         with patch('snmp.web.views.device_operations.ping_host', return_value=0.0):
             response = refresh_device_status(managed_device)
         managed_device.refresh_from_db()
@@ -172,7 +172,7 @@ class DeviceStatusIcmpTests(TestCase):
 
 class DeviceProfilesPageTests(TestCase):
     def setUp(self):
-        self.managed_device = ManagedDevice.objects.create(hostname='sw-profile', ip='10.0.0.60')
+        self.managed_device = Device.objects.create(hostname='sw-profile', ip='10.0.0.60')
         self.user = User.objects.create_user(username='profiles_user', password='p1')
         change_device_perm = Permission.objects.get(codename='change_device')
         self.user.user_permissions.add(change_device_perm)
@@ -255,9 +255,9 @@ class HostMapViewTests(TestCase):
         self.user.user_permissions.add(view_device_perm)
         self.client.login(username='host_map_user', password='p1')
 
-        self.left = ManagedDevice.objects.create(hostname='core-a', ip='10.50.0.1', switch_mac='aa:bb:cc:dd:ee:01')
-        self.right = ManagedDevice.objects.create(hostname='core-b', ip='10.50.0.2', switch_mac='aa:bb:cc:dd:ee:02')
-        ManagedDeviceNeighbor.objects.create(
+        self.left = Device.objects.create(hostname='core-a', ip='10.50.0.1', switch_mac='aa:bb:cc:dd:ee:01')
+        self.right = Device.objects.create(hostname='core-b', ip='10.50.0.2', switch_mac='aa:bb:cc:dd:ee:02')
+        DeviceNeighbor.objects.create(
             mac1='aa:bb:cc:dd:ee:01',
             port1=1,
             mac2='aa:bb:cc:dd:ee:02',
@@ -283,8 +283,8 @@ class HostMapViewTests(TestCase):
 
 class TaskResilienceTests(TestCase):
     def setUp(self):
-        md1 = ManagedDevice.objects.create(hostname='t-1', ip='10.40.0.1')
-        md2 = ManagedDevice.objects.create(hostname='t-2', ip='10.40.0.2')
+        md1 = Device.objects.create(hostname='t-1', ip='10.40.0.1')
+        md2 = Device.objects.create(hostname='t-2', ip='10.40.0.2')
         Device.objects.create(ip='10.40.0.1', managed_device=md1, hostname='t-1')
         Device.objects.create(ip='10.40.0.2', managed_device=md2, hostname='t-2')
 

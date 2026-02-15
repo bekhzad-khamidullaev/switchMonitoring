@@ -6,8 +6,8 @@ from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
-from snmp.forms import ManagedDeviceForm
-from snmp.models import ManagedDevice as ManagedDeviceModel
+from snmp.forms import DeviceForm
+from snmp.models import Device as DeviceModel
 
 from .access import get_permitted_branches, user_can_access_managed_device
 from .device_operations import refresh_device_status
@@ -26,7 +26,7 @@ def _first_form_error(form):
 
 
 def _get_managed_device_for_user_or_404(user, pk):
-    managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
+    managed_device = get_object_or_404(DeviceModel, pk=pk)
     if not user_can_access_managed_device(user, managed_device):
         raise Http404
     return managed_device
@@ -35,7 +35,7 @@ def _get_managed_device_for_user_or_404(user, pk):
 @login_required
 def devices(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    items = ManagedDeviceModel.objects.filter(branch__in=user_permitted_branches).order_by('-pk')
+    items = DeviceModel.objects.filter(branch__in=user_permitted_branches).order_by('-pk')
     search_query = (request.GET.get('search') or '').strip()
     status_filter = (request.GET.get('status') or '').strip().lower()
     branch_filter = (request.GET.get('branch') or '').strip()
@@ -50,15 +50,15 @@ def devices(request):
         items = items.filter(branch_id=int(branch_filter))
 
     if vendor_filter.isdigit():
-        items = items.filter(model__vendor_id=int(vendor_filter))
+        items = items.filter(device_type__vendor_id=int(vendor_filter))
 
     if search_query:
         items = items.filter(
             Q(pk__icontains=search_query)
-            | Q(model__vendor__name__icontains=search_query)
+            | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
-            | Q(model__device_model__icontains=search_query)
+            | Q(device_type__device_model__icontains=search_query)
             | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -72,11 +72,11 @@ def devices(request):
 
     branch_options = sorted(user_permitted_branches, key=lambda branch: (branch.name or '').lower())
     vendor_options = (
-        ManagedDeviceModel.objects.filter(branch__in=user_permitted_branches)
-        .exclude(model__vendor__isnull=True)
-        .values('model__vendor_id', 'model__vendor__name')
+        DeviceModel.objects.filter(branch__in=user_permitted_branches)
+        .exclude(device_type__vendor__isnull=True)
+        .values('device_type__vendor_id', 'device_type__vendor__name')
         .distinct()
-        .order_by('model__vendor__name')
+        .order_by('device_type__vendor__name')
     )
 
     return render(
@@ -105,14 +105,14 @@ def device_detail(request, pk):
 def device_create(request):
     error_message = None
     if request.method == 'POST':
-        form = ManagedDeviceForm(request.POST)
+        form = DeviceForm(request.POST)
         if form.is_valid():
             managed_device = form.save()
             refresh_device_status(managed_device)
             return redirect('device_detail', pk=managed_device.pk)
         error_message = _first_form_error(form)
     else:
-        form = ManagedDeviceForm()
+        form = DeviceForm()
     return render(request, 'device_form.html', {'form': form, 'error_message': error_message})
 
 
@@ -122,13 +122,13 @@ def device_update(request, pk):
     error_message = None
     managed_device = _get_managed_device_for_user_or_404(request.user, pk)
     if request.method == 'POST':
-        form = ManagedDeviceForm(request.POST, instance=managed_device)
+        form = DeviceForm(request.POST, instance=managed_device)
         if form.is_valid():
             managed_device = form.save()
             return redirect('device_detail', pk=managed_device.pk)
         error_message = _first_form_error(form)
     else:
-        form = ManagedDeviceForm(instance=managed_device)
+        form = DeviceForm(instance=managed_device)
     return render(request, 'device_form.html', {'form': form, 'error_message': error_message})
 
 

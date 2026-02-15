@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from openpyxl import Workbook
 
-from snmp.models import ManagedDevice as ManagedDeviceModel
+from snmp.models import Device as DeviceModel
 
 from .access import get_permitted_branches
 
@@ -33,8 +33,8 @@ def export_low_signal_devices_to_excel(request):
 
     permitted_branches = get_permitted_branches(request.user)
     items = (
-        ManagedDeviceModel.objects.filter(rx_signal__lte=-11, branch__in=permitted_branches)
-        .select_related('ats', 'ats__branch', 'model')
+        DeviceModel.objects.filter(rx_signal__lte=-11, branch__in=permitted_branches)
+        .select_related('ats', 'ats__branch', 'device_type')
         .order_by('rx_signal')
     )
 
@@ -43,7 +43,7 @@ def export_low_signal_devices_to_excel(request):
         ats_name = sanitize_for_excel(item.ats.name if item.ats_id else '')
         hostname = sanitize_for_excel(item.hostname)
         ip_address = sanitize_for_excel(item.ip)
-        model_name = sanitize_for_excel(item.model.device_model if item.model else '')
+        model_name = sanitize_for_excel(item.device_type.device_model if item.device_type else '')
         uptime_str = sanitize_for_excel(str(item.uptime or ''))
         last_update_str = item.last_update.strftime('%Y-%m-%d %H:%M:%S') if item.last_update else ''
 

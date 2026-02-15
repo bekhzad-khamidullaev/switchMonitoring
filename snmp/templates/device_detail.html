@@ -42,14 +42,14 @@
                 :class="status === 'UP' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
                 x-text="status"></span>
             </td>
-            <td class="px-3 py-2">{{ managed_device.model.vendor.name|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.model.device_model|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.device_type.vendor.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ managed_device.device_type.device_model|default:'-' }}</td>
             <td class="px-3 py-2">{{ managed_device.hostname|default:'-' }}</td>
             <td class="px-3 py-2">{{ managed_device.ip }}</td>
             <td class="px-3 py-2">{{ managed_device.uptime|default:'-' }}</td>
             <td class="px-3 py-2">{{ managed_device.serial_number|default:'-' }}</td>
             <td class="px-3 py-2">{{ managed_device.switch_mac|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.last_update }}</td>
+            <td class="px-3 py-2">{{ managed_device.updated|date:"Y-m-d H:i:s" }}</td>
           </tr>
         </tbody>
       </table>
@@ -95,7 +95,7 @@
   </section>
 
   <section class="flex flex-wrap gap-2">
-    {% if perms.snmp.change_switch %}
+    {% if perms.snmp.change_device %}
     {% url 'device_update' managed_device.pk as device_edit_url %}
     {% include 'components/link_button.html' with href=device_edit_url label='Edit' tone='surface' %}
     {% url 'device_confirm_delete' managed_device.pk as device_delete_url %}

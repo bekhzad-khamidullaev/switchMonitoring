@@ -16,14 +16,11 @@ class DeviceOnboardSerializer(serializers.Serializer):
 
 
 class DeviceSerializer(serializers.ModelSerializer):
-    managed_device_id = serializers.IntegerField(read_only=True)
-
     class Meta:
         model = Device
         fields = [
             'id', 'ip', 'hostname', 'vendor', 'model', 'firmware', 'sys_object_id',
             'snmp_version', 'auth_profile', 'status', 'profile_id', 'last_discovered_at',
-            'managed_device_id',
         ]
 
 

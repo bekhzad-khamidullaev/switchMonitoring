@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from snmp.models import Device, MetricSample, MetricSubscription, ManagedDevice as ManagedDeviceModel
+from snmp.models import Device, MetricSample, MetricSubscription
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 from .permissions import user_can_access_device, user_can_access_managed_device
@@ -23,39 +23,28 @@ def api_device_onboard(request):
     serializer.is_valid(raise_exception=True)
 
     ip = serializer.validated_data.get('ip')
-    managed_device_id = serializer.validated_data.get('managed_device_id')
-    managed_device = None
+    device_id = serializer.validated_data.get('managed_device_id')
 
-    if managed_device_id:
-        managed_device = ManagedDeviceModel.objects.filter(pk=managed_device_id).first()
-        if not managed_device:
-            return Response({'detail': 'Managed device not found'}, status=status.HTTP_404_NOT_FOUND)
-        if not user_can_access_managed_device(request.user, managed_device):
+    if device_id:
+        device = Device.objects.filter(pk=device_id).first()
+        if not device:
+            return Response({'detail': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not user_can_access_device(request.user, device):
             return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-        if ip and managed_device.ip and str(ip) != str(managed_device.ip):
+        if ip and device.ip and str(ip) != str(device.ip):
             return Response(
-                {'detail': 'Provided ip does not match managed device ip'},
+                {'detail': 'Provided ip does not match device ip'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        ip = ip or managed_device.ip
-
-    if not ip:
-        return Response(
-            {'detail': 'IP address is required and managed device has no IP'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    device, _ = Device.objects.get_or_create(
-        ip=ip,
-        defaults={
-            'managed_device': managed_device,
-            'hostname': managed_device.hostname if managed_device else '',
-            'status': bool(managed_device.status) if managed_device else False,
-        },
-    )
-    if managed_device and not device.managed_device_id:
-        device.managed_device = managed_device
-        device.save(update_fields=['managed_device'])
+        ip = ip or device.ip
+    else:
+        device = Device.objects.filter(ip=ip).first()
+    
+    if not device and ip:
+        device = Device.objects.create(ip=ip)
+    
+    if not device:
+         return Response({'detail': 'IP or Device ID required'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(DeviceSerializer(device).data, status=status.HTTP_201_CREATED)
 
@@ -63,7 +52,7 @@ def api_device_onboard(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def api_device_discover(request, device_id):
-    device = Device.objects.filter(pk=device_id).select_related('managed_device').first()
+    device = Device.objects.filter(pk=device_id).first()
     if not device:
         return Response({'detail': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
     if not user_can_access_device(request.user, device):
@@ -72,7 +61,7 @@ def api_device_discover(request, device_id):
     community = request.data.get('community') or device.effective_snmp_community()
 
     try:
-        result = run_device_discovery(ip=str(device.ip), community=community, managed_device=device.managed_device)
+        result = run_device_discovery(ip=str(device.ip), community=community, device=device)
     except SnmpReadError as exc:
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -103,7 +92,7 @@ def api_subscription_update(request, subscription_id):
     subscription = (
         MetricSubscription.objects
         .filter(pk=subscription_id)
-        .select_related('device', 'device__managed_device', 'binding')
+        .select_related('device', 'binding')
         .first()
     )
     if not subscription:

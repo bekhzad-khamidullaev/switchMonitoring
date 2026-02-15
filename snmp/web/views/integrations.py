@@ -5,7 +5,7 @@ from django.views.decorators.http import require_POST
 import requests
 from urllib3.exceptions import InsecureRequestWarning
 
-from snmp.models import ManagedDevice as ManagedDeviceModel
+from snmp.models import Device as DeviceModel
 
 if not settings.ZABBIX_VERIFY_SSL:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -62,8 +62,8 @@ def sync_hosts_from_zabbix(request):
 
             if 'result' in interfaces_result and interfaces_result['result']:
                 ip_address = interfaces_result['result'][0]['ip']
-                if not ManagedDeviceModel.objects.filter(ip=ip_address).exists():
-                    ManagedDeviceModel.objects.create(hostname=hostname, ip=ip_address)
+                if not DeviceModel.objects.filter(ip=ip_address).exists():
+                    DeviceModel.objects.create(hostname=hostname, ip=ip_address)
 
         return redirect('dashboard')
     except Exception:

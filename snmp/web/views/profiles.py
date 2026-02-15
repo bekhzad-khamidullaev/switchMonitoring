@@ -6,15 +6,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from snmp.forms import DeviceProfileForm
-from snmp.models import Device, DeviceProfile, ManagedDevice as ManagedDeviceModel
+from snmp.models import Device, DeviceProfile, Device as DeviceModel
 
 from .access import get_permitted_branches, user_has_global_device_access
 
 
 def _permitted_managed_devices(user):
     if user_has_global_device_access(user):
-        return ManagedDeviceModel.objects.all()
-    return ManagedDeviceModel.objects.filter(branch__in=get_permitted_branches(user))
+        return DeviceModel.objects.all()
+    return DeviceModel.objects.filter(branch__in=get_permitted_branches(user))
 
 
 def _assign_profile_to_managed_device(profile, managed_device_id, user):
