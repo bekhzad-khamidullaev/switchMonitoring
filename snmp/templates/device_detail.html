@@ -4,12 +4,12 @@
 
 {% block content %}
 <div x-data="deviceDetailPage({
-      deviceId: {{ managed_device.pk }},
-      initialStatus: '{{ managed_device.status|yesno:'UP,DOWN' }}',
-      rxSignal: '{{ managed_device.rx_signal|default:'' }}',
-      txSignal: '{{ managed_device.tx_signal|default:'' }}',
-      sfpVendor: '{{ managed_device.sfp_vendor|default:''|escapejs }}',
-      partNumber: '{{ managed_device.part_number|default:''|escapejs }}'
+      deviceId: {{ device.pk }},
+      initialStatus: '{{ device.status|yesno:'UP,DOWN' }}',
+      rxSignal: '{{ device.rx_signal|default:'' }}',
+      txSignal: '{{ device.tx_signal|default:'' }}',
+      sfpVendor: '{{ device.sfp_vendor|default:''|escapejs }}',
+      partNumber: '{{ device.part_number|default:''|escapejs }}'
     })"
   class="space-y-4">
 
@@ -36,20 +36,20 @@
         </thead>
         <tbody class="bg-surface-0 text-surface-700">
           <tr>
-            <td class="px-3 py-2">{{ managed_device.pk }}</td>
+            <td class="px-3 py-2">{{ device.pk }}</td>
             <td class="px-3 py-2">
               <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
                 :class="status === 'UP' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
                 x-text="status"></span>
             </td>
-            <td class="px-3 py-2">{{ managed_device.device_type.vendor.name|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.device_type.device_model|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.hostname|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.ip }}</td>
-            <td class="px-3 py-2">{{ managed_device.uptime|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.serial_number|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.switch_mac|default:'-' }}</td>
-            <td class="px-3 py-2">{{ managed_device.updated|date:"Y-m-d H:i:s" }}</td>
+            <td class="px-3 py-2">{{ device.device_type.vendor.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.device_type.device_model|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.hostname|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.ip }}</td>
+            <td class="px-3 py-2">{{ device.uptime|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.serial_number|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.switch_mac|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.updated|date:"Y-m-d H:i:s" }}</td>
           </tr>
         </tbody>
       </table>
@@ -62,11 +62,11 @@
         <span x-show="!busy">Update optical info</span>
         <span x-show="busy">Updating...</span>
       </button>
-      <form method="post" action="{% url 'refresh_device_inventory' managed_device.pk %}">
+      <form method="post" action="{% url 'refresh_device_inventory' device.pk %}">
         {% csrf_token %}
         <button type="submit" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Update inventory</button>
       </form>
-      <a href="{% url 'device_metrics' managed_device.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
+      <a href="{% url 'device_metrics' device.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
     </div>
   </section>
 
@@ -96,9 +96,9 @@
 
   <section class="flex flex-wrap gap-2">
     {% if perms.snmp.change_device %}
-    {% url 'device_update' managed_device.pk as device_edit_url %}
+    {% url 'device_update' device.pk as device_edit_url %}
     {% include 'components/link_button.html' with href=device_edit_url label='Edit' tone='surface' %}
-    {% url 'device_confirm_delete' managed_device.pk as device_delete_url %}
+    {% url 'device_confirm_delete' device.pk as device_delete_url %}
     {% include 'components/link_button.html' with href=device_delete_url label='Delete' tone='danger' %}
     {% endif %}
     {% url 'devices' as devices_url %}

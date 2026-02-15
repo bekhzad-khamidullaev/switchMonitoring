@@ -3,9 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 
-from snmp.models import Device as DeviceModel
-from snmp.models import DeviceNeighbor as DeviceNeighbors
-from snmp.models import DevicePort as DevicePortModel
+from snmp.models import Device, DeviceNeighbor, DevicePort
 
 from .access import get_permitted_branches, user_has_global_device_access
 
@@ -13,12 +11,12 @@ from .access import get_permitted_branches, user_has_global_device_access
 @login_required
 def devices_updown(request):
     user_permitted_branches = get_permitted_branches(request.user)
-    devices_online = DeviceModel.objects.filter(status=True, branch__in=user_permitted_branches).count()
-    devices_offline = DeviceModel.objects.filter(status=False, branch__in=user_permitted_branches).count()
-    high_signal_20 = DeviceModel.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).count()
-    high_signal_15 = DeviceModel.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, branch__in=user_permitted_branches).count()
-    high_signal_10 = DeviceModel.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_branches).count()
-    high_signal_11 = DeviceModel.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).count()
+    devices_online = Device.objects.filter(status=True, branch__in=user_permitted_branches).count()
+    devices_offline = Device.objects.filter(status=False, branch__in=user_permitted_branches).count()
+    high_signal_20 = Device.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).count()
+    high_signal_15 = Device.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, branch__in=user_permitted_branches).count()
+    high_signal_10 = Device.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_branches).count()
+    high_signal_11 = Device.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).count()
 
     return render(
         request,
@@ -55,13 +53,13 @@ def neighbor_devices_map_data(request):
 
 def _build_host_topology(user):
     if user_has_global_device_access(user):
-        devices = DeviceModel.objects.all()
-        neighbors = DeviceNeighbors.objects.all()
+        devices = Device.objects.all()
+        neighbors = DeviceNeighbor.objects.all()
     else:
         permitted_branches = get_permitted_branches(user)
-        devices = DeviceModel.objects.filter(branch__in=permitted_branches)
+        devices = Device.objects.filter(branch__in=permitted_branches)
         device_macs = devices.exclude(switch_mac__isnull=True).exclude(switch_mac='').values_list('switch_mac', flat=True)
-        neighbors = DeviceNeighbors.objects.filter(mac1__in=device_macs, mac2__in=device_macs)
+        neighbors = DeviceNeighbor.objects.filter(mac1__in=device_macs, mac2__in=device_macs)
 
     devices_by_mac = {}
     device_ids = []
@@ -85,7 +83,7 @@ def _build_host_topology(user):
 
     port_state_by_device_port = {}
     if device_ids:
-        ports = DevicePortModel.objects.filter(managed_device_id__in=device_ids).values(
+        ports = DevicePort.objects.filter(managed_device_id__in=device_ids).values(
             'managed_device_id', 'port', 'oper', 'admin'
         )
         for port in ports:

@@ -85,11 +85,7 @@
                 <td class="px-2 py-2">{{ device.ip }}</td>
                 <td class="px-2 py-2">{% if device.status %}UP{% else %}DOWN{% endif %}</td>
                 <td class="px-2 py-2">
-                  {% if device.managed_device_id %}
-                    <a href="{% url 'device_detail' device.managed_device_id %}" class="text-brand-700 hover:underline">Open host</a>
-                  {% else %}
-                    -
-                  {% endif %}
+                  <a href="{% url 'device_detail' device.pk %}" class="text-brand-700 hover:underline">Open host</a>
                 </td>
               </tr>
             {% endfor %}

@@ -38,12 +38,12 @@
       </label>
 
       <label class="text-sm text-surface-800 md:col-span-2">
-        Assign to managed device
+        Assign to device
         <select name="assign_managed_device_id" class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm">
           <option value="">Do not assign</option>
-          {% for managed_device in managed_devices %}
-            <option value="{{ managed_device.pk }}" {% if selected_managed_device and selected_managed_device.pk == managed_device.pk %}selected{% endif %}>
-              {{ managed_device.hostname|default:"(no hostname)" }} ({{ managed_device.ip|default:"no ip" }})
+          {% for device in managed_devices %}
+            <option value="{{ device.pk }}" {% if selected_managed_device and selected_managed_device.pk == device.pk %}selected{% endif %}>
+              {{ device.hostname|default:"(no hostname)" }} ({{ device.ip|default:"no ip" }})
             </option>
           {% endfor %}
         </select>

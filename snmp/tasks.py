@@ -118,9 +118,9 @@ def poll_all_devices_metrics_task(self):
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
 def discover_device_task(self, device_id):
     try:
-        device = Device.objects.select_related('managed_device').get(id=device_id)
+        device = Device.objects.get(id=device_id)
         community = device.effective_snmp_community()
-        return run_device_discovery(ip=str(device.ip), community=community, managed_device=device.managed_device)
+        return run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
     except Device.DoesNotExist:
         logger.warning('discovery skipped because device does not exist', extra={'device_id': device_id})
         return None

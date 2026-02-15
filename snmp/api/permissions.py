@@ -13,7 +13,3 @@ def user_can_access_device(user, device: Device) -> bool:
 
     permitted = {b.id for b in get_permitted_branches(user)}
     return device.branch_id in permitted
-
-
-def user_can_access_managed_device(user, managed_device: Device) -> bool:
-    return user_can_access_device(user, managed_device)

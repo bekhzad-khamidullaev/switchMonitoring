@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from snmp.models import Device, MetricSample, MetricSubscription
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
-from .permissions import user_can_access_device, user_can_access_managed_device
+from .permissions import user_can_access_device
 from .serializers import (
     DeviceOnboardSerializer,
     DeviceSerializer,
@@ -23,7 +23,7 @@ def api_device_onboard(request):
     serializer.is_valid(raise_exception=True)
 
     ip = serializer.validated_data.get('ip')
-    device_id = serializer.validated_data.get('managed_device_id')
+    device_id = serializer.validated_data.get('device_id')
 
     if device_id:
         device = Device.objects.filter(pk=device_id).first()
@@ -61,7 +61,7 @@ def api_device_discover(request, device_id):
     community = request.data.get('community') or device.effective_snmp_community()
 
     try:
-        result = run_device_discovery(ip=str(device.ip), community=community, device=device)
+        result = run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
     except SnmpReadError as exc:
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

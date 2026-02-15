@@ -20,15 +20,15 @@ def user_has_global_device_access(user):
     )
 
 
-def user_can_access_managed_device(user, managed_device):
+def user_can_access_device(user, device):
     if not user or not user.is_authenticated:
         return False
     if user_has_global_device_access(user):
         return True
-    if managed_device.branch_id is None:
+    if device.branch_id is None:
         return False
     permitted_ids = {branch.id for branch in get_permitted_branches(user)}
-    return managed_device.branch_id in permitted_ids
+    return device.branch_id in permitted_ids
 
 
 def convert_uptime_to_human_readable(uptime_in_hundredths):

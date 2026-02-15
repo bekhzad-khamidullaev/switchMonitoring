@@ -5,13 +5,13 @@ from snmp.models import Device, MetricSample, MetricSubscription
 
 class DeviceOnboardSerializer(serializers.Serializer):
     ip = serializers.IPAddressField(required=False)
-    managed_device_id = serializers.IntegerField(required=False, min_value=1)
+    device_id = serializers.IntegerField(required=False, min_value=1)
 
     def validate(self, attrs):
         ip = attrs.get('ip')
-        managed_device_id = attrs.get('managed_device_id')
-        if not ip and not managed_device_id:
-            raise serializers.ValidationError('Provide ip or managed_device_id')
+        device_id = attrs.get('device_id')
+        if not ip and not device_id:
+            raise serializers.ValidationError('Provide ip or device_id')
         return attrs
 
 
