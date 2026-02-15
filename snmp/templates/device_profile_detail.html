@@ -1,0 +1,106 @@
+{% extends 'index.html' %}
+
+{% block title %}Profile #{{ profile.id }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="flex items-center justify-between gap-3 border-b border-surface-200 px-4 py-3">
+      <div>
+        <h2 class="font-display text-lg font-semibold text-surface-900">Profile #{{ profile.id }}</h2>
+        <p class="text-sm text-surface-700">{{ profile.vendor }} / {{ profile.model_pattern }}</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'device_profile_update' profile.id %}" class="rounded-md bg-surface-700 px-3 py-2 text-sm font-medium text-white">Edit</a>
+        <a href="{% url 'device_profile_delete' profile.id %}" class="rounded-md bg-danger-600 px-3 py-2 text-sm font-medium text-white">Delete</a>
+      </div>
+    </div>
+
+    <div class="grid gap-2 px-4 py-4 text-sm md:grid-cols-2">
+      <div><span class="text-surface-600">Vendor:</span> <span class="font-medium text-surface-900">{{ profile.vendor }}</span></div>
+      <div><span class="text-surface-600">Model pattern:</span> <span class="font-medium text-surface-900">{{ profile.model_pattern }}</span></div>
+      <div><span class="text-surface-600">Firmware pattern:</span> <span class="font-medium text-surface-900">{{ profile.firmware_pattern|default:'-' }}</span></div>
+      <div><span class="text-surface-600">Priority:</span> <span class="font-medium text-surface-900">{{ profile.priority }}</span></div>
+      <div><span class="text-surface-600">Active:</span> <span class="font-medium text-surface-900">{% if profile.active %}Yes{% else %}No{% endif %}</span></div>
+    </div>
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h3 class="text-base font-semibold text-surface-900">Metric Bindings</h3>
+    </div>
+    {% if not bindings %}
+      <p class="px-4 py-4 text-sm text-surface-700">No metric bindings in this profile.</p>
+    {% else %}
+      <div class="overflow-x-auto px-4 py-4">
+        <table class="min-w-full divide-y divide-surface-200 text-sm">
+          <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+            <tr>
+              <th class="px-2 py-2 text-left">Metric</th>
+              <th class="px-2 py-2 text-left">OID</th>
+              <th class="px-2 py-2 text-left">Index</th>
+              <th class="px-2 py-2 text-left">Converter</th>
+              <th class="px-2 py-2 text-left">Priority</th>
+              <th class="px-2 py-2 text-left">Default</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-100 bg-surface-0">
+            {% for binding in bindings %}
+              <tr>
+                <td class="px-2 py-2">{{ binding.metric.key }}</td>
+                <td class="px-2 py-2">{{ binding.oid_template }}</td>
+                <td class="px-2 py-2">{{ binding.index_strategy }}</td>
+                <td class="px-2 py-2">{{ binding.converter }}</td>
+                <td class="px-2 py-2">{{ binding.priority }}</td>
+                <td class="px-2 py-2">{% if binding.enabled_by_default %}Yes{% else %}No{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h3 class="text-base font-semibold text-surface-900">Assigned Hosts</h3>
+    </div>
+    {% if not attached_devices %}
+      <p class="px-4 py-4 text-sm text-surface-700">No hosts assigned to this profile.</p>
+    {% else %}
+      <div class="overflow-x-auto px-4 py-4">
+        <table class="min-w-full divide-y divide-surface-200 text-sm">
+          <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+            <tr>
+              <th class="px-2 py-2 text-left">Hostname</th>
+              <th class="px-2 py-2 text-left">IP</th>
+              <th class="px-2 py-2 text-left">Status</th>
+              <th class="px-2 py-2 text-left">Link</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-100 bg-surface-0">
+            {% for device in attached_devices %}
+              <tr>
+                <td class="px-2 py-2">{{ device.hostname|default:'-' }}</td>
+                <td class="px-2 py-2">{{ device.ip }}</td>
+                <td class="px-2 py-2">{% if device.status %}UP{% else %}DOWN{% endif %}</td>
+                <td class="px-2 py-2">
+                  {% if device.managed_device_id %}
+                    <a href="{% url 'device_detail' device.managed_device_id %}" class="text-brand-700 hover:underline">Open host</a>
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  <section>
+    <a href="{% url 'device_profiles' %}" class="rounded-md bg-surface-200 px-3 py-2 text-sm font-medium text-surface-900 hover:bg-surface-300">Back to profiles</a>
+  </section>
+</div>
+{% endblock %}

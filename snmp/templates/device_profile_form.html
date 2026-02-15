@@ -1,0 +1,64 @@
+{% extends 'index.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-4">
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h2 class="font-display text-lg font-semibold text-surface-900">{{ title }}</h2>
+      <p class="text-sm text-surface-700">Manual profile management for universal device monitoring.</p>
+    </div>
+
+    <form method="post" class="grid gap-3 px-4 py-4 md:grid-cols-2">
+      {% csrf_token %}
+
+      <label class="text-sm text-surface-800">
+        Vendor
+        <input type="text" name="{{ form.vendor.name }}" value="{{ form.vendor.value|default:'' }}" required class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm">
+        {% if form.vendor.errors %}<p class="mt-1 text-xs text-danger-700">{{ form.vendor.errors|striptags }}</p>{% endif %}
+      </label>
+
+      <label class="text-sm text-surface-800">
+        Model Pattern
+        <input type="text" name="{{ form.model_pattern.name }}" value="{{ form.model_pattern.value|default:'' }}" required class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm">
+        {% if form.model_pattern.errors %}<p class="mt-1 text-xs text-danger-700">{{ form.model_pattern.errors|striptags }}</p>{% endif %}
+      </label>
+
+      <label class="text-sm text-surface-800">
+        Firmware Pattern
+        <input type="text" name="{{ form.firmware_pattern.name }}" value="{{ form.firmware_pattern.value|default:'' }}" class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm" placeholder="optional">
+        {% if form.firmware_pattern.errors %}<p class="mt-1 text-xs text-danger-700">{{ form.firmware_pattern.errors|striptags }}</p>{% endif %}
+      </label>
+
+      <label class="text-sm text-surface-800">
+        Priority
+        <input type="number" min="0" name="{{ form.priority.name }}" value="{{ form.priority.value|default:'100' }}" class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm">
+        {% if form.priority.errors %}<p class="mt-1 text-xs text-danger-700">{{ form.priority.errors|striptags }}</p>{% endif %}
+      </label>
+
+      <label class="text-sm text-surface-800 md:col-span-2">
+        Assign to managed device
+        <select name="assign_managed_device_id" class="mt-1 w-full rounded-md border border-surface-200 px-3 py-2 text-sm">
+          <option value="">Do not assign</option>
+          {% for managed_device in managed_devices %}
+            <option value="{{ managed_device.pk }}" {% if selected_managed_device and selected_managed_device.pk == managed_device.pk %}selected{% endif %}>
+              {{ managed_device.hostname|default:"(no hostname)" }} ({{ managed_device.ip|default:"no ip" }})
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="inline-flex items-center gap-2 text-sm text-surface-900">
+        <input type="checkbox" name="{{ form.active.name }}" {% if form.active.value %}checked{% endif %}>
+        Active profile
+      </label>
+
+      <div class="md:col-span-2 flex gap-2">
+        <button type="submit" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">{{ submit_label }}</button>
+        <a href="{% url 'device_profiles' %}" class="rounded-md bg-surface-200 px-3 py-2 text-sm font-medium text-surface-900 hover:bg-surface-300">Back</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -3,7 +3,16 @@ from django.test import TestCase
 from django.urls import reverse
 from unittest.mock import patch
 
-from snmp.models import Device, Interface, ManagedDevice, MetricDefinition, MetricSample, MetricSubscription
+from snmp.models import (
+    Device,
+    DeviceProfile,
+    Interface,
+    ManagedDevice,
+    ManagedDeviceNeighbor,
+    MetricDefinition,
+    MetricSample,
+    MetricSubscription,
+)
 from snmp.web.views.device_operations import refresh_device_status
 from snmp.tasks import discover_all_devices_task, poll_all_devices_metrics_task
 
@@ -31,6 +40,33 @@ class EndpointAccessTests(TestCase):
         response = self.client.get(reverse('update_optical_info', args=[self.managed_device.pk]))
         self.assertEqual(response.status_code, 405)
         self.assertIn('Method Not Allowed', response.content.decode('utf-8'))
+
+
+class DeviceCreateSnmpFieldsTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='create_user', password='p1')
+        add_perm = Permission.objects.get(codename='add_switch')
+        self.user.user_permissions.add(add_perm)
+        self.client.login(username='create_user', password='p1')
+
+    def test_create_device_requires_and_saves_snmp_fields(self):
+        response = self.client.post(
+            reverse('device_create'),
+            data={
+                'ip': '10.1.1.1',
+                'hostname': 'new-host',
+                'snmp_version': '2c',
+                'snmp_community_ro': 'public_ro',
+                'snmp_community_rw': 'private_rw',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        managed_device = ManagedDevice.objects.get(ip='10.1.1.1')
+        self.assertEqual(managed_device.snmp_community_ro, 'public_ro')
+        self.assertEqual(managed_device.snmp_community_rw, 'private_rw')
+
+        telemetry_device = Device.objects.get(managed_device=managed_device)
+        self.assertEqual(telemetry_device.snmp_version, '2c')
 
 
 class MetricsPageActionTests(TestCase):
@@ -132,6 +168,117 @@ class DeviceStatusIcmpTests(TestCase):
         managed_device.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(managed_device.status)
+
+
+class DeviceProfilesPageTests(TestCase):
+    def setUp(self):
+        self.managed_device = ManagedDevice.objects.create(hostname='sw-profile', ip='10.0.0.60')
+        self.user = User.objects.create_user(username='profiles_user', password='p1')
+        change_device_perm = Permission.objects.get(codename='change_device')
+        self.user.user_permissions.add(change_device_perm)
+        self.client.login(username='profiles_user', password='p1')
+
+    def test_profiles_page_renders(self):
+        response = self.client.get(reverse('device_profiles'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Device Profiles', response.content.decode('utf-8'))
+
+    def test_create_profile_manually_and_assign_device(self):
+        response = self.client.post(
+            reverse('device_profile_create'),
+            data={
+                'vendor': 'snr',
+                'model_pattern': 'SNR-S2982G-24TE',
+                'firmware_pattern': '7.0.3',
+                'priority': '10',
+                'active': 'on',
+                'assign_managed_device_id': str(self.managed_device.pk),
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        profile = DeviceProfile.objects.get(vendor='snr', model_pattern='SNR-S2982G-24TE', firmware_pattern='7.0.3')
+        telemetry_device = Device.objects.get(managed_device=self.managed_device)
+        self.assertEqual(telemetry_device.profile_id, profile.id)
+
+    def test_profile_detail_renders(self):
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2982G-24TE',
+            firmware_pattern='',
+            priority=100,
+            active=True,
+        )
+        response = self.client.get(reverse('device_profile_detail', args=[profile.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Assigned Hosts', response.content.decode('utf-8'))
+
+    def test_profile_update(self):
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2982G-24TE',
+            firmware_pattern='',
+            priority=100,
+            active=True,
+        )
+        response = self.client.post(
+            reverse('device_profile_update', args=[profile.pk]),
+            data={
+                'vendor': 'snr-updated',
+                'model_pattern': 'SNR-S2982G-24TE',
+                'firmware_pattern': '7.0',
+                'priority': '50',
+                'active': 'on',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        profile.refresh_from_db()
+        self.assertEqual(profile.vendor, 'snr-updated')
+        self.assertEqual(profile.priority, 50)
+
+    def test_profile_delete(self):
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2982G-24TE',
+            firmware_pattern='',
+            priority=100,
+            active=True,
+        )
+        response = self.client.post(reverse('device_profile_delete', args=[profile.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DeviceProfile.objects.filter(pk=profile.pk).exists())
+
+
+class HostMapViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='host_map_user', password='p1')
+        view_device_perm = Permission.objects.get(codename='view_device')
+        self.user.user_permissions.add(view_device_perm)
+        self.client.login(username='host_map_user', password='p1')
+
+        self.left = ManagedDevice.objects.create(hostname='core-a', ip='10.50.0.1', switch_mac='aa:bb:cc:dd:ee:01')
+        self.right = ManagedDevice.objects.create(hostname='core-b', ip='10.50.0.2', switch_mac='aa:bb:cc:dd:ee:02')
+        ManagedDeviceNeighbor.objects.create(
+            mac1='aa:bb:cc:dd:ee:01',
+            port1=1,
+            mac2='aa:bb:cc:dd:ee:02',
+            port2=2,
+        )
+
+    def test_host_map_page_renders(self):
+        response = self.client.get(reverse('neighbor_devices_map'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Host Topology Map', response.content.decode('utf-8'))
+
+    def test_host_map_data_contains_nodes_and_links(self):
+        response = self.client.get(reverse('neighbor_devices_map_data'))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload['nodes']), 2)
+        self.assertEqual(len(payload['links']), 1)
+        self.assertIn('detail_url', payload['nodes'][0])
+        self.assertEqual(payload['links'][0]['left_port'], 1)
+        self.assertEqual(payload['links'][0]['right_port'], 2)
+        self.assertIn(payload['links'][0]['status'], {'up', 'down', 'unknown'})
 
 
 class TaskResilienceTests(TestCase):

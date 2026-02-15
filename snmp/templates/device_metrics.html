@@ -40,6 +40,17 @@
 
   <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
     <div class="border-b border-surface-200 px-4 py-3">
+      <h3 class="text-base font-semibold text-surface-900">Profiles</h3>
+    </div>
+    <div class="px-4 py-4">
+      <a href="{% url 'device_profile_create' %}?managed_device={{ managed_device.pk }}" class="inline-flex rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">
+        Create profile manually
+      </a>
+    </div>
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
       <h3 class="text-base font-semibold text-surface-900">Apply Profile Metrics</h3>
     </div>
 

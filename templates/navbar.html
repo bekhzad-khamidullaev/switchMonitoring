@@ -1,5 +1,5 @@
 <nav x-data="{mobileOpen:false}" class="border-b border-surface-200 bg-surface-0 shadow-soft">
-  <div class="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3 md:px-6 lg:px-8">
+  <div class="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 md:px-6 lg:px-8">
     <a href="{% url 'devices' %}" class="font-display text-lg font-semibold tracking-tight text-surface-900">Device Monitoring</a>
 
     <button type="button" class="rounded-md border border-surface-200 px-3 py-1.5 text-sm text-surface-700 md:hidden"
@@ -7,14 +7,21 @@
       Menu
     </button>
 
-    <div class="hidden items-center gap-2 md:flex">
-      <a href="{% url 'devices' %}" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Devices</a>
-      <a href="{% url 'dashboard' %}" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Dashboard</a>
+    <div class="hidden min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap md:flex">
+      <a href="{% url 'devices' %}" class="rounded-md bg-brand-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Devices</a>
+      <a href="{% url 'dashboard' %}" class="rounded-md bg-brand-900 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Dashboard</a>
+      <a href="{% url 'device_profiles' %}" class="rounded-md bg-brand-500 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand-600">Profiles</a>
+      <a href="{% url 'devices_offline' %}" class="rounded-md bg-surface-700 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-surface-900">Offline</a>
+      <a href="{% url 'neighbor_devices_map' %}" class="rounded-md bg-info-700 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-info-800">Host Map</a>
+      <a href="{% url 'devices_high_signal_20' %}" class="rounded-md bg-warning-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-warning-700">Signal >20</a>
+      <a href="{% url 'devices_high_signal_15' %}" class="rounded-md bg-warning-700 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-warning-800">Signal >15</a>
+      <a href="{% url 'devices_high_signal_11' %}" class="rounded-md bg-warning-700 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-warning-600">Signal >11</a>
+      <a href="{% url 'devices_high_signal_10' %}" class="rounded-md bg-warning-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-warning-700">Signal <10</a>
       {% if perms.snmp.change_switch %}
-      <a href="{% url 'device_create' %}" class="rounded-md bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700">Add Device</a>
+      <a href="{% url 'device_create' %}" class="rounded-md bg-success-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-success-700">Add Device</a>
       {% endif %}
-      <span class="rounded-md bg-surface-100 px-3 py-2 text-sm text-surface-700">{{ user.get_full_name|default:user.username }}</span>
-      <a href="{% url 'logout' %}" class="rounded-md bg-danger-600 px-3 py-2 text-sm font-medium text-white hover:bg-danger-700">Logout</a>
+      <span class="rounded-md bg-surface-100 px-2.5 py-1.5 text-sm text-surface-700">{{ user.get_full_name|default:user.username }}</span>
+      <a href="{% url 'logout' %}" class="rounded-md bg-danger-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-danger-700">Logout</a>
     </div>
   </div>
 
@@ -22,6 +29,13 @@
     <div class="flex flex-col gap-2">
       <a href="{% url 'devices' %}" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white">Devices</a>
       <a href="{% url 'dashboard' %}" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white">Dashboard</a>
+      <a href="{% url 'device_profiles' %}" class="rounded-md bg-brand-500 px-3 py-2 text-sm font-medium text-white">Profiles</a>
+      <a href="{% url 'devices_offline' %}" class="rounded-md bg-surface-700 px-3 py-2 text-sm font-medium text-white">Offline</a>
+      <a href="{% url 'neighbor_devices_map' %}" class="rounded-md bg-info-700 px-3 py-2 text-sm font-medium text-white">Host Map</a>
+      <a href="{% url 'devices_high_signal_20' %}" class="rounded-md bg-warning-600 px-3 py-2 text-sm font-medium text-white">Signal >20</a>
+      <a href="{% url 'devices_high_signal_15' %}" class="rounded-md bg-warning-700 px-3 py-2 text-sm font-medium text-white">Signal >15</a>
+      <a href="{% url 'devices_high_signal_11' %}" class="rounded-md bg-warning-700 px-3 py-2 text-sm font-medium text-white">Signal >11</a>
+      <a href="{% url 'devices_high_signal_10' %}" class="rounded-md bg-warning-600 px-3 py-2 text-sm font-medium text-white">Signal <10</a>
       {% if perms.snmp.change_switch %}
       <a href="{% url 'device_create' %}" class="rounded-md bg-success-600 px-3 py-2 text-sm font-medium text-white">Add Device</a>
       {% endif %}

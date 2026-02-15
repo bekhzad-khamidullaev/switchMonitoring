@@ -18,17 +18,59 @@
 
     <form method="post" class="space-y-4">
       {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="rounded-md border border-danger-100 bg-danger-100 p-3 text-sm text-danger-700">
+        {{ form.non_field_errors|striptags }}
+      </div>
+      {% endif %}
 
       <div>
         <label for="{{ form.ip.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">IP Address</label>
         <input type="text" name="{{ form.ip.name }}" id="{{ form.ip.id_for_label }}" value="{{ form.ip.value|default:'' }}"
           class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+        {% if form.ip.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.ip.errors|striptags }}</p>
+        {% endif %}
       </div>
 
       <div>
         <label for="{{ form.hostname.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">Hostname</label>
         <input type="{{ form.hostname.field.widget.input_type }}" name="{{ form.hostname.name }}" id="{{ form.hostname.id_for_label }}" value="{{ form.hostname.value|default:'' }}"
           class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+        {% if form.hostname.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.hostname.errors|striptags }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="{{ form.snmp_version.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">SNMP Version</label>
+        <select name="{{ form.snmp_version.name }}" id="{{ form.snmp_version.id_for_label }}"
+          class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+          {% for value, label in form.snmp_version.field.choices %}
+            <option value="{{ value }}" {% if form.snmp_version.value == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if form.snmp_version.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.snmp_version.errors|striptags }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="{{ form.snmp_community_ro.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">SNMP Community RO</label>
+        <input type="text" name="{{ form.snmp_community_ro.name }}" id="{{ form.snmp_community_ro.id_for_label }}" value="{{ form.snmp_community_ro.value|default:'' }}"
+          class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+        {% if form.snmp_community_ro.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.snmp_community_ro.errors|striptags }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="{{ form.snmp_community_rw.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">SNMP Community RW</label>
+        <input type="text" name="{{ form.snmp_community_rw.name }}" id="{{ form.snmp_community_rw.id_for_label }}" value="{{ form.snmp_community_rw.value|default:'' }}"
+          class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+        {% if form.snmp_community_rw.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.snmp_community_rw.errors|striptags }}</p>
+        {% endif %}
       </div>
 
       <div class="flex gap-2">

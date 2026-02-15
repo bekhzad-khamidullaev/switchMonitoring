@@ -15,6 +15,16 @@ from .device_operations import refresh_device_status
 logger = logging.getLogger("ICMP RESPONSE")
 
 
+def _first_form_error(form):
+    non_field_errors = form.non_field_errors()
+    if non_field_errors:
+        return non_field_errors[0]
+    for errors in form.errors.values():
+        if errors:
+            return errors[0]
+    return 'Please correct the errors below.'
+
+
 def _get_managed_device_for_user_or_404(user, pk):
     managed_device = get_object_or_404(ManagedDeviceModel, pk=pk)
     if not user_can_access_managed_device(user, managed_device):
@@ -100,7 +110,7 @@ def device_create(request):
             managed_device = form.save()
             refresh_device_status(managed_device)
             return redirect('device_detail', pk=managed_device.pk)
-        error_message = 'Please correct the errors below.'
+        error_message = _first_form_error(form)
     else:
         form = ManagedDeviceForm()
     return render(request, 'device_form.html', {'form': form, 'error_message': error_message})
@@ -116,7 +126,7 @@ def device_update(request, pk):
         if form.is_valid():
             managed_device = form.save()
             return redirect('device_detail', pk=managed_device.pk)
-        error_message = 'Please correct the errors below.'
+        error_message = _first_form_error(form)
     else:
         form = ManagedDeviceForm(instance=managed_device)
     return render(request, 'device_form.html', {'form': form, 'error_message': error_message})

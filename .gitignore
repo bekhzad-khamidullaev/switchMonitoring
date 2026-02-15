@@ -47,6 +47,9 @@ db.sqlite3-journal
 
 # --- Environments ---
 .env
+.env.*
+!.env.example
+!.env.prod.example
 .venv
 env/
 venv/

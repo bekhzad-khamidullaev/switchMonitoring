@@ -1,24 +1,315 @@
 {% extends "index.html" %}
 {% load static %}
-{% block title %}Device Network Map{% endblock %}
+{% block title %}Host Map{% endblock %}
 
 {% block content %}
-<h1>Neighbor Devices Map</h1>
+{{ topology_nodes|json_script:"host-map-nodes" }}
+{{ topology_links|json_script:"host-map-links" }}
 
-<ul>
-    {% for managed_device in devices %}
-        <li>
-            {{ managed_device.hostname }}
-            <ul>
-                {% for neighbor in neighbors %}
-                    {% if managed_device.switch_mac == neighbor.mac1 %}
-                        <li>{{ neighbor.mac2 }} on port {{ neighbor.port2 }}</li>
-                    {% elif managed_device.switch_mac == neighbor.mac2 %}
-                        <li>{{ neighbor.mac1 }} on port {{ neighbor.port1 }}</li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
-        </li>
-    {% endfor %}
-</ul>
+<div x-data="hostMapPage()" x-init="init()" class="space-y-4">
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-200 px-4 py-3">
+      <div>
+        <h1 class="font-display text-lg font-semibold text-surface-900">Host Topology Map</h1>
+        <p class="text-sm text-surface-700">Graph and Host Tree views with link status and deep links.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" @click="buildMap()" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">
+          Build map
+        </button>
+        <button type="button" @click="viewMode='graph'" :class="viewMode === 'graph' ? 'bg-info-700 text-white' : 'bg-surface-100 text-surface-800'" class="rounded-md px-3 py-2 text-sm font-medium">
+          Graph
+        </button>
+        <button type="button" @click="viewMode='tree'" :class="viewMode === 'tree' ? 'bg-info-700 text-white' : 'bg-surface-100 text-surface-800'" class="rounded-md px-3 py-2 text-sm font-medium">
+          Host Tree
+        </button>
+        <button type="button" @click="showLabels = !showLabels" class="rounded-md bg-surface-700 px-3 py-2 text-sm font-medium text-white hover:bg-surface-900">
+          Toggle labels
+        </button>
+      </div>
+    </div>
+
+    <div class="px-4 py-4">
+      <div class="mb-3 grid gap-2 text-sm text-surface-700 md:grid-cols-4">
+        <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+          Hosts: <span class="font-semibold text-surface-900" x-text="nodes.length"></span>
+        </div>
+        <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+          Links: <span class="font-semibold text-surface-900" x-text="links.length"></span>
+        </div>
+        <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+          Link UP: <span class="font-semibold text-success-700" x-text="upLinks"></span>
+        </div>
+        <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+          Status: <span class="font-semibold text-surface-900" x-text="status"></span>
+        </div>
+      </div>
+
+      <template x-if="viewMode === 'graph'">
+        <div class="overflow-auto rounded-md border border-surface-200 bg-surface-50 p-2">
+          <svg x-ref="canvas" :width="canvasWidth" :height="canvasHeight" class="min-w-[900px]">
+            <template x-for="link in links" :key="link.id">
+              <g>
+                <line
+                  :x1="nodeById[link.source].x"
+                  :y1="nodeById[link.source].y"
+                  :x2="nodeById[link.target].x"
+                  :y2="nodeById[link.target].y"
+                  :stroke="link.status === 'up' ? '#22c55e' : (link.status === 'down' ? '#ef4444' : '#64748b')"
+                  stroke-width="2.5"
+                  stroke-opacity="0.9"
+                ></line>
+                <text
+                  x-show="showLabels"
+                  :x="(nodeById[link.source].x + nodeById[link.target].x) / 2"
+                  :y="((nodeById[link.source].y + nodeById[link.target].y) / 2) - 8"
+                  class="fill-surface-900 text-[11px]"
+                  text-anchor="middle"
+                  x-text="`p${link.left_port} ↔ p${link.right_port} (${link.status})`"
+                ></text>
+              </g>
+            </template>
+
+            <template x-for="node in nodes" :key="node.id">
+              <g>
+                <a :href="node.detail_url">
+                  <circle
+                    :cx="node.x"
+                    :cy="node.y"
+                    r="24"
+                    :fill="node.status ? '#22c55e' : '#ef4444'"
+                    stroke="#0f172a"
+                    stroke-width="1.5"
+                  ></circle>
+                  <text :x="node.x" :y="node.y + 4" text-anchor="middle" class="fill-white text-[10px] font-semibold" x-text="node.shortName"></text>
+                </a>
+                <text :x="node.x" :y="node.y + 40" text-anchor="middle" class="fill-surface-900 text-[11px]" x-text="node.hostname"></text>
+              </g>
+            </template>
+          </svg>
+        </div>
+      </template>
+
+      <template x-if="viewMode === 'tree'">
+        <div class="overflow-x-auto rounded-md border border-surface-200 bg-surface-50 p-2">
+          <table class="min-w-full divide-y divide-surface-200 text-sm">
+            <thead class="bg-surface-100 text-xs uppercase text-surface-700">
+              <tr>
+                <th class="px-2 py-2 text-left">Host</th>
+                <th class="px-2 py-2 text-left">Connected To</th>
+                <th class="px-2 py-2 text-left">Ports</th>
+                <th class="px-2 py-2 text-left">Link Status</th>
+                <th class="px-2 py-2 text-left">Host Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-100 bg-surface-0">
+              <template x-if="treeRows.length === 0">
+                <tr>
+                  <td colspan="5" class="px-2 py-4 text-surface-700">No host topology data available.</td>
+                </tr>
+              </template>
+              <template x-for="row in treeRows" :key="row.rowId">
+                <tr>
+                  <td class="px-2 py-2">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-block h-1.5 w-1.5 rounded-full bg-surface-400" :style="`margin-left:${row.depth * 16}px`"></span>
+                      <a :href="row.node.detail_url" class="font-medium text-brand-700 hover:underline" x-text="row.node.hostname"></a>
+                      <span class="text-xs text-surface-500" x-text="row.node.ip ? `(${row.node.ip})` : ''"></span>
+                    </div>
+                  </td>
+                  <td class="px-2 py-2 text-surface-700" x-text="row.parentName"></td>
+                  <td class="px-2 py-2 text-surface-700" x-text="row.ports"></td>
+                  <td class="px-2 py-2">
+                    <span class="rounded-full px-2 py-1 text-xs font-semibold"
+                          :class="row.linkStatus === 'up' ? 'bg-success-100 text-success-700' : (row.linkStatus === 'down' ? 'bg-danger-100 text-danger-700' : 'bg-surface-100 text-surface-700')"
+                          x-text="row.linkStatus"></span>
+                  </td>
+                  <td class="px-2 py-2">
+                    <span class="rounded-full px-2 py-1 text-xs font-semibold"
+                          :class="row.node.status ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
+                          x-text="row.node.status ? 'UP' : 'DOWN'"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-surface-200 px-4 py-3">
+      <h2 class="text-base font-semibold text-surface-900">Link List</h2>
+    </div>
+    <div class="overflow-x-auto px-4 py-4">
+      <table class="min-w-full divide-y divide-surface-200 text-sm">
+        <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+          <tr>
+            <th class="px-2 py-2 text-left">Source</th>
+            <th class="px-2 py-2 text-left">Source Port</th>
+            <th class="px-2 py-2 text-left">Target</th>
+            <th class="px-2 py-2 text-left">Target Port</th>
+            <th class="px-2 py-2 text-left">Link</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-100 bg-surface-0">
+          <template x-if="links.length === 0">
+            <tr>
+              <td colspan="5" class="px-2 py-4 text-surface-700">No host links found.</td>
+            </tr>
+          </template>
+          <template x-for="link in links" :key="`row-${link.id}`">
+            <tr>
+              <td class="px-2 py-2"><a :href="nodeById[link.source].detail_url" class="text-brand-700 hover:underline" x-text="nodeById[link.source].hostname"></a></td>
+              <td class="px-2 py-2" x-text="link.left_port"></td>
+              <td class="px-2 py-2"><a :href="nodeById[link.target].detail_url" class="text-brand-700 hover:underline" x-text="nodeById[link.target].hostname"></a></td>
+              <td class="px-2 py-2" x-text="link.right_port"></td>
+              <td class="px-2 py-2">
+                <span class="rounded-full px-2 py-1 text-xs font-semibold"
+                      :class="link.status === 'up' ? 'bg-success-100 text-success-700' : (link.status === 'down' ? 'bg-danger-100 text-danger-700' : 'bg-surface-100 text-surface-700')"
+                      x-text="link.status"></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+function hostMapPage() {
+  return {
+    nodes: [],
+    links: [],
+    treeRows: [],
+    nodeById: {},
+    canvasWidth: 1200,
+    canvasHeight: 680,
+    status: 'ready',
+    showLabels: true,
+    viewMode: 'graph',
+
+    get upLinks() {
+      return this.links.filter((item) => item.status === 'up').length;
+    },
+
+    init() {
+      const initialNodes = JSON.parse(document.getElementById('host-map-nodes').textContent || '[]');
+      const initialLinks = JSON.parse(document.getElementById('host-map-links').textContent || '[]');
+      this.load(initialNodes, initialLinks);
+    },
+
+    load(nodes, links) {
+      this.nodes = nodes.map((node) => ({
+        ...node,
+        shortName: (node.hostname || 'H').slice(0, 6).toUpperCase(),
+      }));
+      this.links = links.map((link, idx) => ({...link, id: `${link.source}-${link.target}-${idx}`}));
+      this.nodeById = {};
+      for (const node of this.nodes) {
+        this.nodeById[node.id] = node;
+      }
+      this.layoutNodes();
+      this.buildTreeRows();
+    },
+
+    layoutNodes() {
+      const count = this.nodes.length;
+      if (!count) {
+        return;
+      }
+      const cx = this.canvasWidth / 2;
+      const cy = this.canvasHeight / 2;
+      const radius = Math.max(160, Math.min(this.canvasHeight, this.canvasWidth) / 2 - 90);
+
+      this.nodes.forEach((node, idx) => {
+        const angle = (2 * Math.PI * idx) / count;
+        node.x = cx + radius * Math.cos(angle);
+        node.y = cy + radius * Math.sin(angle);
+      });
+    },
+
+    buildTreeRows() {
+      const adjacency = {};
+      for (const node of this.nodes) {
+        adjacency[node.id] = [];
+      }
+      for (const link of this.links) {
+        adjacency[link.source]?.push({nodeId: link.target, link});
+        adjacency[link.target]?.push({nodeId: link.source, link});
+      }
+
+      const sortedNodes = [...this.nodes].sort((a, b) => (a.hostname || '').localeCompare(b.hostname || ''));
+      const visited = new Set();
+      const rows = [];
+
+      const walk = (nodeId, parentId, depth, parentLink) => {
+        if (visited.has(nodeId)) {
+          return;
+        }
+        visited.add(nodeId);
+
+        const node = this.nodeById[nodeId];
+        let parentName = 'Root';
+        let ports = '-';
+        let linkStatus = 'root';
+
+        if (parentId && parentLink) {
+          parentName = this.nodeById[parentId]?.hostname || '-';
+          if (parentLink.source === parentId && parentLink.target === nodeId) {
+            ports = `p${parentLink.left_port} -> p${parentLink.right_port}`;
+          } else {
+            ports = `p${parentLink.right_port} -> p${parentLink.left_port}`;
+          }
+          linkStatus = parentLink.status || 'unknown';
+        }
+
+        rows.push({
+          rowId: `${nodeId}-${parentId || 'root'}`,
+          node,
+          parentName,
+          ports,
+          linkStatus,
+          depth,
+        });
+
+        const children = (adjacency[nodeId] || []).sort((a, b) => {
+          const leftName = this.nodeById[a.nodeId]?.hostname || '';
+          const rightName = this.nodeById[b.nodeId]?.hostname || '';
+          return leftName.localeCompare(rightName);
+        });
+        for (const child of children) {
+          if (child.nodeId !== parentId) {
+            walk(child.nodeId, nodeId, depth + 1, child.link);
+          }
+        }
+      };
+
+      for (const root of sortedNodes) {
+        if (!visited.has(root.id)) {
+          walk(root.id, null, 0, null);
+        }
+      }
+
+      this.treeRows = rows;
+    },
+
+    async buildMap() {
+      this.status = 'building';
+      try {
+        const response = await axios.get("{% url 'neighbor_devices_map_data' %}");
+        this.load(response.data.nodes || [], response.data.links || []);
+        this.status = 'built';
+      } catch (error) {
+        this.status = 'failed';
+      }
+    },
+  };
+}
+</script>
 {% endblock %}

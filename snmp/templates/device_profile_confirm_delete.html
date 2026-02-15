@@ -1,0 +1,22 @@
+{% extends 'index.html' %}
+
+{% block title %}Delete Profile{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-xl space-y-4">
+  <section class="rounded-panel border border-danger-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-danger-200 px-4 py-3">
+      <h2 class="font-display text-lg font-semibold text-danger-700">Delete Profile #{{ profile.id }}</h2>
+      <p class="text-sm text-surface-700">{{ profile.vendor }} / {{ profile.model_pattern }}</p>
+    </div>
+    <div class="px-4 py-4">
+      <p class="text-sm text-surface-800">This action cannot be undone. Linked metric bindings will also be removed.</p>
+      <form method="post" class="mt-4 flex gap-2">
+        {% csrf_token %}
+        <button type="submit" class="rounded-md bg-danger-600 px-3 py-2 text-sm font-medium text-white hover:bg-danger-700">Delete</button>
+        <a href="{% url 'device_profile_detail' profile.id %}" class="rounded-md bg-surface-200 px-3 py-2 text-sm font-medium text-surface-900 hover:bg-surface-300">Cancel</a>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}
