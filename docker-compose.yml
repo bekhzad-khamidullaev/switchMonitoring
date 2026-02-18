@@ -61,11 +61,28 @@ services:
       redis:
         condition: service_healthy
 
-  celery_worker:
+  celery_main:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    command: ["celery", "-A", "config", "worker", "-Q", "default,discovery,maintenance", "-l", "info", "--concurrency=2", "--hostname=main@%h"]
+    environment: *app_env
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_polling:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "config", "worker", "-Q", "polling", "-l", "info", "--concurrency=4", "--hostname=polling@%h"]
+    deploy:
+      mode: replicated
+      replicas: 2
     environment: *app_env
     volumes:
       - .:/app

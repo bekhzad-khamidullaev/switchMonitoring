@@ -19,8 +19,10 @@ from snmp.tasks import discover_all_devices_task, poll_all_devices_metrics_task
 
 class EndpointAccessTests(TestCase):
     def setUp(self):
-        self.managed_device = Device.objects.create(hostname='sw-test', ip='10.0.0.1')
         self.user = User.objects.create_user(username='u1', password='p1')
+        self.managed_device = Device.objects.create(hostname='sw-test', ip='10.0.0.1')
+        self.settings_manager = self.settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_BROKER_URL='memory://')
+        self.settings_manager.enable()
 
     def test_unauthorized_user_is_redirected_to_login(self):
         response = self.client.post(reverse('sync_zbx'))
@@ -33,7 +35,7 @@ class EndpointAccessTests(TestCase):
         self.assertIn('Access denied.', response.content.decode('utf-8'))
 
     def test_method_not_allowed_uses_custom_405_page(self):
-        perm = Permission.objects.get(codename='change_switch')
+        perm = Permission.objects.get(codename='change_device')
         self.user.user_permissions.add(perm)
 
         self.client.login(username='u1', password='p1')
@@ -45,7 +47,7 @@ class EndpointAccessTests(TestCase):
 class DeviceCreateSnmpFieldsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='create_user', password='p1')
-        add_perm = Permission.objects.get(codename='add_switch')
+        add_perm = Permission.objects.get(codename='add_device')
         self.user.user_permissions.add(add_perm)
         self.client.login(username='create_user', password='p1')
 
@@ -65,8 +67,7 @@ class DeviceCreateSnmpFieldsTests(TestCase):
         self.assertEqual(managed_device.snmp_community_ro, 'public_ro')
         self.assertEqual(managed_device.snmp_community_rw, 'private_rw')
 
-        telemetry_device = Device.objects.get(managed_device=managed_device)
-        self.assertEqual(telemetry_device.snmp_version, '2c')
+        self.assertEqual(managed_device.snmp_version, '2c')
 
 
 class MetricsPageActionTests(TestCase):
@@ -101,7 +102,7 @@ class MetricsPageActionTests(TestCase):
         view_sample_perm = Permission.objects.get(codename='view_metricsample')
         self.user.user_permissions.add(view_sample_perm)
 
-        device = Device.objects.create(ip='10.0.0.50', managed_device=self.managed_device, hostname='sw-metrics')
+        device = self.managed_device
         interface = Interface.objects.create(device=device, if_index=1, if_name='eth1')
         metric = MetricDefinition.objects.create(key='rx_power_dbm_t', title='RX Test')
         sub = MetricSubscription.objects.create(device=device, interface=interface, metric=metric, enabled=True)
@@ -129,16 +130,9 @@ class ApiOnboardValidationTests(TestCase):
 
     def test_onboard_forbidden_without_device_permissions(self):
         managed_device = Device.objects.create(hostname='dev-1', ip='10.20.0.1')
-        response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
+        response = self.client.post(self.url, data={'device_id': managed_device.id})
         self.assertEqual(response.status_code, 403)
 
-    def test_onboard_requires_ip_when_managed_device_has_no_ip(self):
-        view_device_perm = Permission.objects.get(codename='view_device')
-        self.user.user_permissions.add(view_device_perm)
-        managed_device = Device.objects.create(hostname='dev-no-ip', ip=None)
-        response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('IP address is required', response.content.decode('utf-8'))
 
     def test_onboard_rejects_ip_mismatch_with_managed_device(self):
         view_device_perm = Permission.objects.get(codename='view_device')
@@ -146,16 +140,16 @@ class ApiOnboardValidationTests(TestCase):
         managed_device = Device.objects.create(hostname='dev-2', ip='10.20.0.2')
         response = self.client.post(
             self.url,
-            data={'managed_device_id': managed_device.id, 'ip': '10.20.0.3'},
+            data={'device_id': managed_device.id, 'ip': '10.20.0.3'},
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn('does not match managed device ip', response.content.decode('utf-8'))
+        self.assertIn('Provided ip does not match device ip', response.content.decode('utf-8'))
 
     def test_onboard_success_with_permission(self):
         view_device_perm = Permission.objects.get(codename='view_device')
         self.user.user_permissions.add(view_device_perm)
         managed_device = Device.objects.create(hostname='dev-ok', ip='10.20.0.10')
-        response = self.client.post(self.url, data={'managed_device_id': managed_device.id})
+        response = self.client.post(self.url, data={'device_id': managed_device.id})
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Device.objects.filter(ip='10.20.0.10').exists())
 
@@ -197,8 +191,8 @@ class DeviceProfilesPageTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         profile = DeviceProfile.objects.get(vendor='snr', model_pattern='SNR-S2982G-24TE', firmware_pattern='7.0.3')
-        telemetry_device = Device.objects.get(managed_device=self.managed_device)
-        self.assertEqual(telemetry_device.profile_id, profile.id)
+        self.managed_device.refresh_from_db()
+        self.assertEqual(self.managed_device.profile_id, profile.id)
 
     def test_profile_detail_renders(self):
         profile = DeviceProfile.objects.create(
@@ -285,8 +279,8 @@ class TaskResilienceTests(TestCase):
     def setUp(self):
         md1 = Device.objects.create(hostname='t-1', ip='10.40.0.1')
         md2 = Device.objects.create(hostname='t-2', ip='10.40.0.2')
-        Device.objects.create(ip='10.40.0.1', managed_device=md1, hostname='t-1')
-        Device.objects.create(ip='10.40.0.2', managed_device=md2, hostname='t-2')
+        self.settings_manager = self.settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_BROKER_URL='memory://')
+        self.settings_manager.enable()
 
     @patch('snmp.tasks.poll_device_metrics_task.delay')
     def test_poll_all_fanout_queues_all_devices(self, mock_delay):
@@ -314,7 +308,12 @@ class TaskResilienceTests(TestCase):
 
     @patch('snmp.tasks.run_device_discovery')
     def test_discover_all_devices_isolates_unexpected_errors(self, mock_discovery):
-        mock_discovery.side_effect = [None, RuntimeError('boom')]
+        def side_effect(ip, **kwargs):
+            if ip == '10.40.0.2':
+                raise RuntimeError('boom')
+        mock_discovery.side_effect = side_effect
+        
         result = discover_all_devices_task()
-        self.assertEqual(result['success'], 1)
-        self.assertEqual(result['failed'], 1)
+        self.assertEqual(result['queued'], 2)
+        # 1 success + 1 failure + 3 retries = 5 calls
+        self.assertEqual(mock_discovery.call_count, 5)

@@ -101,7 +101,7 @@ def device_detail(request, pk):
 
 
 @login_required
-@permission_required('snmp.add_switch', raise_exception=True)
+@permission_required('snmp.add_device', raise_exception=True)
 def device_create(request):
     error_message = None
     if request.method == 'POST':
@@ -117,7 +117,7 @@ def device_create(request):
 
 
 @login_required
-@permission_required('snmp.change_switch', raise_exception=True)
+@permission_required('snmp.change_device', raise_exception=True)
 def device_update(request, pk):
     error_message = None
     device = _get_device_for_user_or_404(request.user, pk)
@@ -133,7 +133,7 @@ def device_update(request, pk):
 
 
 @login_required
-@permission_required('snmp.delete_switch', raise_exception=True)
+@permission_required('snmp.delete_device', raise_exception=True)
 def device_delete(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     if request.method == 'POST':

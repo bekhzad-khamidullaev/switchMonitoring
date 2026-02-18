@@ -52,7 +52,7 @@ def refresh_device_status(device):
 
 
 @login_required
-@permission_required('snmp.change_switch', raise_exception=True)
+@permission_required('snmp.change_device', raise_exception=True)
 @require_POST
 def update_optical_info(request, pk):
     from snmp.lib.update_port_info import SNMPUpdater
@@ -77,7 +77,7 @@ def update_optical_info(request, pk):
 
 
 @login_required
-@permission_required('snmp.change_switch', raise_exception=True)
+@permission_required('snmp.change_device', raise_exception=True)
 @require_POST
 def update_device_ports_data(request, pk):
     from snmp.lib.update_port_info import PortsInfo

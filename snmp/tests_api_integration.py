@@ -8,7 +8,6 @@ from snmp.models import (
     Device,
     DeviceProfile,
     Interface,
-    Device,
     MetricBinding,
     MetricDefinition,
     MetricSample,
@@ -108,8 +107,7 @@ class ApiIntegrationTests(TestCase):
 
     def test_api_device_metrics_respects_branch_permissions(self):
         branch = Branch.objects.create(name="North Zone")
-        managed_device = Device.objects.create(hostname="sw-1", ip="10.0.0.2", branch=branch)
-        device = Device.objects.create(ip="10.0.0.2", managed_device=managed_device, hostname="sw-1")
+        device = Device.objects.create(hostname="sw-1", ip="10.0.0.2", branch=branch)
 
         denied = self.client.get(f"/snmp/api/devices/{device.id}/metrics")
         self.assertEqual(denied.status_code, 403)

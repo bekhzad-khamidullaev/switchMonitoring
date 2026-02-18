@@ -13,9 +13,7 @@ def user_has_global_device_access(user):
     if user.is_superuser:
         return True
     return (
-        user.has_perm("snmp.view_switch")
-        or user.has_perm("snmp.change_switch")
-        or user.has_perm("snmp.view_device")
+        user.has_perm("snmp.view_device")
         or user.has_perm("snmp.change_device")
     )
 

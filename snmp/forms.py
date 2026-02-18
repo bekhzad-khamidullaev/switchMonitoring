@@ -1,7 +1,7 @@
 from django import forms
 from django.conf import settings
 
-from .models import Device, DeviceProfile
+from .models import Device, DeviceProfile, Ats
 
 class DeviceForm(forms.ModelForm):
     snmp_version = forms.ChoiceField(
@@ -9,6 +9,7 @@ class DeviceForm(forms.ModelForm):
         required=True,
         initial=Device.SnmpVersion.V2C,
     )
+    ats = forms.ModelChoiceField(queryset=Ats.objects.all(), required=False)
 
     class Meta:
         model = Device

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from snmp.models import Device, Interface, Device
+from snmp.models import Device, Interface
 from .normalize import normalize_vendor_model
 from .profile_matcher import match_device_profile
 from .read_base_snmp import read_base_snmp
@@ -35,7 +35,6 @@ def run_device_discovery(
         device, _ = Device.objects.update_or_create(
             ip=ip,
             defaults={
-                'managed_device': managed_device,
                 'hostname': managed_device.hostname if managed_device and managed_device.hostname else '',
                 'vendor': normalized.get('vendor', ''),
                 'model': normalized.get('model', ''),

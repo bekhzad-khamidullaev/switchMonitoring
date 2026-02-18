@@ -12,7 +12,7 @@ if not settings.ZABBIX_VERIFY_SSL:
 
 
 @login_required
-@permission_required('snmp.add_switch', raise_exception=True)
+@permission_required('snmp.add_device', raise_exception=True)
 @require_POST
 def sync_hosts_from_zabbix(request):
     zabbix_url = settings.ZABBIX_URL

@@ -174,7 +174,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 CELERY_TASK_ROUTES = {
     'snmp.tasks.poll_device_metrics_task': {'queue': 'polling'},
-    'snmp.tasks.poll_all_devices_metrics_task': {'queue': 'polling'},
+    'snmp.tasks.poll_all_devices_metrics_task': {'queue': 'default'},
     'snmp.tasks.discover_all_devices_task': {'queue': 'discovery'},
     'snmp.tasks.update_device_status_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_optical_info_task': {'queue': 'maintenance'},

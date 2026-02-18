@@ -43,7 +43,10 @@ def _redis_queue_depth(queue_name: str) -> int | None:
         return None
     try:
         client = redis.Redis.from_url(settings.CELERY_BROKER_URL, socket_timeout=2, socket_connect_timeout=2)
-        return int(client.llen(queue_name))
+        try:
+            return int(client.llen(queue_name))
+        finally:
+            client.close()
     except Exception as exc:
         logger.warning('queue depth check failed', extra={'queue': queue_name, 'error': str(exc)})
         return None
@@ -51,7 +54,7 @@ def _redis_queue_depth(queue_name: str) -> int | None:
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
 def update_device_status_task(self):
-    call_command('update_switch_status')
+    call_command('update_device_status')
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
@@ -61,7 +64,7 @@ def update_device_optical_info_task(self):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
 def update_device_inventory_task(self):
-    call_command('update_switch_inventory')
+    call_command('update_device_inventory')
 
 
 @shared_task
