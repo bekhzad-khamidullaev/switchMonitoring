@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_ENV: dev
+      DJANGO_SECRET_KEY: ci-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      CSRF_TRUSTED_ORIGINS: http://localhost
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff bandit
+
+      - name: Django checks
+        run: python manage.py check
+
+      - name: Ruff
+        run: ruff check config snmp/api snmp/services snmp/tasks.py users --select E9,F63,F7,F82
+
+      - name: Bandit
+        run: bandit -r config snmp users -x '*/migrations/*' -c pyproject.toml --severity-level high
+
+      - name: Tests
+        run: python manage.py test --verbosity 2

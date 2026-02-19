@@ -17,6 +17,9 @@ class JsonFormatter(logging.Formatter):
                 payload[key] = getattr(record, key)
 
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+            try:
+                payload["exception"] = self.formatException(record.exc_info)
+            except Exception as exc:  # pragma: no cover - defensive path for broken traceback objects
+                payload["exception"] = f"failed to format exception: {exc!r}"
 
         return json.dumps(payload, ensure_ascii=True)

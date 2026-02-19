@@ -8,6 +8,17 @@ if DEBUG:
 if not ALLOWED_HOSTS:
     raise RuntimeError('ALLOWED_HOSTS must be set in production')
 
+CACHE_URL = os.getenv('CACHE_URL', '')
+if not CACHE_URL:
+    raise RuntimeError('CACHE_URL must be set in production')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': CACHE_URL,
+    }
+}
+
 SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', True)
 SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', True)
 CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', True)

@@ -13,3 +13,15 @@ def user_can_access_device(user, device: Device) -> bool:
 
     permitted = {b.id for b in get_permitted_branches(user)}
     return device.branch_id in permitted
+
+
+def user_can_create_device(user) -> bool:
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or user.has_perm('snmp.add_device')
+
+
+def user_can_manage_device(user, device: Device) -> bool:
+    if not user_can_access_device(user, device):
+        return False
+    return user.is_superuser or user.has_perm('snmp.change_device')

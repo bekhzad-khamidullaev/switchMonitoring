@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from snmp.models import Device, MetricSample, MetricSubscription
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
-from .permissions import user_can_access_device
+from .permissions import user_can_access_device, user_can_create_device, user_can_manage_device
 from .serializers import (
     DeviceOnboardSerializer,
     DeviceSerializer,
@@ -39,12 +39,17 @@ def api_device_onboard(request):
         ip = ip or device.ip
     else:
         device = Device.objects.filter(ip=ip).first()
-    
+
+    if device and not user_can_access_device(request.user, device):
+        return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
     if not device and ip:
+        if not user_can_create_device(request.user):
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         device = Device.objects.create(ip=ip)
-    
+
     if not device:
-         return Response({'detail': 'IP or Device ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'IP or Device ID required'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(DeviceSerializer(device).data, status=status.HTTP_201_CREATED)
 
@@ -55,7 +60,7 @@ def api_device_discover(request, device_id):
     device = Device.objects.filter(pk=device_id).first()
     if not device:
         return Response({'detail': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
-    if not user_can_access_device(request.user, device):
+    if not user_can_manage_device(request.user, device):
         return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
     community = request.data.get('community') or device.effective_snmp_community()
@@ -97,7 +102,7 @@ def api_subscription_update(request, subscription_id):
     )
     if not subscription:
         return Response({'detail': 'Subscription not found'}, status=status.HTTP_404_NOT_FOUND)
-    if not user_can_access_device(request.user, subscription.device):
+    if not user_can_manage_device(request.user, subscription.device):
         return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
     serializer = MetricSubscriptionPatchSerializer(instance=subscription, data=request.data, partial=True)

@@ -133,6 +133,15 @@ class ApiOnboardValidationTests(TestCase):
         response = self.client.post(self.url, data={'device_id': managed_device.id})
         self.assertEqual(response.status_code, 403)
 
+    def test_onboard_create_requires_add_device_permission(self):
+        response = self.client.post(self.url, data={'ip': '10.20.0.100'})
+        self.assertEqual(response.status_code, 403)
+
+        add_device_perm = Permission.objects.get(codename='add_device')
+        self.user.user_permissions.add(add_device_perm)
+        response = self.client.post(self.url, data={'ip': '10.20.0.100'})
+        self.assertEqual(response.status_code, 201)
+
 
     def test_onboard_rejects_ip_mismatch_with_managed_device(self):
         view_device_perm = Permission.objects.get(codename='view_device')

@@ -51,6 +51,7 @@ def _check_celery():
             return True, "ok", details
         return False, "no active celery workers", details
     except Exception as exc:
+        # Keep a stable 3-item contract for callers even on transport/runtime errors.
         return False, str(exc), {}
 
 
@@ -77,7 +78,12 @@ def _queue_depths():
 def healthcheck_view(request):
     db_ok, db_message = _check_db()
     redis_ok, redis_message = _check_redis()
-    celery_ok, celery_message, celery_details = _check_celery()
+    celery_result = _check_celery()
+    if len(celery_result) == 3:
+        celery_ok, celery_message, celery_details = celery_result
+    else:
+        celery_ok, celery_message = celery_result
+        celery_details = {}
     queue_depth = _queue_depths()
 
     checks = {

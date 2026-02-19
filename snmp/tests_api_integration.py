@@ -21,7 +21,9 @@ class ApiIntegrationTests(TestCase):
         self.user = User.objects.create_user(username="api_user", password="p1")
         self.client.login(username="api_user", password="p1")
         view_device_perm = Permission.objects.get(codename="view_device")
-        self.user.user_permissions.add(view_device_perm)
+        add_device_perm = Permission.objects.get(codename="add_device")
+        change_device_perm = Permission.objects.get(codename="change_device")
+        self.user.user_permissions.add(view_device_perm, add_device_perm, change_device_perm)
 
     @patch("snmp.services.discovery.pipeline.read_base_snmp")
     @patch("snmp.services.polling.poller.snmp_get_many")
