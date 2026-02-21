@@ -65,7 +65,7 @@
                   :y="((nodeById[link.source].y + nodeById[link.target].y) / 2) - 8"
                   class="fill-surface-900 text-[11px]"
                   text-anchor="middle"
-                  x-text="`p${link.left_port} ↔ p${link.right_port} (${link.status})`"
+                  x-text="`${link.left_port_label || `p${link.left_port}`} ↔ ${link.right_port_label || `p${link.right_port}`} (${link.status})`"
                 ></text>
               </g>
             </template>
@@ -162,9 +162,9 @@
           <template x-for="link in links" :key="`row-${link.id}`">
             <tr>
               <td class="px-2 py-2"><a :href="nodeById[link.source].detail_url" class="text-brand-700 hover:underline" x-text="nodeById[link.source].hostname"></a></td>
-              <td class="px-2 py-2" x-text="link.left_port"></td>
+              <td class="px-2 py-2" x-text="link.left_port_label || `p${link.left_port}`"></td>
               <td class="px-2 py-2"><a :href="nodeById[link.target].detail_url" class="text-brand-700 hover:underline" x-text="nodeById[link.target].hostname"></a></td>
-              <td class="px-2 py-2" x-text="link.right_port"></td>
+              <td class="px-2 py-2" x-text="link.right_port_label || `p${link.right_port}`"></td>
               <td class="px-2 py-2">
                 <span class="rounded-full px-2 py-1 text-xs font-semibold"
                       :class="link.status === 'up' ? 'bg-success-100 text-success-700' : (link.status === 'down' ? 'bg-danger-100 text-danger-700' : 'bg-surface-100 text-surface-700')"

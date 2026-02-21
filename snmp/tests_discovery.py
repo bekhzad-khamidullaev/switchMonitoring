@@ -3,6 +3,7 @@ from django.test import SimpleTestCase, TestCase
 from snmp.models import DeviceProfile
 from snmp.services.discovery.normalize import normalize_vendor_model
 from snmp.services.discovery.profile_matcher import match_device_profile
+from snmp.services.discovery.vendor_profiles.factory import get_vendor_profile
 
 
 class DiscoveryNormalizeTests(SimpleTestCase):
@@ -77,3 +78,35 @@ class DiscoveryProfileMatcherTests(TestCase):
 
         matched = match_device_profile("huawei", "S3352P-EI-24S", "V200R001")
         self.assertIsNone(matched)
+
+
+class VendorProfileFactoryTests(SimpleTestCase):
+    def test_factory_picks_huawei_profile(self):
+        profile = get_vendor_profile(
+            vendor="huawei",
+            model="S5720-28X",
+            firmware="V200R010",
+            sys_object_id="1.3.6.1.4.1.2011.2.23.134",
+            sys_descr="Huawei S5720",
+        )
+        self.assertEqual(profile.name, "huawei")
+
+    def test_factory_picks_h3c_profile(self):
+        profile = get_vendor_profile(
+            vendor="h3c",
+            model="5130",
+            firmware="7.1",
+            sys_object_id="1.3.6.1.4.1.25506.11",
+            sys_descr="HPE Comware Platform Software",
+        )
+        self.assertEqual(profile.name, "h3c")
+
+    def test_factory_falls_back_to_generic_profile(self):
+        profile = get_vendor_profile(
+            vendor="unknown",
+            model="",
+            firmware="",
+            sys_object_id="1.3.6.1.4.1.9999.1",
+            sys_descr="Generic switch",
+        )
+        self.assertEqual(profile.name, "generic")

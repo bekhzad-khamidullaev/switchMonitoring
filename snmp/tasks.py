@@ -2,10 +2,11 @@ import logging
 import os
 from urllib.parse import urlparse
 
+import redis
 from celery import shared_task
 from django.conf import settings
+from django.core.cache import cache
 from django.core.management import call_command
-import redis
 
 from snmp.models import Device
 from snmp.services.discovery.pipeline import run_device_discovery
@@ -18,6 +19,10 @@ POLL_DISPATCH_ASYNC = os.getenv('POLL_ALL_DEVICES_ASYNC_DISPATCH', '1').lower() 
 POLL_BATCH_SIZE = int(os.getenv('POLL_BATCH_SIZE', '500'))
 DISCOVERY_BATCH_SIZE = int(os.getenv('DISCOVERY_BATCH_SIZE', '200'))
 POLL_MAX_QUEUE_DEPTH = int(os.getenv('POLL_MAX_QUEUE_DEPTH', '20000'))
+METRIC_SAMPLE_RETENTION_DAYS = int(os.getenv('METRIC_SAMPLE_RETENTION_DAYS', '30'))
+METRIC_SAMPLE_RETENTION_BATCH_SIZE = int(os.getenv('METRIC_SAMPLE_RETENTION_BATCH_SIZE', '20000'))
+METRIC_SAMPLE_RETENTION_MAX_BATCHES = int(os.getenv('METRIC_SAMPLE_RETENTION_MAX_BATCHES', '10'))
+DISCOVERY_LOCK_TTL_SECONDS = int(os.getenv('DISCOVERY_LOCK_TTL_SECONDS', '180'))
 
 
 def _iter_device_ids(batch_size: int):
@@ -31,6 +36,18 @@ def _poll_one_device(device_id: int) -> tuple[int, int]:
     except Exception as exc:
         logger.exception('poll failed for device', extra={'device_id': device_id, 'error': str(exc)})
         return 0, 1
+
+
+def _discover_lock_key(device_id: int) -> str:
+    return f'discover_device_lock:{device_id}'
+
+
+def _acquire_discovery_lock(device_id: int) -> bool:
+    return cache.add(_discover_lock_key(device_id), '1', DISCOVERY_LOCK_TTL_SECONDS)
+
+
+def _release_discovery_lock(device_id: int) -> None:
+    cache.delete(_discover_lock_key(device_id))
 
 
 def _is_redis_broker() -> bool:
@@ -120,19 +137,25 @@ def poll_all_devices_metrics_task(self):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
 def discover_device_task(self, device_id):
-    try:
-        device = Device.objects.get(id=device_id)
-        community = device.effective_snmp_community()
-        return run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
-    except Device.DoesNotExist:
-        logger.warning('discovery skipped because device does not exist', extra={'device_id': device_id})
+    if not _acquire_discovery_lock(device_id):
+        logger.info('discovery skipped because lock is active', extra={'device_id': device_id})
         return None
-    except SnmpReadError as exc:
-        logger.warning('discovery failed for device (SNMP error)', extra={'device_id': device_id, 'error': str(exc)})
-        raise
-    except Exception as exc:
-        logger.exception('discovery failed for device', extra={'device_id': device_id, 'error': str(exc)})
-        raise
+    try:
+        try:
+            device = Device.objects.get(id=device_id)
+            community = device.effective_snmp_community()
+            return run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
+        except Device.DoesNotExist:
+            logger.warning('discovery skipped because device does not exist', extra={'device_id': device_id})
+            return None
+        except SnmpReadError as exc:
+            logger.warning('discovery failed for device (SNMP error)', extra={'device_id': device_id, 'error': str(exc)})
+            raise
+        except Exception as exc:
+            logger.exception('discovery failed for device', extra={'device_id': device_id, 'error': str(exc)})
+            raise
+    finally:
+        _release_discovery_lock(device_id)
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
@@ -148,3 +171,19 @@ def discover_all_devices_task(self):
         discover_device_task.delay(device_id)
 
     return {'queued': len(device_ids), 'mode': 'fanout'}
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})
+def maintain_metric_samples_task(self):
+    call_command(
+        'maintain_metric_samples',
+        retention_days=METRIC_SAMPLE_RETENTION_DAYS,
+        batch_size=METRIC_SAMPLE_RETENTION_BATCH_SIZE,
+        max_batches=METRIC_SAMPLE_RETENTION_MAX_BATCHES,
+    )
+    return {
+        'status': 'ok',
+        'retention_days': METRIC_SAMPLE_RETENTION_DAYS,
+        'batch_size': METRIC_SAMPLE_RETENTION_BATCH_SIZE,
+        'max_batches': METRIC_SAMPLE_RETENTION_MAX_BATCHES,
+    }

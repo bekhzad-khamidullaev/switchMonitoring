@@ -84,12 +84,14 @@ def _build_host_topology(user):
     port_state_by_device_port = {}
     if device_ids:
         ports = DevicePort.objects.filter(managed_device_id__in=device_ids).values(
-            'managed_device_id', 'port', 'oper', 'admin'
+            'managed_device_id', 'port', 'oper', 'admin', 'name', 'alias', 'description'
         )
         for port in ports:
+            label = port.get('alias') or port.get('name') or port.get('description') or ''
             port_state_by_device_port[(str(port['managed_device_id']), int(port['port']))] = {
                 'oper': port['oper'],
                 'admin': port['admin'],
+                'label': label,
             }
 
     links = []
@@ -123,8 +125,10 @@ def _build_host_topology(user):
                 'right_mac': mac2,
                 'left_oper': left_state['oper'] if left_state else None,
                 'left_admin': left_state['admin'] if left_state else None,
+                'left_port_label': left_state['label'] if left_state else '',
                 'right_oper': right_state['oper'] if right_state else None,
                 'right_admin': right_state['admin'] if right_state else None,
+                'right_port_label': right_state['label'] if right_state else '',
                 'status': link_status,
             }
         )

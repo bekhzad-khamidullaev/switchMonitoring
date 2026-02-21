@@ -21,9 +21,13 @@ from snmp.web.views.devices import (
     device_update,
     devices,
 )
-from snmp.web.views.exports import export_low_signal_devices_to_excel
-from snmp.web.views.integrations import sync_hosts_from_zabbix
-from snmp.web.views.metrics import device_metrics, export_device_metrics_csv, update_metric_subscription
+from snmp.web.views.exports import export_low_signal_devices_to_excel, port_activity_report
+from snmp.web.views.integrations import run_bulk_device_job, sync_hosts_from_zabbix
+from snmp.web.views.metrics import (
+    device_metrics,
+    export_device_metrics_csv,
+    update_metric_subscription,
+)
 from snmp.web.views.profiles import (
     device_profile_create,
     device_profile_delete,
@@ -53,7 +57,9 @@ urlpatterns = [
     path('devices/<int:pk>/ports/update/', update_device_ports_data, name='update_device_ports_data'),
     path('devices/<int:pk>/inventory/update/', refresh_device_inventory, name='refresh_device_inventory'),
     path('devices/sync/zabbix/', sync_hosts_from_zabbix, name='sync_zbx'),
+    path('devices/jobs/bulk/', run_bulk_device_job, name='run_bulk_device_job'),
     path('devices/export/low-signal/', export_low_signal_devices_to_excel, name='export_low_signal_devices_to_excel'),
+    path('devices/reports/port-activity/', port_activity_report, name='port_activity_report'),
     path('devices/<int:pk>/metrics/', device_metrics, name='device_metrics'),
     path('profiles/', device_profiles, name='device_profiles'),
     path('profiles/create/', device_profile_create, name='device_profile_create'),

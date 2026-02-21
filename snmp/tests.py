@@ -1,20 +1,29 @@
-from django.contrib.auth.models import Permission, User
-from django.test import TestCase
-from django.urls import reverse
+from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth.models import Permission, User
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
 from snmp.models import (
-    Device,
-    DeviceProfile,
-    Interface,
+    Branch,
     Device,
     DeviceNeighbor,
+    DeviceProfile,
+    Interface,
     MetricDefinition,
     MetricSample,
     MetricSubscription,
 )
+from snmp.services.discovery.pipeline import run_device_discovery
+from snmp.tasks import (
+    discover_all_devices_task,
+    maintain_metric_samples_task,
+    poll_all_devices_metrics_task,
+)
 from snmp.web.views.device_operations import refresh_device_status
-from snmp.tasks import discover_all_devices_task, poll_all_devices_metrics_task
 
 
 class EndpointAccessTests(TestCase):
@@ -68,6 +77,46 @@ class DeviceCreateSnmpFieldsTests(TestCase):
         self.assertEqual(managed_device.snmp_community_rw, 'private_rw')
 
         self.assertEqual(managed_device.snmp_version, '2c')
+
+
+class DeviceSettingsProfileAssignmentTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='device_update_user', password='p1')
+        change_perm = Permission.objects.get(codename='change_device')
+        self.user.user_permissions.add(change_perm)
+        self.client.login(username='device_update_user', password='p1')
+
+    def test_device_update_allows_assigning_profile(self):
+        device = Device.objects.create(
+            ip='10.1.2.3',
+            hostname='host-1',
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2982G-24TE',
+            firmware_pattern='',
+            priority=10,
+            active=True,
+        )
+
+        response = self.client.post(
+            reverse('device_update', args=[device.pk]),
+            data={
+                'ip': str(device.ip),
+                'hostname': device.hostname,
+                'snmp_version': '2c',
+                'snmp_community_ro': 'public',
+                'snmp_community_rw': 'private',
+                'profile': str(profile.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        device.refresh_from_db()
+        self.assertEqual(device.profile_id, profile.id)
 
 
 class MetricsPageActionTests(TestCase):
@@ -251,6 +300,62 @@ class DeviceProfilesPageTests(TestCase):
         self.assertFalse(DeviceProfile.objects.filter(pk=profile.pk).exists())
 
 
+class ZabbixSyncBranchHierarchyTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='zbx_user', password='p1')
+        add_perm = Permission.objects.get(codename='add_device')
+        self.user.user_permissions.add(add_perm)
+        self.client.login(username='zbx_user', password='p1')
+
+    @patch('snmp.web.views.integrations.requests.post')
+    def test_sync_creates_group_and_subgroup_hierarchy(self, mock_post):
+        mock_post.side_effect = [
+            _MockResponse(
+                {
+                    'result': [
+                        {
+                            'hostid': '101',
+                            'name': 'edge-sw-1',
+                            'hostgroups': [
+                                {'groupid': '1', 'name': 'HQ/Access/Floor-1'},
+                            ],
+                        }
+                    ]
+                }
+            ),
+            _MockResponse({'result': [{'ip': '10.55.0.10'}]}),
+        ]
+
+        with self.settings(
+            ZABBIX_URL='https://example.test/api_jsonrpc.php',
+            ZABBIX_TOKEN='token',
+            ZABBIX_VERIFY_SSL=False,
+        ):
+            response = self.client.post(reverse('sync_zbx'))
+
+        self.assertEqual(response.status_code, 302)
+        hq = Branch.objects.get(name='HQ', parent__isnull=True)
+        access = Branch.objects.get(name='Access', parent=hq)
+        floor = Branch.objects.get(name='Floor-1', parent=access)
+        self.assertIsNotNone(floor)
+
+        device = Device.objects.get(ip='10.55.0.10')
+        self.assertEqual(device.branch_id, floor.id)
+
+
+class _MockResponse:
+    def __init__(self, payload, status_code=200):
+        self._payload = payload
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise Exception('http error')
+
+    def json(self):
+        return self._payload
+
+
 class HostMapViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='host_map_user', password='p1')
@@ -286,8 +391,8 @@ class HostMapViewTests(TestCase):
 
 class TaskResilienceTests(TestCase):
     def setUp(self):
-        md1 = Device.objects.create(hostname='t-1', ip='10.40.0.1')
-        md2 = Device.objects.create(hostname='t-2', ip='10.40.0.2')
+        Device.objects.create(hostname='t-1', ip='10.40.0.1')
+        Device.objects.create(hostname='t-2', ip='10.40.0.2')
         self.settings_manager = self.settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_BROKER_URL='memory://')
         self.settings_manager.enable()
 
@@ -321,8 +426,189 @@ class TaskResilienceTests(TestCase):
             if ip == '10.40.0.2':
                 raise RuntimeError('boom')
         mock_discovery.side_effect = side_effect
-        
+
         result = discover_all_devices_task()
         self.assertEqual(result['queued'], 2)
         # 1 success + 1 failure + 3 retries = 5 calls
         self.assertEqual(mock_discovery.call_count, 5)
+
+    @patch('snmp.tasks.call_command')
+    def test_maintain_metric_samples_task_calls_command(self, mock_call_command):
+        result = maintain_metric_samples_task()
+        self.assertEqual(result['status'], 'ok')
+        mock_call_command.assert_called_once()
+
+
+class MetricSampleMaintenanceTests(TestCase):
+    def setUp(self):
+        self.device = Device.objects.create(hostname='ret-1', ip='10.60.0.1')
+        self.metric = MetricDefinition.objects.create(key='ret_metric', title='Retention Metric')
+        self.subscription = MetricSubscription.objects.create(device=self.device, metric=self.metric, enabled=True)
+
+    def _sample(self, *, days_ago: int):
+        MetricSample.objects.create(
+            subscription=self.subscription,
+            ts=timezone.now() - timedelta(days=days_ago),
+            value_float=1.0,
+            quality=MetricSample.Quality.GOOD,
+        )
+
+    def test_maintain_metric_samples_dry_run_does_not_delete(self):
+        self._sample(days_ago=90)
+        self._sample(days_ago=1)
+
+        call_command(
+            'maintain_metric_samples',
+            retention_days=30,
+            batch_size=100,
+            max_batches=5,
+            dry_run=True,
+        )
+
+        self.assertEqual(MetricSample.objects.count(), 2)
+
+    def test_maintain_metric_samples_deletes_in_bounded_batches(self):
+        self._sample(days_ago=90)
+        self._sample(days_ago=80)
+        self._sample(days_ago=70)
+        self._sample(days_ago=1)
+
+        call_command(
+            'maintain_metric_samples',
+            retention_days=30,
+            batch_size=2,
+            max_batches=1,
+        )
+        self.assertEqual(MetricSample.objects.count(), 2)
+
+        call_command(
+            'maintain_metric_samples',
+            retention_days=30,
+            batch_size=2,
+            max_batches=2,
+        )
+        self.assertEqual(MetricSample.objects.count(), 1)
+
+
+class DiscoveryNeighborSyncTests(TestCase):
+    @patch("snmp.services.discovery.pipeline.read_base_snmp")
+    def test_discovery_syncs_lldp_neighbors(self, mock_read_base):
+        local = Device.objects.create(hostname="sw-a", ip="10.70.0.1", switch_mac="aa:bb:cc:dd:ee:01")
+        Device.objects.create(hostname="sw-b", ip="10.70.0.2", switch_mac="aa:bb:cc:dd:ee:02")
+
+        mock_read_base.return_value = {
+            "sys_object_id": "1.3.6.1.4.1.2011.2.23.134",
+            "sys_descr": "Huawei S5720",
+            "switch_mac": "AA BB CC DD EE 01",
+            "interfaces": [
+                {
+                    "if_index": 1,
+                    "if_name": "GigabitEthernet0/0/1",
+                    "if_alias": "",
+                    "if_type": "6",
+                    "is_optical": False,
+                    "admin_up": True,
+                    "oper_up": True,
+                }
+            ],
+            "lldp_neighbors": [
+                {
+                    "local_port": 24,
+                    "remote_chassis_mac": "aa:bb:cc:dd:ee:02",
+                    "remote_port": 48,
+                    "remote_port_id": "48",
+                }
+            ],
+        }
+
+        run_device_discovery(ip=str(local.ip), community="public", managed_device=local)
+
+        self.assertTrue(
+            DeviceNeighbor.objects.filter(
+                mac1="aa:bb:cc:dd:ee:01",
+                port1=24,
+                mac2="aa:bb:cc:dd:ee:02",
+                port2=48,
+            ).exists()
+        )
+
+    @patch("snmp.services.discovery.pipeline.read_base_snmp")
+    def test_discovery_replaces_previous_neighbors_for_device(self, mock_read_base):
+        local = Device.objects.create(hostname="sw-a", ip="10.70.1.1", switch_mac="aa:bb:cc:dd:ee:11")
+        DeviceNeighbor.objects.create(
+            mac1="aa:bb:cc:dd:ee:11",
+            port1=1,
+            mac2="aa:bb:cc:dd:ee:12",
+            port2=2,
+        )
+
+        mock_read_base.return_value = {
+            "sys_object_id": "1.3.6.1.4.1.2011.2.23.134",
+            "sys_descr": "Huawei S5720",
+            "switch_mac": "aa:bb:cc:dd:ee:11",
+            "interfaces": [],
+            "lldp_neighbors": [],
+        }
+        run_device_discovery(ip=str(local.ip), community="public", managed_device=local)
+
+        self.assertFalse(DeviceNeighbor.objects.filter(mac1="aa:bb:cc:dd:ee:11").exists())
+
+
+class BulkDeviceJobsViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="bulk_jobs_user", password="p1")
+        change_perm = Permission.objects.get(codename="change_device")
+        self.user.user_permissions.add(change_perm)
+        self.client.login(username="bulk_jobs_user", password="p1")
+
+        self.device1 = Device.objects.create(hostname="bulk-a", ip="10.80.0.1")
+        self.device2 = Device.objects.create(hostname="bulk-b", ip="10.80.0.2")
+
+    @patch("snmp.web.views.integrations.discover_device_task.delay")
+    def test_bulk_discovery_job_queues_selected_devices(self, mock_delay):
+        response = self.client.post(
+            reverse("run_bulk_device_job"),
+            data={
+                "action": "discover",
+                "scope": "device_ids",
+                "device_ids": f"{self.device1.id},{self.device2.id}",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["queued"], 2)
+        self.assertEqual(mock_delay.call_count, 2)
+
+    @patch("snmp.web.views.integrations.poll_device_metrics_task.delay")
+    def test_bulk_poll_job_queues_all_devices(self, mock_delay):
+        response = self.client.post(
+            reverse("run_bulk_device_job"),
+            data={"action": "poll", "scope": "all"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["queued"], 2)
+        self.assertEqual(mock_delay.call_count, 2)
+
+    def test_bulk_jobs_reject_invalid_action(self):
+        response = self.client.post(
+            reverse("run_bulk_device_job"),
+            data={"action": "reboot", "scope": "all"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+class PortActivityReportViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="report_user", password="p1")
+        view_device_perm = Permission.objects.get(codename="view_device")
+        self.user.user_permissions.add(view_device_perm)
+        self.client.login(username="report_user", password="p1")
+
+        self.branch = Branch.objects.create(name="Report Branch")
+        self.device = Device.objects.create(hostname="report-sw", ip="10.90.0.1", branch=self.branch)
+
+    def test_report_page_renders(self):
+        branch_perm = Permission.objects.get(codename="view_report_branch")
+        self.user.user_permissions.add(branch_perm)
+        response = self.client.get(reverse("port_activity_report"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Port Activity Report", response.content.decode("utf-8"))
