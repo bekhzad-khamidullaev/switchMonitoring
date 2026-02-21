@@ -118,6 +118,179 @@ class DeviceSettingsProfileAssignmentTests(TestCase):
         device.refresh_from_db()
         self.assertEqual(device.profile_id, profile.id)
 
+    def test_host_settings_page_allows_assigning_profile(self):
+        device = Device.objects.create(
+            ip='10.1.2.30',
+            hostname='host-settings-1',
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2995G-24FX',
+            firmware_pattern='',
+            priority=20,
+            active=True,
+        )
+
+        response = self.client.post(
+            reverse('device_host_settings', args=[device.pk]),
+            data={
+                'ip': str(device.ip),
+                'hostname': 'host-settings-renamed',
+                'vendor': 'SNR',
+                'model': 'S2995',
+                'firmware': '',
+                'sys_object_id': '',
+                'snmp_version': '2c',
+                'auth_profile': '',
+                'status': 'on',
+                'device_type': '',
+                'uptime': '',
+                'switch_mac': '',
+                'snmp_community_ro': 'public',
+                'snmp_community_rw': 'private',
+                'neighbor': '',
+                'parent_port': '',
+                'profile': str(profile.pk),
+                'group': '',
+                'subgroup': '',
+                'soft_version': '',
+                'serial_number': '',
+                'rx_signal': '',
+                'tx_signal': '',
+                'sfp_vendor': '',
+                'part_number': '',
+                'last_discovered_at': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        device.refresh_from_db()
+        self.assertEqual(device.hostname, 'host-settings-renamed')
+        self.assertEqual(device.profile_id, profile.id)
+
+    def test_host_settings_apply_preset_prefills_form_without_saving(self):
+        device = Device.objects.create(
+            ip='10.1.2.31',
+            hostname='host-settings-preset',
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        profile = DeviceProfile.objects.create(
+            vendor='preset-vendor',
+            model_pattern='PRESET-MODEL',
+            firmware_pattern='PRESET-FW',
+            priority=20,
+            active=True,
+        )
+
+        response = self.client.post(
+            reverse('device_host_settings', args=[device.pk]),
+            data={
+                'action': 'apply_profile_preset',
+                'ip': str(device.ip),
+                'hostname': device.hostname,
+                'vendor': '',
+                'model': '',
+                'firmware': '',
+                'sys_object_id': '',
+                'snmp_version': '2c',
+                'auth_profile': '',
+                'status': 'on',
+                'device_type': '',
+                'uptime': '',
+                'switch_mac': '',
+                'snmp_community_ro': 'public',
+                'snmp_community_rw': 'private',
+                'neighbor': '',
+                'parent_port': '',
+                'profile': str(profile.pk),
+                'group': '',
+                'subgroup': '',
+                'soft_version': '',
+                'serial_number': '',
+                'rx_signal': '',
+                'tx_signal': '',
+                'sfp_vendor': '',
+                'part_number': '',
+                'last_discovered_at': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'preset-vendor')
+        self.assertContains(response, 'PRESET-MODEL')
+        self.assertContains(response, 'PRESET-FW')
+        device.refresh_from_db()
+        self.assertEqual(device.vendor, '')
+        self.assertEqual(device.model, '')
+        self.assertEqual(device.firmware, '')
+        self.assertIsNone(device.profile_id)
+
+    def test_host_settings_recommend_profile_selects_best_match_without_saving(self):
+        device = Device.objects.create(
+            ip='10.1.2.32',
+            hostname='host-settings-recommend',
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        low_specific = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='.*',
+            firmware_pattern='',
+            priority=10,
+            active=True,
+        )
+        high_specific = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='S2995',
+            firmware_pattern='7\\.0',
+            priority=10,
+            active=True,
+        )
+
+        response = self.client.post(
+            reverse('device_host_settings', args=[device.pk]),
+            data={
+                'action': 'recommend_profile',
+                'ip': str(device.ip),
+                'hostname': device.hostname,
+                'vendor': 'SNR',
+                'model': 'S2995',
+                'firmware': '7.0',
+                'sys_object_id': '',
+                'snmp_version': '2c',
+                'auth_profile': '',
+                'status': 'on',
+                'device_type': '',
+                'uptime': '',
+                'switch_mac': '',
+                'snmp_community_ro': 'public',
+                'snmp_community_rw': 'private',
+                'neighbor': '',
+                'parent_port': '',
+                'profile': str(low_specific.pk),
+                'group': '',
+                'subgroup': '',
+                'soft_version': '',
+                'serial_number': '',
+                'rx_signal': '',
+                'tx_signal': '',
+                'sfp_vendor': '',
+                'part_number': '',
+                'last_discovered_at': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'Recommended profile #{high_specific.pk} selected')
+        device.refresh_from_db()
+        self.assertIsNone(device.profile_id)
+
 
 class MetricsPageActionTests(TestCase):
     def setUp(self):
@@ -340,7 +513,83 @@ class ZabbixSyncBranchHierarchyTests(TestCase):
         self.assertIsNotNone(floor)
 
         device = Device.objects.get(ip='10.55.0.10')
-        self.assertEqual(device.branch_id, floor.id)
+        self.assertEqual(device.group_id, floor.id)
+        self.assertIsNone(device.subgroup_id)
+
+    @patch('snmp.web.views.integrations.requests.post')
+    def test_sync_reuses_existing_groups_without_duplicates(self, mock_post):
+        hq = Branch.objects.create(name='hq')
+        access = Branch.objects.create(name=' Access ', parent=hq)
+        floor = Branch.objects.create(name='floor-1', parent=access)
+
+        mock_post.side_effect = [
+            _MockResponse(
+                {
+                    'result': [
+                        {
+                            'hostid': '201',
+                            'name': 'edge-sw-2',
+                            'hostgroups': [
+                                {'groupid': '11', 'name': 'HQ/Access/Floor-1'},
+                            ],
+                        }
+                    ]
+                }
+            ),
+            _MockResponse({'result': [{'ip': '10.55.0.11'}]}),
+        ]
+
+        with self.settings(
+            ZABBIX_URL='https://example.test/api_jsonrpc.php',
+            ZABBIX_TOKEN='token',
+            ZABBIX_VERIFY_SSL=False,
+        ):
+            response = self.client.post(reverse('sync_zbx'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Branch.objects.count(), 3)
+        device = Device.objects.get(ip='10.55.0.11')
+        self.assertEqual(device.group_id, floor.id)
+        self.assertIsNone(device.subgroup_id)
+
+    @patch('snmp.web.views.integrations.requests.post')
+    def test_sync_skips_duplicate_hosts_with_same_ip(self, mock_post):
+        mock_post.side_effect = [
+            _MockResponse(
+                {
+                    'result': [
+                        {
+                            'hostid': '301',
+                            'name': 'edge-sw-main',
+                            'hostgroups': [
+                                {'groupid': '21', 'name': 'HQ/Access/Floor-2'},
+                            ],
+                        },
+                        {
+                            'hostid': '302',
+                            'name': 'edge-sw-duplicate',
+                            'hostgroups': [
+                                {'groupid': '22', 'name': 'HQ/Access/Floor-3'},
+                            ],
+                        },
+                    ]
+                }
+            ),
+            _MockResponse({'result': [{'ip': '10.55.0.12'}]}),
+            _MockResponse({'result': [{'ip': '10.55.0.12'}]}),
+        ]
+
+        with self.settings(
+            ZABBIX_URL='https://example.test/api_jsonrpc.php',
+            ZABBIX_TOKEN='token',
+            ZABBIX_VERIFY_SSL=False,
+        ):
+            response = self.client.post(reverse('sync_zbx'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Device.objects.filter(ip='10.55.0.12').count(), 1)
+        device = Device.objects.get(ip='10.55.0.12')
+        self.assertEqual(device.hostname, 'edge-sw-main')
 
 
 class _MockResponse:
@@ -603,8 +852,8 @@ class PortActivityReportViewTests(TestCase):
         self.user.user_permissions.add(view_device_perm)
         self.client.login(username="report_user", password="p1")
 
-        self.branch = Branch.objects.create(name="Report Branch")
-        self.device = Device.objects.create(hostname="report-sw", ip="10.90.0.1", branch=self.branch)
+        self.group = Branch.objects.create(name="Report Branch")
+        self.device = Device.objects.create(hostname="report-sw", ip="10.90.0.1", group=self.group)
 
     def test_report_page_renders(self):
         branch_perm = Permission.objects.get(codename="view_report_branch")

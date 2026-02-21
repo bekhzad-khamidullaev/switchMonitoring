@@ -47,7 +47,7 @@
                   {{ item.managed_device.hostname|default:item.managed_device.ip }}
                 </a>
               </td>
-              <td class="px-2 py-2">{{ item.managed_device.branch.name|default:"-" }}</td>
+              <td class="px-2 py-2">{{ item.managed_device.group.name|default:"-" }}</td>
               <td class="px-2 py-2">p{{ item.port }}</td>
               <td class="px-2 py-2">{{ item.alias|default:item.name|default:item.description|default:"-" }}</td>
               <td class="px-2 py-2">{{ item.pvid }}</td>

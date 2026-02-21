@@ -30,7 +30,7 @@ def api_device_onboard(request):
     device_id = serializer.validated_data.get('device_id')
 
     if device_id:
-        device = get_object_or_404(Device.objects.only('id', 'ip', 'branch_id'), pk=device_id)
+        device = get_object_or_404(Device.objects.only('id', 'ip', 'group_id'), pk=device_id)
         if not user_can_access_device(request.user, device):
             return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         if ip and device.ip and str(ip) != str(device.ip):
@@ -40,7 +40,7 @@ def api_device_onboard(request):
             )
         ip = ip or device.ip
     else:
-        device = Device.objects.only('id', 'ip', 'branch_id').filter(ip=ip).first()
+        device = Device.objects.only('id', 'ip', 'group_id').filter(ip=ip).first()
 
     if device and not user_can_access_device(request.user, device):
         return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
@@ -53,7 +53,7 @@ def api_device_onboard(request):
                 device = Device.objects.create(ip=ip)
         except IntegrityError:
             # Idempotent create under concurrent onboard calls for the same IP.
-            device = Device.objects.only('id', 'ip', 'branch_id').get(ip=ip)
+            device = Device.objects.only('id', 'ip', 'group_id').get(ip=ip)
 
     if not device:
         return Response({'detail': 'IP or Device ID required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -100,7 +100,7 @@ def api_device_metrics(request, device_id):
     else:
         return Response({'detail': 'enabled must be boolean'}, status=status.HTTP_400_BAD_REQUEST)
 
-    device = get_object_or_404(Device.objects.only('id', 'branch_id'), pk=device_id)
+    device = get_object_or_404(Device.objects.only('id', 'group_id'), pk=device_id)
     if not user_can_access_device(request.user, device):
         return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -170,7 +170,7 @@ def api_device_timeseries(request, device_id):
         if before_dt is None:
             return Response({'detail': 'before must be an ISO-8601 datetime'}, status=status.HTTP_400_BAD_REQUEST)
 
-    device = get_object_or_404(Device.objects.only('id', 'branch_id'), pk=device_id)
+    device = get_object_or_404(Device.objects.only('id', 'group_id'), pk=device_id)
     if not user_can_access_device(request.user, device):
         return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 

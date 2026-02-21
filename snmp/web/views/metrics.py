@@ -46,7 +46,7 @@ def device_metrics(request, pk):
         if action == 'run_discovery':
             community = request.POST.get('community', '').strip() or device.snmp_community_ro or 'public'
             try:
-                result = run_device_discovery(ip=str(device.ip), community=community, device=device)
+                result = run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
                 messages.success(
                     request,
                     f"Discovery completed: interfaces={result.get('interfaces_count', 0)} profile_id={result.get('profile_id', 0)}",

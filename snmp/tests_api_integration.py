@@ -109,8 +109,8 @@ class ApiIntegrationTests(TestCase):
         self.assertAlmostEqual(sample.value_float, -12.34, places=2)
 
     def test_api_device_metrics_respects_branch_permissions(self):
-        branch = Branch.objects.create(name="North Zone")
-        device = Device.objects.create(hostname="sw-1", ip="10.0.0.2", branch=branch)
+        group = Branch.objects.create(name="North Zone")
+        device = Device.objects.create(hostname="sw-1", ip="10.0.0.2", group=group)
 
         denied = self.client.get(f"/snmp/api/devices/{device.id}/metrics")
         self.assertEqual(denied.status_code, 403)

@@ -7,6 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Coalesce, Lower, Trim
 from django.db.models.signals import post_migrate, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -17,11 +18,11 @@ class DeviceQuerySet(models.QuerySet):
     def active(self):
         return self.filter(status=True)
 
-    def with_branch(self, branch_id):
-        return self.filter(branch_id=branch_id)
-
     def with_group(self, group_id):
-        return self.filter(branch_id=group_id)
+        return self.filter(group_id=group_id)
+
+    def with_branch(self, group_id):
+        return self.with_group(group_id)
 
 
 class DeviceManager(models.Manager.from_queryset(DeviceQuerySet)):
@@ -48,6 +49,14 @@ class Branch(models.Model):
         db_table = 'branch'
         verbose_name = 'Group'
         verbose_name_plural = 'Groups'
+        constraints = [
+            models.UniqueConstraint(
+                Lower(Trim('name')),
+                Coalesce('parent_id', models.Value(0)),
+                condition=Q(name__isnull=False),
+                name='uq_branch_parent_norm_name',
+            ),
+        ]
 
     def __str__(self):
         if self.parent:
@@ -114,13 +123,21 @@ def create_branch_permission_on_save(sender, instance, **kwargs):
 class Ats(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
     subnet = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
-    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, verbose_name='Group')
+    group = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, verbose_name='Group')
     class Meta:
         managed = True
         db_table = 'ats'
         verbose_name = 'Subgroup'
         verbose_name_plural = 'Subgroups'
         unique_together = (('name', 'subnet'),)
+        constraints = [
+            models.UniqueConstraint(
+                Lower(Trim('name')),
+                Coalesce('group_id', models.Value(0)),
+                condition=Q(name__isnull=False),
+                name='uq_ats_group_norm_name',
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -145,6 +162,14 @@ class Ats(models.Model):
             except ValueError:
                 return False
         return False
+
+    @property
+    def branch(self):
+        return self.group
+
+    @branch.setter
+    def branch(self, value):
+        self.group = value
 
 
 
@@ -351,8 +376,8 @@ class Device(models.Model):
     snmp_community_rw = models.CharField(max_length=100, null=True, blank=True)
     neighbor = models.ForeignKey("DeviceNeighbor", on_delete=models.SET_NULL, blank=True, null=True)
     parent_port = models.ForeignKey("DevicePort", on_delete=models.SET_NULL, blank=True, null=True, related_name='parent_devices')
-    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Group')
-    ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True, verbose_name='Subgroup')
+    group = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Group')
+    subgroup = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True, verbose_name='Subgroup')
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
     rx_signal = models.FloatField(null=True, blank=True)
@@ -373,7 +398,7 @@ class Device(models.Model):
             models.Index(fields=['vendor', 'model']),
             models.Index(fields=['status', 'updated']),
             models.Index(fields=['ip', 'hostname']),
-            models.Index(fields=['branch', 'status', 'updated']),
+            models.Index(fields=['group', 'status', 'updated']),
             models.Index(fields=['profile', 'status']),
         ]
 
@@ -384,20 +409,20 @@ class Device(models.Model):
         return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
 
     @property
-    def group(self):
-        return self.branch
+    def branch(self):
+        return self.group
 
-    @group.setter
-    def group(self, value):
-        self.branch = value
+    @branch.setter
+    def branch(self, value):
+        self.group = value
 
     @property
-    def subgroup(self):
-        return self.ats
+    def ats(self):
+        return self.subgroup
 
-    @subgroup.setter
-    def subgroup(self, value):
-        self.ats = value
+    @ats.setter
+    def ats(self, value):
+        self.subgroup = value
 
 
 class MetricBinding(models.Model):

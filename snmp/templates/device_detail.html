@@ -46,8 +46,8 @@
             </td>
             <td class="px-3 py-2">{{ device.device_type.vendor.name|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.device_type.device_model|default:'-' }}</td>
-            <td class="px-3 py-2">{{ device.branch.name|default:'-' }}</td>
-            <td class="px-3 py-2">{{ device.ats.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.group.name|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.subgroup.name|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.hostname|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.ip }}</td>
             <td class="px-3 py-2">{{ device.uptime|default:'-' }}</td>
@@ -102,6 +102,8 @@
     {% if perms.snmp.change_device %}
     {% url 'device_update' device.pk as device_edit_url %}
     {% include 'components/link_button.html' with href=device_edit_url label='Edit' tone='surface' %}
+    {% url 'device_host_settings' device.pk as device_host_settings_url %}
+    {% include 'components/link_button.html' with href=device_host_settings_url label='Host settings' tone='brand' %}
     {% url 'device_confirm_delete' device.pk as device_delete_url %}
     {% include 'components/link_button.html' with href=device_delete_url label='Delete' tone='danger' %}
     {% endif %}

@@ -14,8 +14,8 @@ class Command(BaseCommand):
             device_ip = device.ip
             for ats in ats_list:
                 if ats.contains_ip(device_ip):
-                    device.branch = ats.branch
-                    device.ats = ats
+                    device.group = ats.group
+                    device.subgroup = ats
                     device.save()
                     self.stdout.write(self.style.SUCCESS(f'Device {device.id} assigned to subgroup {ats.name}'))
                     break

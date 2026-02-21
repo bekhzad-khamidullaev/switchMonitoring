@@ -72,34 +72,34 @@
       </div>
 
       <div>
-        <label for="{{ form.branch.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">Group</label>
-        <select name="{{ form.branch.name }}" id="{{ form.branch.id_for_label }}"
+        <label for="{{ form.group.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">Group</label>
+        <select name="{{ form.group.name }}" id="{{ form.group.id_for_label }}"
           class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
           <option value="">No group</option>
-          {% for group in form.branch.field.queryset %}
-            <option value="{{ group.pk }}" {% if form.branch.value|stringformat:'s' == group.pk|stringformat:'s' %}selected{% endif %}>
+          {% for group in form.group.field.queryset %}
+            <option value="{{ group.pk }}" {% if form.group.value|stringformat:'s' == group.pk|stringformat:'s' %}selected{% endif %}>
               {{ group.name|default:'-' }}
             </option>
           {% endfor %}
         </select>
-        {% if form.branch.errors %}
-          <p class="mt-1 text-xs text-danger-700">{{ form.branch.errors|striptags }}</p>
+        {% if form.group.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.group.errors|striptags }}</p>
         {% endif %}
       </div>
 
       <div>
-        <label for="{{ form.ats.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">Subgroup</label>
-        <select name="{{ form.ats.name }}" id="{{ form.ats.id_for_label }}"
+        <label for="{{ form.subgroup.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">Subgroup</label>
+        <select name="{{ form.subgroup.name }}" id="{{ form.subgroup.id_for_label }}"
           class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
           <option value="">No subgroup</option>
-          {% for subgroup in form.ats.field.queryset %}
-            <option value="{{ subgroup.pk }}" {% if form.ats.value|stringformat:'s' == subgroup.pk|stringformat:'s' %}selected{% endif %}>
+          {% for subgroup in form.subgroup.field.queryset %}
+            <option value="{{ subgroup.pk }}" {% if form.subgroup.value|stringformat:'s' == subgroup.pk|stringformat:'s' %}selected{% endif %}>
               {{ subgroup.name|default:'-' }}
             </option>
           {% endfor %}
         </select>
-        {% if form.ats.errors %}
-          <p class="mt-1 text-xs text-danger-700">{{ form.ats.errors|striptags }}</p>
+        {% if form.subgroup.errors %}
+          <p class="mt-1 text-xs text-danger-700">{{ form.subgroup.errors|striptags }}</p>
         {% endif %}
       </div>
 

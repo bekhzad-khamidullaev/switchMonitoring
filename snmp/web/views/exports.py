@@ -37,19 +37,19 @@ def export_low_signal_devices_to_excel(request):
 
     permitted_groups = get_permitted_groups(request.user)
     items = (
-        DeviceModel.objects.filter(rx_signal__lte=-11, branch__in=permitted_groups)
-        .select_related('ats', 'ats__branch', 'device_type')
+        DeviceModel.objects.filter(rx_signal__lte=-11, group__in=permitted_groups)
+        .select_related('subgroup', 'subgroup__group', 'device_type')
         .order_by('rx_signal')
     )
 
     for item in items:
-        group_name = sanitize_for_excel(item.branch.name if item.branch_id else '')
-        subgroup_name = sanitize_for_excel(item.ats.name if item.ats_id else '')
+        group_name = sanitize_for_excel(item.group.name if item.group_id else '')
+        subgroup_name = sanitize_for_excel(item.subgroup.name if item.subgroup_id else '')
         hostname = sanitize_for_excel(item.hostname)
         ip_address = sanitize_for_excel(item.ip)
         model_name = sanitize_for_excel(item.device_type.device_model if item.device_type else '')
         uptime_str = sanitize_for_excel(str(item.uptime or ''))
-        last_update_str = item.last_update.strftime('%Y-%m-%d %H:%M:%S') if item.last_update else ''
+        last_update_str = item.updated.strftime('%Y-%m-%d %H:%M:%S') if item.updated else ''
 
         worksheet.append(
             [
@@ -74,8 +74,8 @@ def export_low_signal_devices_to_excel(request):
 def port_activity_report(request):
     permitted_groups = get_permitted_groups(request.user)
     queryset = (
-        DevicePort.objects.filter(managed_device__branch__in=permitted_groups)
-        .select_related('managed_device', 'managed_device__branch')
+        DevicePort.objects.filter(managed_device__group__in=permitted_groups)
+        .select_related('managed_device', 'managed_device__group')
         .annotate(
             last_mac=Subquery(
                 Mac.objects.filter(port=OuterRef('pk')).order_by('-data').values('mac')[:1]

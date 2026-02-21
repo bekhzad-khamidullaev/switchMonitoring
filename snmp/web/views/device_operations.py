@@ -99,8 +99,8 @@ def devices_offline(request):
     user_permitted_groups = get_permitted_groups(request.user)
     offline_items = Device.objects.filter(
         status=False,
-        branch__in=user_permitted_groups,
-    ).order_by('ats')
+        group__in=user_permitted_groups,
+    ).order_by('subgroup')
 
     search_query = request.GET.get('search')
     if search_query:
@@ -129,7 +129,7 @@ def devices_high_signal_15(request):
     items = Device.objects.filter(
         rx_signal__lte=-15,
         rx_signal__gt=-20,
-        branch__in=user_permitted_groups,
+        group__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -158,7 +158,7 @@ def devices_high_signal_10(request):
     items = Device.objects.filter(
         rx_signal__lte=-11,
         rx_signal__gt=-15,
-        branch__in=user_permitted_groups,
+        group__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -186,7 +186,7 @@ def devices_high_signal_20(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-20,
-        branch__in=user_permitted_groups,
+        group__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -214,7 +214,7 @@ def devices_high_signal_11(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-11,
-        branch__in=user_permitted_groups,
+        group__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')

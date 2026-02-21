@@ -27,10 +27,10 @@ def user_can_access_device(user, device):
         return False
     if user_has_global_device_access(user):
         return True
-    if device.branch_id is None:
+    if device.group_id is None:
         return False
     permitted_ids = {group.id for group in get_permitted_groups(user)}
-    return device.branch_id in permitted_ids
+    return device.group_id in permitted_ids
 
 
 def convert_uptime_to_human_readable(uptime_in_hundredths):

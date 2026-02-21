@@ -13,7 +13,7 @@ from .access import get_permitted_groups, user_has_global_device_access
 def _permitted_devices(user):
     if user_has_global_device_access(user):
         return Device.objects.all()
-    return Device.objects.filter(branch__in=get_permitted_groups(user))
+    return Device.objects.filter(group__in=get_permitted_groups(user))
 
 
 def _assign_profile_to_device(profile, device_id, user):

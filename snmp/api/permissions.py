@@ -8,11 +8,11 @@ def user_can_access_device(user, device: Device) -> bool:
     if user.is_superuser:
         return True
 
-    if device.branch_id is None:
+    if device.group_id is None:
         return user.has_perm('snmp.change_device') or user.has_perm('snmp.view_device')
 
     permitted = {g.id for g in get_permitted_groups(user)}
-    return device.branch_id in permitted
+    return device.group_id in permitted
 
 
 def user_can_create_device(user) -> bool:

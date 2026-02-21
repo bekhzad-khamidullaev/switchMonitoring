@@ -16,10 +16,10 @@ class DeviceOnboardSerializer(serializers.Serializer):
 
 
 class DeviceSerializer(serializers.ModelSerializer):
-    group_id = serializers.IntegerField(source='branch_id', read_only=True)
-    subgroup_id = serializers.IntegerField(source='ats_id', read_only=True)
-    group_name = serializers.CharField(source='branch.name', read_only=True)
-    subgroup_name = serializers.CharField(source='ats.name', read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
+    subgroup_id = serializers.IntegerField(read_only=True)
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    subgroup_name = serializers.CharField(source='subgroup.name', read_only=True)
 
     class Meta:
         model = Device

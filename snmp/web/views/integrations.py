@@ -16,16 +16,41 @@ if not settings.ZABBIX_VERIFY_SSL:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-def _upsert_group_hierarchy(path):
+def _normalize_name(raw_name):
+    if raw_name is None:
+        return ""
+    return str(raw_name).strip()
+
+
+def _get_existing_branch(name, parent):
+    normalized = _normalize_name(name)
+    if not normalized:
+        return None
+    siblings = Branch.objects.filter(parent=parent).exclude(name__isnull=True).only("id", "name")
+    normalized_lower = normalized.lower()
+    for sibling in siblings:
+        sibling_name = _normalize_name(sibling.name)
+        if sibling_name.lower() == normalized_lower:
+            return sibling
+    return None
+
+
+def _upsert_group_hierarchy(path_chunks):
     parent = None
     current = None
-    for chunk in (path or "").split("/"):
-        name = chunk.strip()
+    for chunk in path_chunks:
+        name = _normalize_name(chunk)
         if not name:
             continue
-        current, _ = Branch.objects.get_or_create(name=name, parent=parent)
+        current = _get_existing_branch(name=name, parent=parent)
+        if not current:
+            current = Branch.objects.create(name=name, parent=parent)
         parent = current
     return current
+
+
+def _parse_group_path(raw_path):
+    return [part for part in (_normalize_name(chunk) for chunk in (raw_path or "").split("/")) if part]
 
 
 def _select_group_from_hostgroups(hostgroups):
@@ -33,16 +58,25 @@ def _select_group_from_hostgroups(hostgroups):
         return None
 
     names = []
+    seen = set()
     for item in hostgroups:
-        raw_name = (item or {}).get("name", "")
-        if raw_name and raw_name.strip():
-            names.append(raw_name.strip())
+        raw_name = _normalize_name((item or {}).get("name", ""))
+        if raw_name:
+            dedupe_key = raw_name.lower()
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            names.append(raw_name)
     if not names:
         return None
 
     # Prefer the most specific path, then deterministic by name.
     names.sort(key=lambda n: (len([p for p in n.split("/") if p.strip()]), n), reverse=True)
-    return _upsert_group_hierarchy(names[0])
+    selected = names[0]
+    chunks = _parse_group_path(selected)
+    if not chunks:
+        return None
+    return _upsert_group_hierarchy(chunks)
 
 
 @login_required
@@ -78,6 +112,7 @@ def sync_hosts_from_zabbix(request):
         if 'result' not in hosts_result:
             return redirect('dashboard')
 
+        processed_ips = set()
         for host_data in hosts_result['result']:
             hostname = host_data['name']
             group = _select_group_from_hostgroups(host_data.get('hostgroups'))
@@ -100,17 +135,22 @@ def sync_hosts_from_zabbix(request):
 
             if 'result' in interfaces_result and interfaces_result['result']:
                 ip_address = interfaces_result['result'][0]['ip']
+                if ip_address in processed_ips:
+                    continue
+                processed_ips.add(ip_address)
                 defaults = {'hostname': hostname}
                 if group:
-                    defaults['branch'] = group
+                    defaults['group'] = group
 
                 device, created = DeviceModel.objects.get_or_create(ip=ip_address, defaults=defaults)
                 if not created:
                     updates = {}
                     if hostname and device.hostname != hostname:
                         updates['hostname'] = hostname
-                    if group and device.branch_id != group.id:
-                        updates['branch'] = group
+                    if group and device.group_id != group.id:
+                        updates['group'] = group
+                    if device.subgroup_id is not None:
+                        updates['subgroup'] = None
                     if updates:
                         DeviceModel.objects.filter(pk=device.pk).update(**updates)
 
@@ -134,20 +174,20 @@ def run_bulk_device_job(request):
     queryset = DeviceModel.objects.all()
     if not user_has_global_device_access(request.user):
         permitted = get_permitted_groups(request.user)
-        queryset = queryset.filter(branch__in=permitted)
+        queryset = queryset.filter(group__in=permitted)
 
     if scope in {'group', 'branch'}:
         group_id = request.POST.get('group_id') or request.POST.get('branch_id')
         if not group_id or not str(group_id).isdigit():
             return JsonResponse({'error': 'group_id is required'}, status=400)
-        queryset = queryset.filter(branch_id=int(group_id))
+        queryset = queryset.filter(group_id=int(group_id))
     elif scope in {'subgroup', 'ats'}:
         subgroup_id = request.POST.get('subgroup_id') or request.POST.get('ats_id')
         if not subgroup_id or not str(subgroup_id).isdigit():
             return JsonResponse({'error': 'subgroup_id is required'}, status=400)
         if not Ats.objects.filter(pk=int(subgroup_id)).exists():
             return JsonResponse({'error': 'subgroup not found'}, status=404)
-        queryset = queryset.filter(ats_id=int(subgroup_id))
+        queryset = queryset.filter(subgroup_id=int(subgroup_id))
     elif scope == 'device_ids':
         raw_ids = request.POST.getlist('device_ids')
         if not raw_ids:

@@ -43,8 +43,8 @@ class Command(BaseCommand):
 
                 for ats in ats_list:
                     if ats.contains_ip(device.ip):
-                        device.branch = ats.branch
-                        device.ats = ats
+                        device.group = ats.group
+                        device.subgroup = ats
                         break
 
                 match_hostname = re.search(r'SNMPv2-MIB::sysName.0 = (.+)', hostname_resp[0])

@@ -27,8 +27,8 @@
         {% for device in devices_page %}
         <tr class="hover:bg-surface-50">
           <td class="px-3 py-2">{{ device.pk }}</td>
-          <td class="px-3 py-2">{{ device.branch.name|default:'-' }}</td>
-          <td class="px-3 py-2">{{ device.ats.name|default:'-' }}</td>
+          <td class="px-3 py-2">{{ device.group.name|default:'-' }}</td>
+          <td class="px-3 py-2">{{ device.subgroup.name|default:'-' }}</td>
           <td class="px-3 py-2">
             {% if device.status %}
               {% include 'components/badge.html' with tone='success' label='UP' %}
