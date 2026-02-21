@@ -1,13 +1,16 @@
-from django.db import models
-from simple_history.models import HistoricalRecords
-from django.utils import timezone
+from functools import cached_property
+from ipaddress import IPv4Network, ip_address
+
 from django.conf import settings
-from ipaddress import ip_address, IPv4Network
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.db.models import Q
 from django.db.models.signals import post_migrate, post_save, pre_save
 from django.dispatch import receiver
-from django.db.models import Q
+from django.utils import timezone
+from simple_history.models import HistoricalRecords
 
 
 class DeviceQuerySet(models.QuerySet):
@@ -16,6 +19,9 @@ class DeviceQuerySet(models.QuerySet):
 
     def with_branch(self, branch_id):
         return self.filter(branch_id=branch_id)
+
+    def with_group(self, group_id):
+        return self.filter(branch_id=group_id)
 
 
 class DeviceManager(models.Manager.from_queryset(DeviceQuerySet)):
@@ -28,14 +34,20 @@ def _branch_permission_codename(branch_name):
     return f'view_{branch_name.lower().replace(" ", "_")}'
 
 
+def _group_permission_codename(group_name):
+    return _branch_permission_codename(group_name)
+
+
 
 class Branch(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
-    
+
     class Meta:
         managed = True
         db_table = 'branch'
+        verbose_name = 'Group'
+        verbose_name_plural = 'Groups'
 
     def __str__(self):
         if self.parent:
@@ -99,15 +111,15 @@ def create_branch_permission_on_save(sender, instance, **kwargs):
         if not still_used:
             _delete_branch_permission(previous_name)
 
-from functools import cached_property
-
 class Ats(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
     subnet = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
-    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, verbose_name='Group')
     class Meta:
         managed = True
         db_table = 'ats'
+        verbose_name = 'Subgroup'
+        verbose_name_plural = 'Subgroups'
         unique_together = (('name', 'subnet'),)
 
     def __str__(self):
@@ -141,7 +153,7 @@ class Ats(models.Model):
 
 class Vendor(models.Model):
     name = models.CharField(max_length=200)
-    
+
     class Meta:
         managed = True
         db_table = 'vendor'
@@ -164,20 +176,20 @@ class DeviceModel(models.Model):
     duplex_oid = models.CharField(max_length=200, null=True, blank=True)
     admin_state_oid = models.CharField(max_length=200, null=True, blank=True)
     oper_state_oid = models.CharField(max_length=200, null=True, blank=True)
-    
+
     class Meta:
         managed = True
         db_table = 'device_type'
         unique_together = (('vendor', 'device_model'),)
-    
-    
+
+
     def __str__(self):
         return self.device_model
 
 
 
-    
-    
+
+
 class DevicePort(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
     managed_device = models.ForeignKey('Device', models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
@@ -204,12 +216,12 @@ class DevicePort(models.Model):
     sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
     part_number = models.CharField(max_length=50, null=True, blank=True)
     mac_on_port = models.ForeignKey("Mac", models.DO_NOTHING, blank=False, null=False, default=0)
-    
+
     class Meta:
         managed = True
         db_table = 'device_ports'
         unique_together = (('managed_device', 'port'),)
-        
+
 class DeviceNeighbor(models.Model):
     mac1 = models.CharField(max_length=17)
     port1 = models.SmallIntegerField()
@@ -330,7 +342,7 @@ class Device(models.Model):
     snmp_version = models.CharField(max_length=4, choices=SnmpVersion.choices, default=SnmpVersion.V2C)
     auth_profile = models.CharField(max_length=120, blank=True, default="")
     status = models.BooleanField(default=False)
-    
+
     # Legacy Device integration fields
     device_type = models.ForeignKey('DeviceModel', on_delete=models.SET_NULL, blank=True, null=True)
     uptime = models.CharField(max_length=200, blank=True, null=True)
@@ -339,15 +351,15 @@ class Device(models.Model):
     snmp_community_rw = models.CharField(max_length=100, null=True, blank=True)
     neighbor = models.ForeignKey("DeviceNeighbor", on_delete=models.SET_NULL, blank=True, null=True)
     parent_port = models.ForeignKey("DevicePort", on_delete=models.SET_NULL, blank=True, null=True, related_name='parent_devices')
-    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True)
-    ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True)
+    branch = models.ForeignKey("Branch", on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Group')
+    ats = models.ForeignKey('Ats', on_delete=models.SET_NULL, null=True, verbose_name='Subgroup')
     soft_version = models.CharField(max_length=80, blank=True, null=True)
     serial_number = models.CharField(unique=True, max_length=100, null=True, blank=True)
     rx_signal = models.FloatField(null=True, blank=True)
     tx_signal = models.FloatField(null=True, blank=True)
     sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
     part_number = models.CharField(max_length=50, null=True, blank=True)
-    
+
     profile = models.ForeignKey('DeviceProfile', on_delete=models.SET_NULL, null=True, blank=True)
     last_discovered_at = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -361,6 +373,8 @@ class Device(models.Model):
             models.Index(fields=['vendor', 'model']),
             models.Index(fields=['status', 'updated']),
             models.Index(fields=['ip', 'hostname']),
+            models.Index(fields=['branch', 'status', 'updated']),
+            models.Index(fields=['profile', 'status']),
         ]
 
     def __str__(self):
@@ -368,6 +382,22 @@ class Device(models.Model):
 
     def effective_snmp_community(self):
         return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
+
+    @property
+    def group(self):
+        return self.branch
+
+    @group.setter
+    def group(self, value):
+        self.branch = value
+
+    @property
+    def subgroup(self):
+        return self.ats
+
+    @subgroup.setter
+    def subgroup(self, value):
+        self.ats = value
 
 
 class MetricBinding(models.Model):
@@ -446,7 +476,11 @@ class MetricSubscription(models.Model):
     enabled = models.BooleanField(default=True)
     warn_threshold = models.FloatField(null=True, blank=True)
     crit_threshold = models.FloatField(null=True, blank=True)
-    poll_interval_sec = models.PositiveIntegerField(null=True, blank=True)
+    poll_interval_sec = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(5), MaxValueValidator(86400)],
+    )
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
@@ -456,6 +490,7 @@ class MetricSubscription(models.Model):
         indexes = [
             models.Index(fields=['device', 'enabled']),
             models.Index(fields=['metric', 'enabled']),
+            models.Index(fields=['device', 'interface', 'enabled']),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -468,12 +503,31 @@ class MetricSubscription(models.Model):
                 condition=Q(interface__isnull=False),
                 name='uq_subscription_interface_metric',
             ),
+            models.CheckConstraint(
+                check=Q(poll_interval_sec__isnull=True) | Q(poll_interval_sec__gte=5),
+                name='chk_subscription_poll_interval_gte_5',
+            ),
         ]
 
     def __str__(self):
         if self.interface_id:
             return f"{self.device}:{self.interface.if_index}:{self.metric.key}"
         return f"{self.device}:{self.metric.key}"
+
+    def threshold_direction(self) -> str:
+        if not self.binding_id:
+            return AlertRule.Direction.LOWER_IS_WORSE
+        return self.binding.binding_params.get('threshold_direction', AlertRule.Direction.LOWER_IS_WORSE)
+
+    def validate_thresholds(self, warn_value=None, crit_value=None):
+        if warn_value is None or crit_value is None:
+            return None
+        direction = self.threshold_direction()
+        if direction == AlertRule.Direction.HIGHER_IS_WORSE and crit_value < warn_value:
+            return 'crit_threshold must be >= warn_threshold'
+        if direction != AlertRule.Direction.HIGHER_IS_WORSE and crit_value > warn_value:
+            return 'crit_threshold must be <= warn_threshold'
+        return None
 
 
 class MetricSample(models.Model):
@@ -495,6 +549,8 @@ class MetricSample(models.Model):
         indexes = [
             models.Index(fields=['subscription', 'ts']),
             models.Index(fields=['quality', 'ts']),
+            models.Index(fields=['ts', 'id']),
+            models.Index(fields=['subscription', 'quality', 'ts']),
         ]
 
     def __str__(self):
@@ -565,6 +621,5 @@ Device = Device
 DeviceModel = DeviceModel
 DevicePort = DevicePort
 DeviceNeighbor = DeviceNeighbor
-
-
-
+Group = Branch
+SubGroup = Ats

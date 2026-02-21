@@ -16,11 +16,17 @@ class DeviceOnboardSerializer(serializers.Serializer):
 
 
 class DeviceSerializer(serializers.ModelSerializer):
+    group_id = serializers.IntegerField(source='branch_id', read_only=True)
+    subgroup_id = serializers.IntegerField(source='ats_id', read_only=True)
+    group_name = serializers.CharField(source='branch.name', read_only=True)
+    subgroup_name = serializers.CharField(source='ats.name', read_only=True)
+
     class Meta:
         model = Device
         fields = [
             'id', 'ip', 'hostname', 'vendor', 'model', 'firmware', 'sys_object_id',
             'snmp_version', 'auth_profile', 'status', 'profile_id', 'last_discovered_at',
+            'group_id', 'subgroup_id', 'group_name', 'subgroup_name',
         ]
 
 
@@ -37,6 +43,8 @@ class MetricSubscriptionSerializer(serializers.ModelSerializer):
 
 
 class MetricSubscriptionPatchSerializer(serializers.ModelSerializer):
+    poll_interval_sec = serializers.IntegerField(required=False, allow_null=True, min_value=5, max_value=86400)
+
     class Meta:
         model = MetricSubscription
         fields = ['enabled', 'warn_threshold', 'crit_threshold', 'poll_interval_sec']

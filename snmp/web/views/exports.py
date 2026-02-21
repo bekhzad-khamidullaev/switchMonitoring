@@ -11,7 +11,7 @@ from openpyxl import Workbook
 from snmp.models import Device as DeviceModel
 from snmp.models import DevicePort, Mac
 
-from .access import get_permitted_branches
+from .access import get_permitted_groups
 
 _illegal_xml_chars_re = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
@@ -33,18 +33,18 @@ def export_low_signal_devices_to_excel(request):
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'Low Signal Devices'
-    worksheet.append(['Branch', 'ATS', 'Hostname', 'IP', 'Model', 'Uptime', 'RX', 'TX', 'Last check'])
+    worksheet.append(['Group', 'Subgroup', 'Hostname', 'IP', 'Model', 'Uptime', 'RX', 'TX', 'Last check'])
 
-    permitted_branches = get_permitted_branches(request.user)
+    permitted_groups = get_permitted_groups(request.user)
     items = (
-        DeviceModel.objects.filter(rx_signal__lte=-11, branch__in=permitted_branches)
+        DeviceModel.objects.filter(rx_signal__lte=-11, branch__in=permitted_groups)
         .select_related('ats', 'ats__branch', 'device_type')
         .order_by('rx_signal')
     )
 
     for item in items:
-        branch_name = sanitize_for_excel(item.branch.name if item.branch_id else '')
-        ats_name = sanitize_for_excel(item.ats.name if item.ats_id else '')
+        group_name = sanitize_for_excel(item.branch.name if item.branch_id else '')
+        subgroup_name = sanitize_for_excel(item.ats.name if item.ats_id else '')
         hostname = sanitize_for_excel(item.hostname)
         ip_address = sanitize_for_excel(item.ip)
         model_name = sanitize_for_excel(item.device_type.device_model if item.device_type else '')
@@ -53,8 +53,8 @@ def export_low_signal_devices_to_excel(request):
 
         worksheet.append(
             [
-                branch_name,
-                ats_name,
+                group_name,
+                subgroup_name,
                 hostname,
                 ip_address,
                 model_name,
@@ -72,9 +72,9 @@ def export_low_signal_devices_to_excel(request):
 @login_required
 @permission_required('snmp.view_device', raise_exception=True)
 def port_activity_report(request):
-    permitted_branches = get_permitted_branches(request.user)
+    permitted_groups = get_permitted_groups(request.user)
     queryset = (
-        DevicePort.objects.filter(managed_device__branch__in=permitted_branches)
+        DevicePort.objects.filter(managed_device__branch__in=permitted_groups)
         .select_related('managed_device', 'managed_device__branch')
         .annotate(
             last_mac=Subquery(

@@ -14,7 +14,7 @@ from snmp.models import Device, DeviceModel
 
 from .access import (
     convert_uptime_to_human_readable,
-    get_permitted_branches,
+    get_permitted_groups,
     user_can_access_device,
 )
 
@@ -96,10 +96,10 @@ def update_device_ports_data(request, pk):
 
 @login_required
 def devices_offline(request):
-    user_permitted_branches = get_permitted_branches(request.user)
+    user_permitted_groups = get_permitted_groups(request.user)
     offline_items = Device.objects.filter(
         status=False,
-        branch__in=user_permitted_branches,
+        branch__in=user_permitted_groups,
     ).order_by('ats')
 
     search_query = request.GET.get('search')
@@ -125,11 +125,11 @@ def devices_offline(request):
 
 @login_required
 def devices_high_signal_15(request):
-    user_permitted_branches = get_permitted_branches(request.user)
+    user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-15,
         rx_signal__gt=-20,
-        branch__in=user_permitted_branches,
+        branch__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -154,11 +154,11 @@ def devices_high_signal_15(request):
 
 @login_required
 def devices_high_signal_10(request):
-    user_permitted_branches = get_permitted_branches(request.user)
+    user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-11,
         rx_signal__gt=-15,
-        branch__in=user_permitted_branches,
+        branch__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -183,10 +183,10 @@ def devices_high_signal_10(request):
 
 @login_required
 def devices_high_signal_20(request):
-    user_permitted_branches = get_permitted_branches(request.user)
+    user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-20,
-        branch__in=user_permitted_branches,
+        branch__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')
@@ -211,10 +211,10 @@ def devices_high_signal_20(request):
 
 @login_required
 def devices_high_signal_11(request):
-    user_permitted_branches = get_permitted_branches(request.user)
+    user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
         rx_signal__lte=-11,
-        branch__in=user_permitted_branches,
+        branch__in=user_permitted_groups,
     ).order_by('rx_signal')
 
     search_query = request.GET.get('search')

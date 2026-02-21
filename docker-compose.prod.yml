@@ -47,6 +47,7 @@ services:
       LOG_LEVEL: "INFO"
       USE_X_FORWARDED_PROTO: "1"
       RUN_MIGRATIONS: "1"
+      SEED_DEVICE_PROFILES_ON_DEPLOY: "1"
       RUN_COLLECTSTATIC: "1"
     volumes:
       - static_data:/app/static_files

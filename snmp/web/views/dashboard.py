@@ -5,18 +5,18 @@ from django.urls import reverse
 
 from snmp.models import Device, DeviceNeighbor, DevicePort
 
-from .access import get_permitted_branches, user_has_global_device_access
+from .access import get_permitted_groups, user_has_global_device_access
 
 
 @login_required
 def devices_updown(request):
-    user_permitted_branches = get_permitted_branches(request.user)
-    devices_online = Device.objects.filter(status=True, branch__in=user_permitted_branches).count()
-    devices_offline = Device.objects.filter(status=False, branch__in=user_permitted_branches).count()
-    high_signal_20 = Device.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_branches).count()
-    high_signal_15 = Device.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, branch__in=user_permitted_branches).count()
-    high_signal_10 = Device.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_branches).count()
-    high_signal_11 = Device.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_branches).count()
+    user_permitted_groups = get_permitted_groups(request.user)
+    devices_online = Device.objects.filter(status=True, branch__in=user_permitted_groups).count()
+    devices_offline = Device.objects.filter(status=False, branch__in=user_permitted_groups).count()
+    high_signal_20 = Device.objects.filter(rx_signal__lte=-20, branch__in=user_permitted_groups).count()
+    high_signal_15 = Device.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, branch__in=user_permitted_groups).count()
+    high_signal_10 = Device.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, branch__in=user_permitted_groups).count()
+    high_signal_11 = Device.objects.filter(rx_signal__lte=-11, branch__in=user_permitted_groups).count()
 
     return render(
         request,
@@ -56,8 +56,8 @@ def _build_host_topology(user):
         devices = Device.objects.all()
         neighbors = DeviceNeighbor.objects.all()
     else:
-        permitted_branches = get_permitted_branches(user)
-        devices = Device.objects.filter(branch__in=permitted_branches)
+        permitted_groups = get_permitted_groups(user)
+        devices = Device.objects.filter(branch__in=permitted_groups)
         device_macs = devices.exclude(switch_mac__isnull=True).exclude(switch_mac='').values_list('switch_mac', flat=True)
         neighbors = DeviceNeighbor.objects.filter(mac1__in=device_macs, mac2__in=device_macs)
 
@@ -76,7 +76,7 @@ def _build_host_topology(user):
                 'ip': str(device.ip or ''),
                 'status': bool(device.status),
                 'mac': mac,
-                'branch': device.branch.name if device.branch_id and device.branch else '',
+                'group': device.branch.name if device.branch_id and device.branch else '',
                 'detail_url': reverse('device_detail', args=[device.pk]),
             }
         )

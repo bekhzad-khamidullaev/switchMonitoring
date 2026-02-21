@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import ContentType, Permission, User
 from django.test import TestCase
+from django.utils import timezone
 
 from snmp.models import (
     Branch,
@@ -124,3 +125,47 @@ class ApiIntegrationTests(TestCase):
 
         allowed = self.client.get(f"/snmp/api/devices/{device.id}/metrics")
         self.assertEqual(allowed.status_code, 200)
+
+    def test_api_device_metrics_supports_enabled_limit_and_offset(self):
+        device = Device.objects.create(hostname="sw-10", ip="10.0.10.2")
+        metric1 = MetricDefinition.objects.create(key="m_enabled_1", title="Enabled 1")
+        metric2 = MetricDefinition.objects.create(key="m_disabled_1", title="Disabled 1")
+        metric3 = MetricDefinition.objects.create(key="m_enabled_2", title="Enabled 2")
+
+        MetricSubscription.objects.create(device=device, metric=metric1, enabled=True)
+        MetricSubscription.objects.create(device=device, metric=metric2, enabled=False)
+        MetricSubscription.objects.create(device=device, metric=metric3, enabled=True)
+
+        response = self.client.get(
+            f"/snmp/api/devices/{device.id}/metrics",
+            data={"enabled": "true", "limit": 1, "offset": 1},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["enabled"], True)
+
+    def test_api_device_timeseries_validates_if_index_and_before(self):
+        device = Device.objects.create(hostname="sw-ts", ip="10.0.20.2")
+        interface = Interface.objects.create(device=device, if_index=101, if_name="ge0/0/1")
+        metric = MetricDefinition.objects.create(key="rx_power_dbm_ts", title="RX Power TS")
+        subscription = MetricSubscription.objects.create(device=device, interface=interface, metric=metric, enabled=True)
+
+        ts_old = timezone.now() - timezone.timedelta(minutes=5)
+        ts_new = timezone.now()
+        MetricSample.objects.create(subscription=subscription, ts=ts_old, value_float=-12.5, quality=MetricSample.Quality.GOOD)
+        MetricSample.objects.create(subscription=subscription, ts=ts_new, value_float=-12.0, quality=MetricSample.Quality.GOOD)
+
+        bad_if_index = self.client.get(
+            f"/snmp/api/devices/{device.id}/timeseries",
+            data={"if_index": "abc"},
+        )
+        self.assertEqual(bad_if_index.status_code, 400)
+
+        filtered = self.client.get(
+            f"/snmp/api/devices/{device.id}/timeseries",
+            data={"if_index": 101, "before": ts_new.isoformat(), "limit": 10},
+        )
+        self.assertEqual(filtered.status_code, 200)
+        payload = filtered.json()
+        self.assertEqual(len(payload), 1)

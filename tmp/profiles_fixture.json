@@ -1,0 +1,2021 @@
+[
+{
+  "model": "snmp.metricdefinition",
+  "pk": 1,
+  "fields": {
+    "key": "if_oper_status",
+    "title": "Interface Oper Status",
+    "description": "Interface Oper Status",
+    "unit": "",
+    "value_type": "int",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 2,
+  "fields": {
+    "key": "if_hc_in_octets",
+    "title": "Interface In Octets (64-bit)",
+    "description": "Interface In Octets (64-bit)",
+    "unit": "octets",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 3,
+  "fields": {
+    "key": "if_hc_out_octets",
+    "title": "Interface Out Octets (64-bit)",
+    "description": "Interface Out Octets (64-bit)",
+    "unit": "octets",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 4,
+  "fields": {
+    "key": "cpu_usage",
+    "title": "CPU Usage",
+    "description": "CPU utilization percentage",
+    "unit": "%",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 5,
+  "fields": {
+    "key": "memory_usage",
+    "title": "Memory Usage",
+    "description": "Memory utilization percentage",
+    "unit": "%",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 6,
+  "fields": {
+    "key": "device_temperature",
+    "title": "Temperature",
+    "description": "Internal device temperature",
+    "unit": "C",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 7,
+  "fields": {
+    "key": "sys_uptime",
+    "title": "System Uptime",
+    "description": "Time since last reboot",
+    "unit": "timeticks",
+    "value_type": "int",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 8,
+  "fields": {
+    "key": "active_sessions",
+    "title": "Active Sessions",
+    "description": "Number of active firewall or VPN sessions",
+    "unit": "sessions",
+    "value_type": "int",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 9,
+  "fields": {
+    "key": "optical_rx_power",
+    "title": "Optical RX Power",
+    "description": "Optical receiver power level",
+    "unit": "dBm",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.metricdefinition",
+  "pk": 10,
+  "fields": {
+    "key": "optical_tx_power",
+    "title": "Optical TX Power",
+    "description": "Optical transmitter power level",
+    "unit": "dBm",
+    "value_type": "float",
+    "default_interval_sec": 300
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 4,
+  "fields": {
+    "vendor": "mikrotik",
+    "model_pattern": "RB|CCR|CRS",
+    "firmware_pattern": "",
+    "priority": 70,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 5,
+  "fields": {
+    "vendor": "d-link",
+    "model_pattern": "DGS|DES",
+    "firmware_pattern": "",
+    "priority": 80,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 6,
+  "fields": {
+    "vendor": "generic",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 1000,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 7,
+  "fields": {
+    "vendor": "cisco",
+    "model_pattern": "Catalyst|Nexus|Catalyst|Nexus|ISR|ASR",
+    "firmware_pattern": "",
+    "priority": 60,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 8,
+  "fields": {
+    "vendor": "juniper",
+    "model_pattern": "EX\\d+|MX\\d+|SRX\\d+|QFX\\d+",
+    "firmware_pattern": "",
+    "priority": 90,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 9,
+  "fields": {
+    "vendor": "fortinet",
+    "model_pattern": "FORTINET|FortiGate",
+    "firmware_pattern": "",
+    "priority": 100,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 11,
+  "fields": {
+    "vendor": "paloalto",
+    "model_pattern": "PA-\\d+",
+    "firmware_pattern": "",
+    "priority": 120,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 12,
+  "fields": {
+    "vendor": "ubnt",
+    "model_pattern": "EdgeRouter|EdgeSwitch|UniFi",
+    "firmware_pattern": "",
+    "priority": 130,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 13,
+  "fields": {
+    "vendor": "zyxel",
+    "model_pattern": "415AAKY2C0|ZYXEL|GS\\d+|XGS\\d+",
+    "firmware_pattern": "",
+    "priority": 140,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 14,
+  "fields": {
+    "vendor": "huawei",
+    "model_pattern": "S[356]\\d{3}",
+    "firmware_pattern": "",
+    "priority": 50,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 15,
+  "fields": {
+    "vendor": "extreme",
+    "model_pattern": "Summit|BlackDiamond|X\\d+",
+    "firmware_pattern": "",
+    "priority": 150,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 16,
+  "fields": {
+    "vendor": "allied",
+    "model_pattern": "x\\d+|AT-\\d+",
+    "firmware_pattern": "",
+    "priority": 160,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 17,
+  "fields": {
+    "vendor": "dell",
+    "model_pattern": "10892|PowerConnect|N\\d+|S\\d+",
+    "firmware_pattern": "",
+    "priority": 170,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 18,
+  "fields": {
+    "vendor": "brocade",
+    "model_pattern": "ICX|FCX|V\\d+",
+    "firmware_pattern": "",
+    "priority": 180,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 20,
+  "fields": {
+    "vendor": "organization",
+    "model_pattern": "SYMBOL",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 21,
+  "fields": {
+    "vendor": "netapp",
+    "model_pattern": "NETAPP",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 22,
+  "fields": {
+    "vendor": "hp",
+    "model_pattern": "8023R|L3M|USBP|Aruba|ProCurve|OfficeConnect",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 23,
+  "fields": {
+    "vendor": "ietf-rmon-mib-working-group",
+    "model_pattern": "RMON|RMON2",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 24,
+  "fields": {
+    "vendor": "netgear-mib",
+    "model_pattern": "1611|1612|2925|BRIDGE|D13|NETGEAR|RMON2|SNMP|TOKEN",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 25,
+  "fields": {
+    "vendor": "timetra",
+    "model_pattern": "TIMETRA",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 26,
+  "fields": {
+    "vendor": "r",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 27,
+  "fields": {
+    "vendor": "i",
+    "model_pattern": "FORWARD|IGMP|IMA|INET|INT|INTEGRATED|INTERFACETOPN|INVERTED|IPMCAST|IPMROUTE|IPSEC|IPV6|ISDN|ISIS|ITU|MIB",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 28,
+  "fields": {
+    "vendor": "n",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 29,
+  "fields": {
+    "vendor": "s",
+    "model_pattern": "SCTE|SFLOW|SMON|SMUX|SNA|SNMP|SONET|SOURCE|SPR08061|SPS08061|SQUID|SRM|SS7VIEW|SUN|SYSAPPL|SYSLOG",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 31,
+  "fields": {
+    "vendor": "h",
+    "model_pattern": "ALARM|H221|HCNUM|HDSL2|HOST|MIB|RMON",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 32,
+  "fields": {
+    "vendor": "ibm",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 33,
+  "fields": {
+    "vendor": "altiga",
+    "model_pattern": "ADMIN|ALTIGA",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 34,
+  "fields": {
+    "vendor": "ericsson",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 35,
+  "fields": {
+    "vendor": "symbol-wsd-wireless-infrastructure-division-san-jose",
+    "model_pattern": "SYMBOL",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 36,
+  "fields": {
+    "vendor": "netvanta",
+    "model_pattern": "1253|1657|3433|7577|AOSD|AOSF|AOSI|AOSM|AOSN|AOSO|AOSP|AOSS|AOSV|BRIDGE|CPU|DS1|HCNUM|HDSL2|IANA|IEEE8021|LLDP|MAU|MEF|MIB|RMON|RMON2|SNMP|VDSL2|VQM|Y1731",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 38,
+  "fields": {
+    "vendor": "ietf-host-resources-mib-working-group",
+    "model_pattern": "HOST",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 39,
+  "fields": {
+    "vendor": "junos",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 40,
+  "fields": {
+    "vendor": "alcatel",
+    "model_pattern": ".*",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 41,
+  "fields": {
+    "vendor": "cisco-systems-inc",
+    "model_pattern": "ADMIN|ALTIGA|BASIS|CISCO|CISCOWAN|CISCOWORKS|DIFFSERV|DOCS|ISIS|MPLS|ONS15501",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 42,
+  "fields": {
+    "vendor": "b",
+    "model_pattern": "2051|7000|BTI|BTI7800",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 43,
+  "fields": {
+    "vendor": "l",
+    "model_pattern": "LAN|LANGTAG|LISP|LLDP|LS100|LS2020|LSBBN|SENSORS",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 45,
+  "fields": {
+    "vendor": "p",
+    "model_pattern": "430|ATM|BRIDGE|ENET|MIB|MPLS|PIM|PKTC|PNNI|POWER|PPP|PTOPO|PULSESECURE|STD|TDM",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 46,
+  "fields": {
+    "vendor": "w",
+    "model_pattern": "1000|WBSN|WEBMON|WWW",
+    "firmware_pattern": "",
+    "priority": 250,
+    "active": true
+  }
+},
+{
+  "model": "snmp.deviceprofile",
+  "pk": 47,
+  "fields": {
+    "vendor": "snr",
+    "model_pattern": "SNR-S.*",
+    "firmware_pattern": "",
+    "priority": 200,
+    "active": true
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 9,
+  "fields": {
+    "profile": 4,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.14988.1.1.3.10.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 10,
+  "fields": {
+    "profile": 4,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.14988.1.1.3.11.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 11,
+  "fields": {
+    "profile": 4,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.14988.1.1.3.13.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 12,
+  "fields": {
+    "profile": 5,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.171.12.1.1.6.2.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 13,
+  "fields": {
+    "profile": 5,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.171.12.1.1.6.1.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 14,
+  "fields": {
+    "profile": 6,
+    "metric": 7,
+    "oid_template": "1.3.6.1.2.1.1.3.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 15,
+  "fields": {
+    "profile": 7,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.9.9.109.1.1.1.1.3.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 16,
+  "fields": {
+    "profile": 7,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.9.9.48.1.1.1.6.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 17,
+  "fields": {
+    "profile": 8,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.2636.3.1.13.1.8.9.1.0.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 18,
+  "fields": {
+    "profile": 8,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.2636.3.1.13.1.11.9.1.0.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 19,
+  "fields": {
+    "profile": 8,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.2636.3.1.13.1.7.9.1.0.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 20,
+  "fields": {
+    "profile": 9,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.12356.101.4.1.3.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 21,
+  "fields": {
+    "profile": 9,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.12356.101.4.1.4.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 22,
+  "fields": {
+    "profile": 9,
+    "metric": 8,
+    "oid_template": "1.3.6.1.4.1.12356.101.4.1.8.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 23,
+  "fields": {
+    "profile": 22,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.11.2.14.11.5.1.9.6.1.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 24,
+  "fields": {
+    "profile": 11,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.25461.2.1.2.1.1.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 25,
+  "fields": {
+    "profile": 11,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.25461.2.1.2.1.2.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 26,
+  "fields": {
+    "profile": 11,
+    "metric": 8,
+    "oid_template": "1.3.6.1.4.1.25461.2.1.2.1.3.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 27,
+  "fields": {
+    "profile": 12,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.41112.1.4.1.1.4.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 28,
+  "fields": {
+    "profile": 12,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.41112.1.4.1.1.6.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 29,
+  "fields": {
+    "profile": 13,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.890.1.15.3.2.4.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 30,
+  "fields": {
+    "profile": 13,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.890.1.15.3.2.5.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 31,
+  "fields": {
+    "profile": 14,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.5.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 32,
+  "fields": {
+    "profile": 14,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.7.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 33,
+  "fields": {
+    "profile": 14,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 34,
+  "fields": {
+    "profile": 14,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.2011.5.25.31.1.1.3.1.32",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 35,
+  "fields": {
+    "profile": 14,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.2011.5.25.31.1.1.3.1.33",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 36,
+  "fields": {
+    "profile": 7,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.9.9.91.1.1.1.1.4",
+    "index_strategy": "vendor_map",
+    "converter": "div10",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 37,
+  "fields": {
+    "profile": 7,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.9.9.91.1.1.1.1.4",
+    "index_strategy": "vendor_map",
+    "converter": "div10",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 38,
+  "fields": {
+    "profile": 4,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.14988.1.1.14.1.1.2",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 39,
+  "fields": {
+    "profile": 4,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.14988.1.1.14.1.1.5",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 40,
+  "fields": {
+    "profile": 8,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.2636.3.60.1.1.1.1.5",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 41,
+  "fields": {
+    "profile": 8,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.2636.3.60.1.1.1.1.6",
+    "index_strategy": "if_index",
+    "converter": "div100",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 42,
+  "fields": {
+    "profile": 15,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.1916.1.1.1.28.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 43,
+  "fields": {
+    "profile": 15,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.1916.1.1.1.29.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 44,
+  "fields": {
+    "profile": 15,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.1916.1.1.1.22.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 45,
+  "fields": {
+    "profile": 16,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.294.1.1.1.1.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 46,
+  "fields": {
+    "profile": 16,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.294.1.1.1.2.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 47,
+  "fields": {
+    "profile": 17,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.674.10895.5000.2.6132.1.1.1.1.4.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 48,
+  "fields": {
+    "profile": 17,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.674.10895.5000.2.6132.1.1.1.1.4.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 49,
+  "fields": {
+    "profile": 18,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.1991.1.1.2.1.50.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 50,
+  "fields": {
+    "profile": 18,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.1991.1.1.2.1.53.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 51,
+  "fields": {
+    "profile": 40,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.648.1.5.2.1.1.1.11.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 52,
+  "fields": {
+    "profile": 40,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.648.1.5.2.1.1.1.1.3.0",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 53,
+  "fields": {
+    "profile": 20,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.388.6.16.2.1.1.13",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 54,
+  "fields": {
+    "profile": 21,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.789.1.2.1.3",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 55,
+  "fields": {
+    "profile": 21,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.789.1.8.3.13.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 56,
+  "fields": {
+    "profile": 21,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.789.1.21.1.2.1.19",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 57,
+  "fields": {
+    "profile": 22,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.11.2.14.11.5.1.9.8.1.1.5",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 58,
+  "fields": {
+    "profile": 22,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.11.2.14.11.5.1.9.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 59,
+  "fields": {
+    "profile": 22,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.795.10.1.50.24",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 60,
+  "fields": {
+    "profile": 23,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 61,
+  "fields": {
+    "profile": 24,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 62,
+  "fields": {
+    "profile": 25,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.6527.3.1.2.2.4.31.1.16",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 63,
+  "fields": {
+    "profile": 25,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.6527.3.1.2.2.4.31.1.21",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 64,
+  "fields": {
+    "profile": 25,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.6527.3.1.2.2.1.8.1.17",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 65,
+  "fields": {
+    "profile": 26,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 66,
+  "fields": {
+    "profile": 26,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.10728.2.16.1.13",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 67,
+  "fields": {
+    "profile": 27,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.562.14.2.7.6.19",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 68,
+  "fields": {
+    "profile": 28,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.5528.100.10.2.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 69,
+  "fields": {
+    "profile": 28,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.789.1.21.1.2.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 70,
+  "fields": {
+    "profile": 28,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.789.1.8.3.13.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 71,
+  "fields": {
+    "profile": 29,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.5591.1.4.2.1.7",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 72,
+  "fields": {
+    "profile": 29,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.42.2.1.2.1.35",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 73,
+  "fields": {
+    "profile": 29,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.42.2.1.2.1.53",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 74,
+  "fields": {
+    "profile": 29,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.42.2.1.3.3.6.1.2",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 75,
+  "fields": {
+    "profile": 29,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.42.2.1.3.3.6.1.2",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 76,
+  "fields": {
+    "profile": 17,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.674.10893.1.1.130.11.1.11",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 77,
+  "fields": {
+    "profile": 17,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.412.2.4.33.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 78,
+  "fields": {
+    "profile": 31,
+    "metric": 4,
+    "oid_template": "1.3.6.1.2.1.25.3.3.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 79,
+  "fields": {
+    "profile": 32,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.2.6.2.4.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 80,
+  "fields": {
+    "profile": 32,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.2.6.2.13.1.7.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 81,
+  "fields": {
+    "profile": 33,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.3076.2.1.2.25.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 82,
+  "fields": {
+    "profile": 34,
+    "metric": 4,
+    "oid_template": "1.3.6.1.2.1.25.3.3.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 83,
+  "fields": {
+    "profile": 34,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 84,
+  "fields": {
+    "profile": 35,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.388.11.2.4.2.1.1.13",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 85,
+  "fields": {
+    "profile": 35,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.388.11.3.9.9.1.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 86,
+  "fields": {
+    "profile": 36,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 87,
+  "fields": {
+    "profile": 13,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.890.1.6.22.1.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 88,
+  "fields": {
+    "profile": 38,
+    "metric": 4,
+    "oid_template": "1.3.6.1.2.1.25.3.3.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 89,
+  "fields": {
+    "profile": 39,
+    "metric": 4,
+    "oid_template": "1.3.6.1.2.1.25.3.3.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 90,
+  "fields": {
+    "profile": 39,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 91,
+  "fields": {
+    "profile": 40,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.637.61.1.39.3.6.2.1.11",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 92,
+  "fields": {
+    "profile": 40,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.637.61.1.39.3.6.5.1.18",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 93,
+  "fields": {
+    "profile": 40,
+    "metric": 5,
+    "oid_template": "1.3.6.1.2.1.16.8.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 94,
+  "fields": {
+    "profile": 40,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.6527.3.1.2.2.1.8.1.17",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 95,
+  "fields": {
+    "profile": 41,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.3076.2.1.2.25.1.2",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 96,
+  "fields": {
+    "profile": 42,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.18070.2.2.1.6.1.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 97,
+  "fields": {
+    "profile": 42,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.18070.2.2.1.4.1.1.37",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 98,
+  "fields": {
+    "profile": 42,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.18070.2.2.1.4.1.1.37",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 99,
+  "fields": {
+    "profile": 42,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.18070.2.2.1.6.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 100,
+  "fields": {
+    "profile": 43,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.711.2.1.11.1.1.6",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 101,
+  "fields": {
+    "profile": 9,
+    "metric": 4,
+    "oid_template": "1.3.6.1.4.1.12356.100.1.1.1.6.1",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 102,
+  "fields": {
+    "profile": 9,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.12356.100.1.1.1.6.4",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 103,
+  "fields": {
+    "profile": 45,
+    "metric": 6,
+    "oid_template": "1.3.6.1.4.1.318.1.1.10.4.2.5.1.11",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 104,
+  "fields": {
+    "profile": 45,
+    "metric": 5,
+    "oid_template": "1.3.6.1.4.1.318.1.1.13.5.3.4.45",
+    "index_strategy": "fixed",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 105,
+  "fields": {
+    "profile": 46,
+    "metric": 10,
+    "oid_template": "1.3.6.1.4.1.4458.1000.1.1.51.2",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+},
+{
+  "model": "snmp.metricbinding",
+  "pk": 106,
+  "fields": {
+    "profile": 46,
+    "metric": 9,
+    "oid_template": "1.3.6.1.4.1.4458.1000.1.5.9.1",
+    "index_strategy": "if_index",
+    "converter": "identity",
+    "binding_params": {},
+    "scale": 1.0,
+    "enabled_by_default": true,
+    "priority": 100
+  }
+}
+]

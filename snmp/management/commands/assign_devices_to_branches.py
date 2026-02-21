@@ -1,8 +1,10 @@
 from django.core.management.base import BaseCommand
+
 from snmp.models import Ats, Device
 
+
 class Command(BaseCommand):
-    help = 'Assign devices to branches based on their IP addresses'
+    help = 'Assign devices to groups/subgroups based on their IP addresses'
 
     def handle(self, *args, **options):
         devices = Device.objects.all()
@@ -15,5 +17,5 @@ class Command(BaseCommand):
                     device.branch = ats.branch
                     device.ats = ats
                     device.save()
-                    self.stdout.write(self.style.SUCCESS(f'Device {device.id} assigned to branch {ats.name}'))
+                    self.stdout.write(self.style.SUCCESS(f'Device {device.id} assigned to subgroup {ats.name}'))
                     break

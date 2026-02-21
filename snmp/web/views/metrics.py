@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from snmp.models import Device, MetricSubscription
+from snmp.models import Device, MetricSample, MetricSubscription
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 from snmp.services.metrics.registry import get_active_bindings_for_device
@@ -16,18 +16,12 @@ from .access import user_can_access_device
 
 
 def _validate_thresholds(subscription: MetricSubscription, warn_value, crit_value):
-    if warn_value is None or crit_value is None:
-        return None
-
-    direction = 'lower_is_worse'
-    if subscription.binding_id:
-        direction = subscription.binding.binding_params.get('threshold_direction', direction)
-
-    if direction == 'higher_is_worse' and crit_value < warn_value:
+    threshold_error = subscription.validate_thresholds(warn_value=warn_value, crit_value=crit_value)
+    if threshold_error == 'crit_threshold must be >= warn_threshold':
         return 'Critical threshold must be greater than or equal to warning threshold.'
-    if direction != 'higher_is_worse' and crit_value > warn_value:
+    if threshold_error == 'crit_threshold must be <= warn_threshold':
         return 'Critical threshold must be less than or equal to warning threshold.'
-    return None
+    return threshold_error
 
 
 @login_required
@@ -174,25 +168,29 @@ def export_device_metrics_csv(request, pk):
     except ValueError:
         limit_value = 1000
 
-    queryset = device.subscriptions.select_related('metric', 'interface').prefetch_related('samples')
+    queryset = (
+        MetricSample.objects
+        .filter(subscription__device=device)
+        .select_related('subscription', 'subscription__metric', 'subscription__interface')
+    )
     if metric:
-        queryset = queryset.filter(metric__key=metric)
+        queryset = queryset.filter(subscription__metric__key=metric)
     if if_index:
-        queryset = queryset.filter(interface__if_index=if_index)
+        try:
+            if_index_value = int(if_index)
+        except ValueError:
+            if_index_value = None
+        if if_index_value is not None:
+            queryset = queryset.filter(subscription__interface__if_index=if_index_value)
 
-    samples = []
-    for subscription in queryset:
-        for sample in subscription.samples.all().order_by('-ts')[:limit_value]:
-            samples.append((subscription, sample))
-
-    samples.sort(key=lambda item: item[1].ts, reverse=True)
-    samples = samples[:limit_value]
+    samples = queryset.order_by('-ts', '-id')[:limit_value]
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="device_{device.id}_metrics.csv"'
     writer = csv.writer(response)
     writer.writerow(['ts', 'metric', 'if_index', 'value_float', 'value_text', 'quality', 'raw_value'])
-    for subscription, sample in samples:
+    for sample in samples:
+        subscription = sample.subscription
         writer.writerow([
             sample.ts.isoformat(),
             subscription.metric.key,

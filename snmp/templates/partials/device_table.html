@@ -11,8 +11,8 @@
       <thead class="bg-surface-50 text-xs uppercase text-surface-700">
         <tr>
           <th class="px-3 py-2 text-left">ID</th>
-          <th class="px-3 py-2 text-left">Branch</th>
-          <th class="px-3 py-2 text-left">ATS</th>
+          <th class="px-3 py-2 text-left">Group</th>
+          <th class="px-3 py-2 text-left">Subgroup</th>
           <th class="px-3 py-2 text-left">Status</th>
           <th class="px-3 py-2 text-left">Vendor</th>
           <th class="px-3 py-2 text-left">Model</th>
@@ -27,7 +27,7 @@
         {% for device in devices_page %}
         <tr class="hover:bg-surface-50">
           <td class="px-3 py-2">{{ device.pk }}</td>
-          <td class="px-3 py-2">{{ device.ats.branch.name|default:'-' }}</td>
+          <td class="px-3 py-2">{{ device.branch.name|default:'-' }}</td>
           <td class="px-3 py-2">{{ device.ats.name|default:'-' }}</td>
           <td class="px-3 py-2">
             {% if device.status %}
@@ -73,15 +73,15 @@
 {% if devices_page.paginator.num_pages > 1 %}
 <div class="mt-4 flex items-center justify-center gap-2 text-sm">
   {% if devices_page.has_previous %}
-    <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">First</a>
-    <a href="?page={{ devices_page.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Previous</a>
+    <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.group %}&group={{ request.GET.group }}{% elif request.GET.branch %}&group={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">First</a>
+    <a href="?page={{ devices_page.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.group %}&group={{ request.GET.group }}{% elif request.GET.branch %}&group={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Previous</a>
   {% endif %}
 
   <span class="rounded-md bg-surface-900 px-3 py-1.5 font-medium text-white">{{ devices_page.number }} / {{ devices_page.paginator.num_pages }}</span>
 
   {% if devices_page.has_next %}
-    <a href="?page={{ devices_page.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Next</a>
-    <a href="?page={{ devices_page.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.branch %}&branch={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Last</a>
+    <a href="?page={{ devices_page.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.group %}&group={{ request.GET.group }}{% elif request.GET.branch %}&group={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Next</a>
+    <a href="?page={{ devices_page.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.group %}&group={{ request.GET.group }}{% elif request.GET.branch %}&group={{ request.GET.branch }}{% endif %}{% if request.GET.vendor %}&vendor={{ request.GET.vendor }}{% endif %}" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-1.5 hover:bg-surface-50">Last</a>
   {% endif %}
 </div>
 {% endif %}

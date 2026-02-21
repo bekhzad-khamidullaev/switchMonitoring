@@ -49,6 +49,7 @@ services:
       LEGACY_TASKS_ENABLED: "False"
       LOG_JSON: "True"
       LOG_LEVEL: "INFO"
+      ZABBIX_TOKEN: "f676a58bd5f054233e230ddda8e317e4024091afa5a60d766e89c6de285a276f"
     volumes:
       - .:/app
       - static_data:/app/static_files

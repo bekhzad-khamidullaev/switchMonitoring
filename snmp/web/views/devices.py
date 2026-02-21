@@ -9,7 +9,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from snmp.forms import DeviceForm
 from snmp.models import Device
 
-from .access import get_permitted_branches, user_can_access_device
+from .access import (
+    get_permitted_groups,
+    user_can_access_device,
+    user_has_global_device_access,
+)
 from .device_operations import refresh_device_status
 
 logger = logging.getLogger("ICMP RESPONSE")
@@ -34,11 +38,14 @@ def _get_device_for_user_or_404(user, pk):
 
 @login_required
 def devices(request):
-    user_permitted_branches = get_permitted_branches(request.user)
-    items = Device.objects.filter(branch__in=user_permitted_branches).order_by('-pk')
+    user_permitted_groups = get_permitted_groups(request.user)
+    if user_has_global_device_access(request.user):
+        items = Device.objects.all().order_by('-pk')
+    else:
+        items = Device.objects.filter(branch__in=user_permitted_groups).order_by('-pk')
     search_query = (request.GET.get('search') or '').strip()
     status_filter = (request.GET.get('status') or '').strip().lower()
-    branch_filter = (request.GET.get('branch') or '').strip()
+    group_filter = (request.GET.get('group') or request.GET.get('branch') or '').strip()
     vendor_filter = (request.GET.get('vendor') or '').strip()
 
     if status_filter == 'up':
@@ -46,8 +53,8 @@ def devices(request):
     elif status_filter == 'down':
         items = items.filter(status=False)
 
-    if branch_filter.isdigit():
-        items = items.filter(branch_id=int(branch_filter))
+    if group_filter.isdigit():
+        items = items.filter(branch_id=int(group_filter))
 
     if vendor_filter.isdigit():
         items = items.filter(device_type__vendor_id=int(vendor_filter))
@@ -70,9 +77,12 @@ def devices(request):
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
 
-    branch_options = sorted(user_permitted_branches, key=lambda branch: (branch.name or '').lower())
+    group_options = sorted(user_permitted_groups, key=lambda group: (group.name or '').lower())
+    vendor_base = Device.objects.all() if user_has_global_device_access(request.user) else Device.objects.filter(
+        branch__in=user_permitted_groups
+    )
     vendor_options = (
-        Device.objects.filter(branch__in=user_permitted_branches)
+        vendor_base
         .exclude(device_type__vendor__isnull=True)
         .values('device_type__vendor_id', 'device_type__vendor__name')
         .distinct()
@@ -84,10 +94,10 @@ def devices(request):
         'device_list.html',
         {
             'devices': page_items,
-            'branch_options': branch_options,
+            'group_options': group_options,
             'vendor_options': vendor_options,
             'selected_status': status_filter,
-            'selected_branch': branch_filter,
+            'selected_group': group_filter,
             'selected_vendor': vendor_filter,
             'selected_search': search_query,
         },

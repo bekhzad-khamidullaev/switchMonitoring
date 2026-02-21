@@ -1,7 +1,8 @@
 from django import forms
 from django.conf import settings
 
-from .models import Device, DeviceProfile, Ats
+from .models import Ats, Device, DeviceProfile
+
 
 class DeviceForm(forms.ModelForm):
     snmp_version = forms.ChoiceField(
@@ -9,17 +10,21 @@ class DeviceForm(forms.ModelForm):
         required=True,
         initial=Device.SnmpVersion.V2C,
     )
-    ats = forms.ModelChoiceField(queryset=Ats.objects.all(), required=False)
+    ats = forms.ModelChoiceField(queryset=Ats.objects.all(), required=False, label='Subgroup')
+    profile = forms.ModelChoiceField(queryset=DeviceProfile.objects.none(), required=False)
 
     class Meta:
         model = Device
         fields = [
-            'ip', 'hostname', 'snmp_community_ro', 'snmp_community_rw', 
-            'snmp_version', 'branch', 'ats', 'device_type'
+            'ip', 'hostname', 'snmp_community_ro', 'snmp_community_rw',
+            'snmp_version', 'profile', 'branch', 'ats', 'device_type',
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['branch'].label = 'Group'
+        self.fields['profile'].queryset = DeviceProfile.objects.order_by('priority', 'vendor', 'model_pattern')
+        self.fields['profile'].empty_label = 'No profile'
         self.fields['snmp_community_ro'].initial = self.instance.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
         self.fields['snmp_community_rw'].initial = self.instance.snmp_community_rw or settings.SNMP_DEFAULT_COMMUNITY_RW
 
@@ -28,7 +33,7 @@ class DeviceForm(forms.ModelForm):
         device.snmp_community_ro = self.cleaned_data['snmp_community_ro'].strip()
         device.snmp_community_rw = self.cleaned_data['snmp_community_rw'].strip()
         device.snmp_version = self.cleaned_data['snmp_version']
-        
+
         if commit:
             device.save()
         return device

@@ -1,5 +1,5 @@
 from snmp.models import Device
-from snmp.web.views.access import get_permitted_branches
+from snmp.web.views.access import get_permitted_groups
 
 
 def user_can_access_device(user, device: Device) -> bool:
@@ -11,7 +11,7 @@ def user_can_access_device(user, device: Device) -> bool:
     if device.branch_id is None:
         return user.has_perm('snmp.change_device') or user.has_perm('snmp.view_device')
 
-    permitted = {b.id for b in get_permitted_branches(user)}
+    permitted = {g.id for g in get_permitted_groups(user)}
     return device.branch_id in permitted
 
 

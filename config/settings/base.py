@@ -1,9 +1,9 @@
-from pathlib import Path
-import os
 import importlib.util
+import os
+from pathlib import Path
+
 from celery.schedules import crontab
 from kombu import Exchange, Queue
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -179,6 +179,7 @@ CELERY_TASK_ROUTES = {
     'snmp.tasks.update_device_status_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_optical_info_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_inventory_task': {'queue': 'maintenance'},
+    'snmp.tasks.maintain_metric_samples_task': {'queue': 'maintenance'},
     'snmp.tasks.subnet_discovery_task': {'queue': 'discovery'},
 }
 CELERY_ENABLE_DEAD_LETTER = env_bool('CELERY_ENABLE_DEAD_LETTER', True)
@@ -208,6 +209,7 @@ if CELERY_ENABLE_DEAD_LETTER and _is_amqp_broker:
         Queue('maintenance.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='maintenance.dead'),
     )
 LEGACY_TASKS_ENABLED = env_bool('LEGACY_TASKS_ENABLED', False)
+METRIC_SAMPLE_RETENTION_ENABLED = env_bool('METRIC_SAMPLE_RETENTION_ENABLED', False)
 
 CELERY_BEAT_SCHEDULE = {
     'poll-all-device-metrics': {
@@ -219,6 +221,17 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0, hour='*/6'),
     },
 }
+
+if METRIC_SAMPLE_RETENTION_ENABLED:
+    CELERY_BEAT_SCHEDULE.update({
+        'maintain-metric-samples': {
+            'task': 'snmp.tasks.maintain_metric_samples_task',
+            'schedule': crontab(
+                minute=int(os.getenv('METRIC_SAMPLE_RETENTION_MINUTE', '20')),
+                hour=os.getenv('METRIC_SAMPLE_RETENTION_HOUR', '2'),
+            ),
+        },
+    })
 
 if LEGACY_TASKS_ENABLED:
     CELERY_BEAT_SCHEDULE.update({

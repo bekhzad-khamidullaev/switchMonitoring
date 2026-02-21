@@ -1,20 +1,19 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db.models import Count, Q
 from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 
 from snmp.forms import DeviceProfileForm
 from snmp.models import Device, DeviceProfile
 
-from .access import get_permitted_branches, user_has_global_device_access
+from .access import get_permitted_groups, user_has_global_device_access
 
 
 def _permitted_devices(user):
     if user_has_global_device_access(user):
         return Device.objects.all()
-    return Device.objects.filter(branch__in=get_permitted_branches(user))
+    return Device.objects.filter(branch__in=get_permitted_groups(user))
 
 
 def _assign_profile_to_device(profile, device_id, user):
@@ -62,8 +61,8 @@ def device_profiles(request):
     page_obj = paginator.get_page(page_number)
 
     return render(
-        request, 
-        'device_profiles.html', 
+        request,
+        'device_profiles.html',
         {
             'profiles': page_obj,
             'search_query': search_query,

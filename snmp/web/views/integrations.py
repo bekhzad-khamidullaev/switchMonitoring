@@ -10,13 +10,13 @@ from snmp.models import Ats, Branch
 from snmp.models import Device as DeviceModel
 from snmp.tasks import discover_device_task, poll_device_metrics_task
 
-from .access import get_permitted_branches, user_has_global_device_access
+from .access import get_permitted_groups, user_has_global_device_access
 
 if not settings.ZABBIX_VERIFY_SSL:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-def _upsert_branch_hierarchy(path):
+def _upsert_group_hierarchy(path):
     parent = None
     current = None
     for chunk in (path or "").split("/"):
@@ -28,7 +28,7 @@ def _upsert_branch_hierarchy(path):
     return current
 
 
-def _select_branch_from_hostgroups(hostgroups):
+def _select_group_from_hostgroups(hostgroups):
     if not hostgroups:
         return None
 
@@ -42,7 +42,7 @@ def _select_branch_from_hostgroups(hostgroups):
 
     # Prefer the most specific path, then deterministic by name.
     names.sort(key=lambda n: (len([p for p in n.split("/") if p.strip()]), n), reverse=True)
-    return _upsert_branch_hierarchy(names[0])
+    return _upsert_group_hierarchy(names[0])
 
 
 @login_required
@@ -80,7 +80,7 @@ def sync_hosts_from_zabbix(request):
 
         for host_data in hosts_result['result']:
             hostname = host_data['name']
-            branch = _select_branch_from_hostgroups(host_data.get('hostgroups'))
+            group = _select_group_from_hostgroups(host_data.get('hostgroups'))
             interfaces_payload = {
                 'jsonrpc': '2.0',
                 'method': 'hostinterface.get',
@@ -101,16 +101,16 @@ def sync_hosts_from_zabbix(request):
             if 'result' in interfaces_result and interfaces_result['result']:
                 ip_address = interfaces_result['result'][0]['ip']
                 defaults = {'hostname': hostname}
-                if branch:
-                    defaults['branch'] = branch
+                if group:
+                    defaults['branch'] = group
 
                 device, created = DeviceModel.objects.get_or_create(ip=ip_address, defaults=defaults)
                 if not created:
                     updates = {}
                     if hostname and device.hostname != hostname:
                         updates['hostname'] = hostname
-                    if branch and device.branch_id != branch.id:
-                        updates['branch'] = branch
+                    if group and device.branch_id != group.id:
+                        updates['branch'] = group
                     if updates:
                         DeviceModel.objects.filter(pk=device.pk).update(**updates)
 
@@ -128,26 +128,26 @@ def run_bulk_device_job(request):
 
     if action not in {'discover', 'poll'}:
         return JsonResponse({'error': 'invalid action'}, status=400)
-    if scope not in {'all', 'branch', 'ats', 'device_ids'}:
+    if scope not in {'all', 'group', 'subgroup', 'branch', 'ats', 'device_ids'}:
         return JsonResponse({'error': 'invalid scope'}, status=400)
 
     queryset = DeviceModel.objects.all()
     if not user_has_global_device_access(request.user):
-        permitted = get_permitted_branches(request.user)
+        permitted = get_permitted_groups(request.user)
         queryset = queryset.filter(branch__in=permitted)
 
-    if scope == 'branch':
-        branch_id = request.POST.get('branch_id')
-        if not branch_id or not str(branch_id).isdigit():
-            return JsonResponse({'error': 'branch_id is required'}, status=400)
-        queryset = queryset.filter(branch_id=int(branch_id))
-    elif scope == 'ats':
-        ats_id = request.POST.get('ats_id')
-        if not ats_id or not str(ats_id).isdigit():
-            return JsonResponse({'error': 'ats_id is required'}, status=400)
-        if not Ats.objects.filter(pk=int(ats_id)).exists():
-            return JsonResponse({'error': 'ats not found'}, status=404)
-        queryset = queryset.filter(ats_id=int(ats_id))
+    if scope in {'group', 'branch'}:
+        group_id = request.POST.get('group_id') or request.POST.get('branch_id')
+        if not group_id or not str(group_id).isdigit():
+            return JsonResponse({'error': 'group_id is required'}, status=400)
+        queryset = queryset.filter(branch_id=int(group_id))
+    elif scope in {'subgroup', 'ats'}:
+        subgroup_id = request.POST.get('subgroup_id') or request.POST.get('ats_id')
+        if not subgroup_id or not str(subgroup_id).isdigit():
+            return JsonResponse({'error': 'subgroup_id is required'}, status=400)
+        if not Ats.objects.filter(pk=int(subgroup_id)).exists():
+            return JsonResponse({'error': 'subgroup not found'}, status=404)
+        queryset = queryset.filter(ats_id=int(subgroup_id))
     elif scope == 'device_ids':
         raw_ids = request.POST.getlist('device_ids')
         if not raw_ids:

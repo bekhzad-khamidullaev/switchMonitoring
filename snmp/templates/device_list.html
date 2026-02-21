@@ -19,10 +19,10 @@
         <option value="down" {% if selected_status == 'down' %}selected{% endif %}>Status: DOWN</option>
       </select>
 
-      <select id="branch" name="branch" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
-        <option value="">Branch: all</option>
-        {% for branch in branch_options %}
-          <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name|default:'-' }}</option>
+      <select id="group" name="group" class="rounded-md border border-surface-200 bg-surface-0 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+        <option value="">Group: all</option>
+        {% for group in group_options %}
+          <option value="{{ group.id }}" {% if selected_group == group.id|stringformat:"s" %}selected{% endif %}>{{ group.name|default:'-' }}</option>
         {% endfor %}
       </select>
 

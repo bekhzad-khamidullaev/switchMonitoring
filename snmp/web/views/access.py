@@ -7,6 +7,10 @@ def build_branch_permission_codename(branch_name):
     return f"view_{branch_name.lower().replace(' ', '_')}"
 
 
+def build_group_permission_codename(group_name):
+    return build_branch_permission_codename(group_name)
+
+
 def user_has_global_device_access(user):
     if not user or not user.is_authenticated:
         return False
@@ -25,7 +29,7 @@ def user_can_access_device(user, device):
         return True
     if device.branch_id is None:
         return False
-    permitted_ids = {branch.id for branch in get_permitted_branches(user)}
+    permitted_ids = {group.id for group in get_permitted_groups(user)}
     return device.branch_id in permitted_ids
 
 
@@ -37,10 +41,14 @@ def convert_uptime_to_human_readable(uptime_in_hundredths):
 
 
 def get_permitted_branches(user):
-    branches = Branch.objects.all()
-    permitted_branches = []
-    for branch in branches:
-        codename = build_branch_permission_codename(branch.name)
+    groups = Branch.objects.all()
+    permitted_groups = []
+    for group in groups:
+        codename = build_group_permission_codename(group.name)
         if codename and user.has_perm(f"snmp.{codename}"):
-            permitted_branches.append(branch)
-    return permitted_branches
+            permitted_groups.append(group)
+    return permitted_groups
+
+
+def get_permitted_groups(user):
+    return get_permitted_branches(user)

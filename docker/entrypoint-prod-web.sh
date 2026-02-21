@@ -5,6 +5,10 @@ if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
   python manage.py migrate --noinput
 fi
 
+if [ "${SEED_DEVICE_PROFILES_ON_DEPLOY:-1}" = "1" ]; then
+  python manage.py seed_profiles
+fi
+
 if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
   python manage.py collectstatic --noinput
 fi
