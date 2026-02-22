@@ -94,7 +94,7 @@ def run_device_discovery(
     switch: Optional[Device] = None,  # legacy alias
     timeout: int = 2,
     retries: int = 1,
-) -> Dict[str, int]:
+) -> Dict[str, object]:
     if managed_device is None:
         managed_device = switch
     base = read_base_snmp(ip=ip, community=community, timeout=timeout, retries=retries)
@@ -113,6 +113,8 @@ def run_device_discovery(
         model=normalized.get('model', ''),
         firmware=normalized.get('firmware', ''),
     )
+    if profile is None:
+        profile = match_device_profile(vendor='generic', model='', firmware='')
 
     with transaction.atomic():
         device, _ = Device.objects.update_or_create(
@@ -148,6 +150,11 @@ def run_device_discovery(
                     'oper_up': item.get('oper_up'),
                 },
             )
+        
+        # Cleanup stale interfaces that were not found in this latest discovery run
+        if seen_indexes:
+            Interface.objects.filter(device=device).exclude(if_index__in=seen_indexes).delete()
+            
         neighbors_count = _sync_device_neighbors(device=device, lldp_neighbors=base.get('lldp_neighbors', []))
 
     logger.info(
@@ -167,4 +174,10 @@ def run_device_discovery(
         'device_id': device.id,
         'profile_id': profile.id if profile else 0,
         'interfaces_count': len(seen_indexes),
+        'neighbors_count': neighbors_count,
+        'vendor': normalized.get('vendor', ''),
+        'model': normalized.get('model', ''),
+        'firmware': normalized.get('firmware', ''),
+        'sys_object_id': base.get('sys_object_id', ''),
+        'profile': str(profile) if profile else '',
     }

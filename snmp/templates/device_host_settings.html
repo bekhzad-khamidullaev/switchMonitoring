@@ -3,7 +3,10 @@
 {% block title %}Host Settings{% endblock %}
 
 {% block content %}
-<div x-data="{ showError: {{ error_message|yesno:'true,false' }} }" class="mx-auto max-w-5xl space-y-4">
+<div
+  x-data="{ showError: {{ error_message|yesno:'true,false' }}, activeTab: '{{ active_tab|default:'host'|escapejs }}' }"
+  class="mx-auto max-w-6xl space-y-4"
+>
   {% if messages %}
   <div class="space-y-2">
     {% for message in messages %}
@@ -24,41 +27,76 @@
   <div class="rounded-panel border border-surface-200 bg-surface-0 p-5 shadow-soft">
     <h2 class="font-display mb-2 text-xl font-semibold text-surface-900">Host Settings</h2>
     <p class="mb-5 text-sm text-surface-700">Device #{{ device.pk }} · {{ device.hostname|default:device.ip }}</p>
-    <div class="mb-5 rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">
-      Profile assignment logic:
-      lowest profile priority wins; if priorities are equal, the more specific rule wins.
-      Use "Recommend profile" to auto-select by current vendor/model/firmware.
+
+    <div class="mb-5 flex flex-wrap gap-2 border-b border-surface-200 pb-4">
+      <button type="button" @click="activeTab='host'" :class="activeTab === 'host' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">Host Profile</button>
+      <button type="button" @click="activeTab='snmp'" :class="activeTab === 'snmp' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">SNMP & Inventory</button>
+      <button type="button" @click="activeTab='metrics'" :class="activeTab === 'metrics' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">Metrics Monitoring</button>
     </div>
 
-    <form method="post" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <form method="post" x-show="activeTab === 'host' || activeTab === 'snmp'" class="space-y-4">
       {% csrf_token %}
+      <input type="hidden" name="tab" x-model="activeTab" />
+
       {% if form.non_field_errors %}
-      <div class="md:col-span-2 rounded-md border border-danger-100 bg-danger-100 p-3 text-sm text-danger-700">
+      <div class="rounded-md border border-danger-100 bg-danger-100 p-3 text-sm text-danger-700">
         {{ form.non_field_errors|striptags }}
       </div>
       {% endif %}
 
-      {% for field in form %}
-      <div class="{% if field.name == 'status' %}md:col-span-2{% endif %}">
-        {% if field.name == 'status' %}
-          <label for="{{ field.id_for_label }}" class="inline-flex items-center gap-2 text-sm font-medium text-surface-700">
-            {{ field }}
-            <span>{{ field.label }}</span>
-          </label>
-        {% else %}
-          <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">{{ field.label }}</label>
-          {{ field }}
-        {% endif %}
-        {% if field.errors %}
-          <p class="mt-1 text-xs text-danger-700">{{ field.errors|striptags }}</p>
-        {% endif %}
-        {% if field.help_text %}
-          <p class="mt-1 text-xs text-surface-600">{{ field.help_text }}</p>
-        {% endif %}
-      </div>
-      {% endfor %}
+      <div x-show="activeTab === 'host'" class="space-y-4">
+        <div class="rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">
+          Profile assignment logic:
+          lowest profile priority wins; if priorities are equal, the more specific rule wins.
+          Use "Recommend profile" to auto-select by current vendor/model/firmware.
+        </div>
 
-      <div class="md:col-span-2 flex gap-2">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {% for field in host_fields %}
+          <div class="{% if field.name == 'status' %}md:col-span-2{% endif %}">
+            {% if field.name == 'status' %}
+              <label for="{{ field.id_for_label }}" class="inline-flex items-center gap-2 text-sm font-medium text-surface-700">
+                {{ field }}
+                <span>{{ field.label }}</span>
+              </label>
+            {% else %}
+              <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">{{ field.label }}</label>
+              {{ field }}
+            {% endif %}
+            {% if field.errors %}
+              <p class="mt-1 text-xs text-danger-700">{{ field.errors|striptags }}</p>
+            {% endif %}
+            {% if field.help_text %}
+              <p class="mt-1 text-xs text-surface-600">{{ field.help_text }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div x-show="activeTab === 'snmp'" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {% for field in snmp_fields %}
+        <div class="{% if field.name == 'status' %}md:col-span-2{% endif %}">
+          {% if field.name == 'status' %}
+            <label for="{{ field.id_for_label }}" class="inline-flex items-center gap-2 text-sm font-medium text-surface-700">
+              {{ field }}
+              <span>{{ field.label }}</span>
+            </label>
+          {% else %}
+            <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-surface-700">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.errors %}
+            <p class="mt-1 text-xs text-danger-700">{{ field.errors|striptags }}</p>
+          {% endif %}
+          {% if field.help_text %}
+            <p class="mt-1 text-xs text-surface-600">{{ field.help_text }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap gap-2 border-t border-surface-200 pt-4">
         <button type="submit" name="action" value="save" class="rounded-md bg-success-600 px-4 py-2 text-sm font-medium text-white hover:bg-success-700">Save settings</button>
         <button type="submit" name="action" value="recommend_profile" class="rounded-md bg-info-600 px-4 py-2 text-sm font-medium text-white hover:bg-info-700">Recommend profile</button>
         <button type="submit" name="action" value="apply_profile_preset" class="rounded-md bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900">Apply preset</button>
@@ -67,6 +105,10 @@
         {% include 'components/link_button.html' with href=device_detail_url label='Cancel' tone='surface' %}
       </div>
     </form>
+
+    <div x-show="activeTab === 'metrics'" x-data="deviceMetricsPage({deviceId: {{ device.id }}, defaultSelection: '{{ subscriptions.0.metric.key|default:'' }}|{{ subscriptions.0.interface.if_index|default:'' }}' })" class="space-y-4">
+      {% include 'partials/device_metrics_content.html' %}
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from snmp.models import (
     DeviceNeighbor,
     DeviceProfile,
     Interface,
+    MetricBinding,
     MetricDefinition,
     MetricSample,
     MetricSubscription,
@@ -312,6 +314,8 @@ class MetricsPageActionTests(TestCase):
 
     @patch('snmp.web.views.metrics.poll_device_metrics')
     def test_poll_now_action(self, mock_poll):
+        metric = MetricDefinition.objects.create(key='poll_now_metric', title='Poll Now Metric')
+        MetricSubscription.objects.create(device=self.managed_device, metric=metric, enabled=True)
         mock_poll.return_value = 3
         response = self.client.post(
             reverse('device_metrics', args=[self.managed_device.pk]),
@@ -319,6 +323,97 @@ class MetricsPageActionTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         mock_poll.assert_called_once()
+
+    @patch('snmp.web.views.metrics.run_device_discovery')
+    def test_run_discovery_auto_creates_discovered_subscriptions(self, mock_discovery):
+        profile = DeviceProfile.objects.create(
+            vendor='huawei',
+            model_pattern='S57\\d+',
+            firmware_pattern='',
+            priority=10,
+            active=True,
+        )
+        metric = MetricDefinition.objects.create(key='rx_auto', title='RX Auto')
+        binding = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric,
+            oid_template='1.3.6.1.4.1.9999.1.{if_index}',
+            index_strategy=MetricBinding.IndexStrategy.IF_INDEX,
+            enabled_by_default=True,
+        )
+        self.managed_device.profile = profile
+        self.managed_device.save(update_fields=['profile'])
+        Interface.objects.create(device=self.managed_device, if_index=1, if_name='ge-0/0/1')
+
+        mock_discovery.return_value = {
+            'interfaces_count': 1,
+            'profile_id': profile.id,
+            'vendor': 'huawei',
+            'model': 'S5720',
+        }
+        response = self.client.post(
+            reverse('device_metrics', args=[self.managed_device.pk]),
+            data={'action': 'run_discovery', 'community': 'public'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            MetricSubscription.objects.filter(
+                device=self.managed_device,
+                interface__if_index=1,
+                metric=metric,
+                binding=binding,
+            ).exists()
+        )
+
+    def test_set_discovery_monitoring_updates_enabled_state(self):
+        profile = DeviceProfile.objects.create(
+            vendor='huawei',
+            model_pattern='S57\\d+',
+            firmware_pattern='',
+            priority=10,
+            active=True,
+        )
+        metric1 = MetricDefinition.objects.create(key='rx_toggle_1', title='RX Toggle 1')
+        metric2 = MetricDefinition.objects.create(key='rx_toggle_2', title='RX Toggle 2')
+        binding1 = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric1,
+            oid_template='1.3.6.1.4.1.9999.2.1',
+            index_strategy=MetricBinding.IndexStrategy.FIXED,
+        )
+        binding2 = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric2,
+            oid_template='1.3.6.1.4.1.9999.2.2',
+            index_strategy=MetricBinding.IndexStrategy.FIXED,
+        )
+        self.managed_device.profile = profile
+        self.managed_device.save(update_fields=['profile'])
+        sub1 = MetricSubscription.objects.create(
+            device=self.managed_device,
+            metric=metric1,
+            binding=binding1,
+            enabled=True,
+        )
+        sub2 = MetricSubscription.objects.create(
+            device=self.managed_device,
+            metric=metric2,
+            binding=binding2,
+            enabled=True,
+        )
+
+        response = self.client.post(
+            reverse('device_metrics', args=[self.managed_device.pk]),
+            data={
+                'action': 'set_discovery_monitoring',
+                'enabled_subscription_ids': [str(sub1.id)],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        sub1.refresh_from_db()
+        sub2.refresh_from_db()
+        self.assertTrue(sub1.enabled)
+        self.assertFalse(sub2.enabled)
 
     def test_export_device_metrics_csv(self):
         view_sample_perm = Permission.objects.get(codename='view_metricsample')
@@ -393,6 +488,30 @@ class DeviceStatusIcmpTests(TestCase):
         managed_device.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(managed_device.status)
+
+    def test_timeout_marks_device_down(self):
+        managed_device = Device.objects.create(hostname='icmp-timeout', ip='10.30.0.2', status=True)
+        with patch('snmp.web.views.device_operations.ping_host', return_value=None):
+            response = refresh_device_status(managed_device)
+        managed_device.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content.decode('utf-8'))['status'], 'DOWN')
+        self.assertFalse(managed_device.status)
+
+
+class DeviceStatusEndpointPermissionTests(TestCase):
+    def setUp(self):
+        self.device = Device.objects.create(hostname='perm-dev', ip='10.31.0.1', status=False)
+        self.user = User.objects.create_user(username='status-user', password='p1')
+        self.client.login(username='status-user', password='p1')
+
+    def test_change_device_permission_allows_status_refresh(self):
+        change_device_perm = Permission.objects.get(codename='change_device')
+        self.user.user_permissions.add(change_device_perm)
+        with patch('snmp.web.views.device_operations.ping_host', return_value=0.1):
+            response = self.client.get(reverse('device_status', args=[self.device.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'UP')
 
 
 class DeviceProfilesPageTests(TestCase):

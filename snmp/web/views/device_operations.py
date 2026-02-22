@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -32,23 +32,27 @@ OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
 
 
 def refresh_device_status(device):
-    ip_addr = device.ip
+    ip_addr = str(device.ip) if device.ip else ''
     try:
-        if ip_addr is None:
-            return HttpResponse(status=400)
+        if not ip_addr:
+            return JsonResponse({'error': 'Device IP is missing.'}, status=400)
         if ping_host is None:
             logger.warning('ping3 is not installed; cannot refresh device ICMP status')
-            return HttpResponse(status=503)
+            return JsonResponse({'error': 'ICMP backend is unavailable.'}, status=503)
 
         host_alive = ping_host(ip_addr, unit='ms', size=64, timeout=2)
-        if host_alive is not None:
-            device.status = True
-            device.save()
-            return JsonResponse({'status': 'UP' if device.status else 'DOWN'})
-        return redirect('device_detail', device.pk)
+        device.status = host_alive is not None
+        device.save(update_fields=['status', 'updated'])
+        return JsonResponse(
+            {
+                'status': 'UP' if device.status else 'DOWN',
+                'alive': device.status,
+                'rtt_ms': host_alive,
+            }
+        )
     except Exception as exc:
         logger.info('Error refreshing status for %s: %s', ip_addr, exc)
-        return HttpResponse(status=500)
+        return JsonResponse({'error': 'Failed to refresh device status.'}, status=500)
 
 
 @login_required
@@ -238,7 +242,7 @@ def devices_high_signal_11(request):
 
 
 @login_required
-@permission_required('snmp.change_switch', raise_exception=True)
+@permission_required('snmp.change_device', raise_exception=True)
 @require_POST
 def refresh_device_inventory(request, pk):
     from snmp.management.commands.snmp import perform_snmpwalk

@@ -122,8 +122,10 @@ def create_branch_permission_on_save(sender, instance, **kwargs):
 
 class Ats(models.Model):
     name = models.CharField(max_length=200, null=True, blank=True)
-    subnet = models.GenericIPAddressField(unique=True, protocol='both', null=True, blank=True)
-    group = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, verbose_name='Group')
+    subnet = models.CharField(max_length=45, unique=True, null=True, blank=True, help_text="e.g. 192.168.1.0/24")
+    group = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, verbose_name="Group"
+    )
     class Meta:
         managed = True
         db_table = 'ats'

@@ -26,15 +26,22 @@ class UserProfile(models.Model):
         self.save()
 
     def generate_api_token(self):
+        import hashlib
         raw_token = str(uuid.uuid4())
-        self.api_token = make_password(raw_token)
+        # Store a fast hash (SHA-256) instead of slow PBKDF2
+        self.api_token = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
         self.save()
         return raw_token
 
     def verify_api_token(self, raw_token):
         if not self.api_token or not raw_token:
             return False
-        return check_password(raw_token, self.api_token)
+        import hashlib
+        hashed_token = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+        # Fallback to check_password to support existing legacy tokens during transition
+        if self.api_token.startswith('pbkdf2_'):
+            return check_password(raw_token, self.api_token)
+        return hashed_token == self.api_token
 
     def export_data(self):
         user_data = {
@@ -49,9 +56,7 @@ class UserProfile(models.Model):
         return self.user.username
 
     def set_role(self, role_name):
-        group, created = Group.objects.get_or_create(name=role_name)
-        if created:
-            group.save()
+        group, _ = Group.objects.get_or_create(name=role_name)
         self.user.groups.add(group)
 
     def remove_role(self, role_name):

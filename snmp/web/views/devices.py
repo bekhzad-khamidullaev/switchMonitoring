@@ -17,8 +17,22 @@ from .access import (
     user_has_global_device_access,
 )
 from .device_operations import refresh_device_status
+from .metrics import build_device_metrics_context, handle_device_metrics_post
 
 logger = logging.getLogger("ICMP RESPONSE")
+
+UP_SEARCH_TOKENS = {'up', 'online', 'alive', 'true', '1'}
+DOWN_SEARCH_TOKENS = {'down', 'offline', 'dead', 'false', '0'}
+HOST_SETTINGS_ACTIONS = {'save', 'apply_profile_preset', 'recommend_profile', 'clear_profile'}
+HOST_SETTINGS_HOST_FIELDS = (
+    'ip', 'hostname', 'group', 'subgroup', 'device_type',
+    'vendor', 'model', 'firmware', 'sys_object_id', 'profile',
+)
+HOST_SETTINGS_SNMP_FIELDS = (
+    'snmp_version', 'snmp_community_ro', 'snmp_community_rw', 'auth_profile', 'status',
+    'uptime', 'switch_mac', 'neighbor', 'parent_port', 'soft_version',
+    'serial_number', 'rx_signal', 'tx_signal', 'sfp_vendor', 'part_number', 'last_discovered_at',
+)
 
 
 def _first_form_error(form):
@@ -36,6 +50,27 @@ def _get_device_for_user_or_404(user, pk):
     if not user_can_access_device(user, device):
         raise Http404
     return device
+
+
+def _build_host_settings_sections(form):
+    host_fields = [form[name] for name in HOST_SETTINGS_HOST_FIELDS if name in form.fields]
+    snmp_fields = [form[name] for name in HOST_SETTINGS_SNMP_FIELDS if name in form.fields]
+    return {
+        'host_fields': host_fields,
+        'snmp_fields': snmp_fields,
+    }
+
+
+def _render_device_host_settings(request, device, form, error_message):
+    context = {
+        'form': form,
+        'device': device,
+        'error_message': error_message,
+        'active_tab': (request.GET.get('tab') or request.POST.get('tab') or 'host').strip() or 'host',
+        **_build_host_settings_sections(form),
+        **build_device_metrics_context(device),
+    }
+    return render(request, 'device_host_settings.html', context)
 
 
 @login_required
@@ -62,18 +97,23 @@ def devices(request):
         items = items.filter(device_type__vendor_id=int(vendor_filter))
 
     if search_query:
-        items = items.filter(
+        search_filter = (
             Q(pk__icontains=search_query)
             | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
             | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
             | Q(rx_signal__icontains=search_query)
             | Q(tx_signal__icontains=search_query)
         )
+        normalized_query = search_query.lower()
+        if normalized_query in UP_SEARCH_TOKENS:
+            search_filter |= Q(status=True)
+        elif normalized_query in DOWN_SEARCH_TOKENS:
+            search_filter |= Q(status=False)
+        items = items.filter(search_filter)
 
     paginator = Paginator(items, 25)
     page_number = request.GET.get('page')
@@ -151,6 +191,10 @@ def device_host_settings(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     if request.method == 'POST':
         action = (request.POST.get('action') or 'save').strip()
+        if action not in HOST_SETTINGS_ACTIONS:
+            response = handle_device_metrics_post(request, device)
+            if response is not None:
+                return response
         if action == 'apply_profile_preset':
             preset_profile_id = (request.POST.get('profile') or '').strip()
             prefill_data = request.POST.copy()
@@ -163,11 +207,7 @@ def device_host_settings(request, pk):
             else:
                 messages.warning(request, 'Select a preset profile first.')
             form = DeviceHostSettingsForm(prefill_data, instance=device)
-            return render(
-                request,
-                'device_host_settings.html',
-                {'form': form, 'device': device, 'error_message': error_message},
-            )
+            return _render_device_host_settings(request, device, form, error_message)
         if action == 'recommend_profile':
             prefill_data = request.POST.copy()
             vendor = (prefill_data.get('vendor') or '').strip()
@@ -188,21 +228,13 @@ def device_host_settings(request, pk):
                     'Adjust host fields or choose profile manually.',
                 )
             form = DeviceHostSettingsForm(prefill_data, instance=device)
-            return render(
-                request,
-                'device_host_settings.html',
-                {'form': form, 'device': device, 'error_message': error_message},
-            )
+            return _render_device_host_settings(request, device, form, error_message)
         if action == 'clear_profile':
             prefill_data = request.POST.copy()
             prefill_data['profile'] = ''
             messages.info(request, 'Profile selection cleared. Click "Save settings" to persist.')
             form = DeviceHostSettingsForm(prefill_data, instance=device)
-            return render(
-                request,
-                'device_host_settings.html',
-                {'form': form, 'device': device, 'error_message': error_message},
-            )
+            return _render_device_host_settings(request, device, form, error_message)
 
         form = DeviceHostSettingsForm(request.POST, instance=device)
         if form.is_valid():
@@ -211,11 +243,7 @@ def device_host_settings(request, pk):
         error_message = _first_form_error(form)
     else:
         form = DeviceHostSettingsForm(instance=device)
-    return render(
-        request,
-        'device_host_settings.html',
-        {'form': form, 'device': device, 'error_message': error_message},
-    )
+    return _render_device_host_settings(request, device, form, error_message)
 
 
 @login_required
@@ -235,7 +263,7 @@ def device_confirm_delete(request, pk):
 
 
 @login_required
-@permission_required('snmp.change_switch', raise_exception=True)
+@permission_required('snmp.change_device', raise_exception=True)
 def device_status(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     return refresh_device_status(device)

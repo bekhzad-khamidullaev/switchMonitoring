@@ -27,11 +27,13 @@ class Command(BaseCommand):
             return
 
         try:
-            host_alive = ping(ip, unit='ms', size=32, timeout=2)
+            host_alive = ping(str(ip), unit='ms', size=32, timeout=2)
             device.status = host_alive is not None
             await self._save_device(device)
         except Exception as exc:
             logger.info("Error updating device status for %s: %s", ip, exc)
+            device.status = False
+            await self._save_device(device)
 
     async def handle_async(self, *args, **options):
         ip_addresses = await sync_to_async(list)(
@@ -41,5 +43,4 @@ class Command(BaseCommand):
         await asyncio.gather(*tasks)
 
     def handle(self, *args, **options):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.handle_async(*args, **options))
+        asyncio.run(self.handle_async(*args, **options))

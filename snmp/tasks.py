@@ -166,11 +166,12 @@ def discover_all_devices_task(self):
         logger.warning('discovery fanout throttled', extra={'queue': 'discovery', 'depth': queue_depth})
         return {'queued': 0, 'mode': 'throttled'}
 
-    device_ids = list(Device.objects.values_list('id', flat=True))
-    for device_id in device_ids:
+    queued = 0
+    for device_id in Device.objects.values_list('id', flat=True).iterator(chunk_size=1000):
         discover_device_task.delay(device_id)
+        queued += 1
 
-    return {'queued': len(device_ids), 'mode': 'fanout'}
+    return {'queued': queued, 'mode': 'fanout'}
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 3})

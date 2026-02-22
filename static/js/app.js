@@ -41,6 +41,7 @@ if (window.Alpine) {
   Alpine.data('deviceMetricsPage', (config) => ({
     deviceId: config.deviceId,
     selected: config.defaultSelection,
+    applyScope: 'optical',
     chart: null,
     chartStatus: '',
     init() {

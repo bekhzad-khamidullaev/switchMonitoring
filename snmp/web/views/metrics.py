@@ -2,11 +2,14 @@ import csv
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db import transaction
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from snmp.models import Device, MetricSample, MetricSubscription
+from snmp.models import Device, DeviceProfile, MetricBinding, MetricSample, MetricSubscription
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 from snmp.services.metrics.registry import get_active_bindings_for_device
@@ -24,95 +27,263 @@ def _validate_thresholds(subscription: MetricSubscription, warn_value, crit_valu
     return threshold_error
 
 
-@login_required
-@permission_required('snmp.change_device', raise_exception=True)
-def device_metrics(request, pk):
-    device = get_object_or_404(Device, pk=pk)
-    if not user_can_access_device(request.user, device):
-        return HttpResponse(status=403)
+def _sync_discovered_metric_subscriptions(device, bindings, interfaces):
+    created_count = 0
+    updated_count = 0
+    seen_subscription_ids = set()
 
+    for binding in bindings:
+        targets = [None]
+        if binding.index_strategy == MetricBinding.IndexStrategy.IF_INDEX:
+            targets = interfaces
+            if not targets:
+                continue
+
+        for interface in targets:
+            if interface is None:
+                subscription = MetricSubscription.objects.filter(
+                    device=device,
+                    interface__isnull=True,
+                    metric=binding.metric,
+                ).first()
+            else:
+                subscription = MetricSubscription.objects.filter(
+                    device=device,
+                    interface=interface,
+                    metric=binding.metric,
+                ).first()
+
+            if subscription is None:
+                subscription = MetricSubscription.objects.create(
+                    device=device,
+                    interface=interface,
+                    metric=binding.metric,
+                    binding=binding,
+                    enabled=binding.enabled_by_default,
+                    poll_interval_sec=binding.metric.default_interval_sec,
+                )
+                created_count += 1
+            else:
+                update_fields = []
+                if subscription.binding_id != binding.id:
+                    subscription.binding = binding
+                    update_fields.append('binding')
+                if subscription.poll_interval_sec is None:
+                    subscription.poll_interval_sec = binding.metric.default_interval_sec
+                    update_fields.append('poll_interval_sec')
+                if update_fields:
+                    subscription.save(update_fields=update_fields)
+                    updated_count += 1
+
+            seen_subscription_ids.add(subscription.id)
+
+    return {
+        'created_count': created_count,
+        'updated_count': updated_count,
+        'discovered_count': len(seen_subscription_ids),
+    }
+
+
+def _redirect_to_next_or_view(request, device, fallback_view='device_host_settings'):
+    next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect(fallback_view, pk=device.pk)
+
+
+def build_device_metrics_context(device):
     bindings = list(get_active_bindings_for_device(device))
+    profile_presets = list(
+        DeviceProfile.objects
+        .filter(active=True)
+        .order_by('priority', 'vendor', 'model_pattern')
+    )
     interfaces = list(device.interfaces.order_by('if_index'))
+    optical_interfaces = [iface for iface in interfaces if iface.is_optical]
     subscriptions = (
         MetricSubscription.objects
         .filter(device=device)
         .select_related('metric', 'interface', 'binding')
         .order_by('interface__if_index', 'metric__key')
     )
+    has_subscriptions = subscriptions.exists()
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-
-        if action == 'run_discovery':
-            community = request.POST.get('community', '').strip() or device.snmp_community_ro or 'public'
-            try:
-                result = run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
-                messages.success(
-                    request,
-                    f"Discovery completed: interfaces={result.get('interfaces_count', 0)} profile_id={result.get('profile_id', 0)}",
-                )
-            except SnmpReadError as exc:
-                messages.error(request, f'Discovery failed: {exc}')
-            return redirect('device_metrics', pk=device.pk)
-
-        if action == 'poll_now':
-            saved_count = poll_device_metrics(device.id)
-            messages.success(request, f'Polling completed. Saved samples: {saved_count}.')
-            return redirect('device_metrics', pk=device.pk)
-
-        if action == 'apply_profile':
-            selected_binding_ids = request.POST.getlist('binding_ids')
-            scope = request.POST.get('scope', 'optical')
-
-            selected_bindings = [binding for binding in bindings if str(binding.id) in selected_binding_ids]
-            if not selected_bindings:
-                messages.warning(request, 'Select at least one metric binding.')
-                return redirect('device_metrics', pk=device.pk)
-
-            if scope == 'device':
-                target_interfaces = [None]
-            elif scope == 'all':
-                target_interfaces = interfaces
-            else:
-                target_interfaces = [iface for iface in interfaces if iface.is_optical]
-
-            created_or_updated = 0
-            for binding in selected_bindings:
-                for interface in target_interfaces:
-                    defaults = {
-                        'binding': binding,
-                        'enabled': True,
-                        'poll_interval_sec': binding.metric.default_interval_sec,
-                    }
-                    if interface is None:
-                        MetricSubscription.objects.update_or_create(
-                            device=device,
-                            interface__isnull=True,
-                            metric=binding.metric,
-                            defaults={**defaults, 'interface': None},
-                        )
-                    else:
-                        MetricSubscription.objects.update_or_create(
-                            device=device,
-                            interface=interface,
-                            metric=binding.metric,
-                            defaults=defaults,
-                        )
-                    created_or_updated += 1
-
-            messages.success(request, f'Applied {created_or_updated} metric subscriptions.')
-            return redirect('device_metrics', pk=device.pk)
-
-    return render(
-        request,
-        'device_metrics.html',
-        {
-            'device': device,
-            'bindings': bindings,
-            'interfaces': interfaces,
-            'subscriptions': subscriptions,
-        },
+    discovered_subscriptions = (
+        MetricSubscription.objects
+        .filter(device=device, binding__isnull=False)
+        .select_related('metric', 'interface', 'binding')
+        .order_by('metric__key', 'interface__if_index')
     )
+    if device.profile_id:
+        discovered_subscriptions = discovered_subscriptions.filter(binding__profile_id=device.profile_id)
+
+    return {
+        'bindings': bindings,
+        'profile_presets': profile_presets,
+        'interfaces': interfaces,
+        'optical_interfaces': optical_interfaces,
+        'subscriptions': subscriptions,
+        'discovered_subscriptions': discovered_subscriptions,
+        'has_subscriptions': has_subscriptions,
+    }
+
+
+def handle_device_metrics_post(request, device):
+    action = (request.POST.get('action') or '').strip()
+    if not action:
+        return None
+    if not request.user.has_perm('snmp.change_device'):
+        return HttpResponse(status=403)
+
+    bindings = list(get_active_bindings_for_device(device))
+    interfaces = list(device.interfaces.order_by('if_index'))
+    has_subscriptions = MetricSubscription.objects.filter(device=device).exists()
+
+    if action == 'run_discovery':
+        community = request.POST.get('community', '').strip() or device.snmp_community_ro or 'public'
+        try:
+            result = run_device_discovery(ip=str(device.ip), community=community, managed_device=device)
+            device.refresh_from_db()
+            refreshed_bindings = list(get_active_bindings_for_device(device))
+            refreshed_interfaces = list(device.interfaces.order_by('if_index'))
+            sync_stats = _sync_discovered_metric_subscriptions(
+                device=device,
+                bindings=refreshed_bindings,
+                interfaces=refreshed_interfaces,
+            )
+            messages.success(
+                request,
+                (
+                    "Discovery completed: "
+                    f"vendor={result.get('vendor', '-') or '-'} "
+                    f"model={result.get('model', '-') or '-'} "
+                    f"profile_id={result.get('profile_id', 0)} "
+                    f"interfaces={result.get('interfaces_count', 0)} "
+                    f"metrics={sync_stats.get('discovered_count', 0)}"
+                ),
+            )
+            if not result.get('profile_id'):
+                messages.warning(request, 'No exact profile was matched; generic fallback was used if available.')
+        except SnmpReadError as exc:
+            messages.error(request, f'Discovery failed: {exc}')
+        return _redirect_to_next_or_view(request, device)
+
+    if action == 'poll_now':
+        if not has_subscriptions:
+            messages.warning(request, 'No active subscriptions yet. Apply profile metrics first.')
+            return _redirect_to_next_or_view(request, device)
+        saved_count = poll_device_metrics(device.id)
+        messages.success(request, f'Polling completed. Saved samples: {saved_count}.')
+        return _redirect_to_next_or_view(request, device)
+
+    if action == 'assign_profile_preset':
+        profile_id = (request.POST.get('profile_id') or '').strip()
+        if not profile_id.isdigit():
+            messages.warning(request, 'Select a profile preset first.')
+            return _redirect_to_next_or_view(request, device)
+
+        profile = DeviceProfile.objects.filter(pk=int(profile_id), active=True).first()
+        if not profile:
+            messages.error(request, 'Selected profile preset was not found or is inactive.')
+            return _redirect_to_next_or_view(request, device)
+
+        if device.profile_id == profile.id:
+            messages.info(request, f'Profile preset "{profile}" is already assigned to this host.')
+            return _redirect_to_next_or_view(request, device)
+
+        device.profile = profile
+        device.save(update_fields=['profile'])
+        messages.success(request, f'Profile preset "{profile}" assigned to host.')
+        return _redirect_to_next_or_view(request, device)
+
+    if action == 'apply_profile':
+        selected_binding_ids = request.POST.getlist('binding_ids')
+        scope = request.POST.get('scope', 'optical')
+
+        selected_bindings = [binding for binding in bindings if str(binding.id) in selected_binding_ids]
+        if not selected_bindings:
+            messages.warning(request, 'Select at least one metric binding.')
+            return _redirect_to_next_or_view(request, device)
+
+        if scope == 'device':
+            target_interfaces = [None]
+        elif scope == 'all':
+            target_interfaces = interfaces
+        else:
+            target_interfaces = [iface for iface in interfaces if iface.is_optical]
+
+        created_or_updated = 0
+        for binding in selected_bindings:
+            for interface in target_interfaces:
+                defaults = {
+                    'binding': binding,
+                    'enabled': True,
+                    'poll_interval_sec': binding.metric.default_interval_sec,
+                }
+                if interface is None:
+                    MetricSubscription.objects.update_or_create(
+                        device=device,
+                        interface__isnull=True,
+                        metric=binding.metric,
+                        defaults={**defaults, 'interface': None},
+                    )
+                else:
+                    MetricSubscription.objects.update_or_create(
+                        device=device,
+                        interface=interface,
+                        metric=binding.metric,
+                        defaults=defaults,
+                    )
+                created_or_updated += 1
+
+        messages.success(request, f'Applied {created_or_updated} metric subscriptions.')
+        return _redirect_to_next_or_view(request, device)
+
+    if action == 'set_discovery_monitoring':
+        selected_ids = {
+            int(item)
+            for item in request.POST.getlist('enabled_subscription_ids')
+            if str(item).isdigit()
+        }
+        discovered_qs = MetricSubscription.objects.filter(device=device, binding__isnull=False)
+        if device.profile_id:
+            discovered_qs = discovered_qs.filter(binding__profile_id=device.profile_id)
+
+        discovered_ids = list(discovered_qs.values_list('id', flat=True))
+        if not discovered_ids:
+            messages.warning(request, 'No discovered metrics found to update.')
+            return _redirect_to_next_or_view(request, device)
+
+        with transaction.atomic():
+            MetricSubscription.objects.filter(id__in=discovered_ids).update(enabled=False)
+            if selected_ids:
+                selected_discovered_ids = [item for item in discovered_ids if item in selected_ids]
+                MetricSubscription.objects.filter(id__in=selected_discovered_ids).update(enabled=True)
+
+        enabled_count = MetricSubscription.objects.filter(id__in=discovered_ids, enabled=True).count()
+        messages.success(
+            request,
+            f'Monitoring updated for discovered metrics: enabled={enabled_count}, disabled={len(discovered_ids) - enabled_count}.',
+        )
+        return _redirect_to_next_or_view(request, device)
+
+    return None
+
+
+@login_required
+def device_metrics(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    if not user_can_access_device(request.user, device):
+        return HttpResponse(status=403)
+    if request.method == 'POST':
+        response = handle_device_metrics_post(request, device)
+        if response is not None:
+            return response
+    return redirect(f"{reverse('device_host_settings', args=[device.pk])}?tab=metrics")
 
 
 @login_required
@@ -135,7 +306,7 @@ def update_metric_subscription(request, subscription_id):
         subscription.poll_interval_sec = int(poll) if poll else None
     except ValueError:
         messages.error(request, 'Invalid numeric value in thresholds or poll interval.')
-        return redirect('device_metrics', pk=subscription.device_id)
+        return _redirect_to_next_or_view(request, subscription.device)
 
     threshold_error = _validate_thresholds(
         subscription=subscription,
@@ -144,12 +315,12 @@ def update_metric_subscription(request, subscription_id):
     )
     if threshold_error:
         messages.error(request, threshold_error)
-        return redirect('device_metrics', pk=subscription.device_id)
+        return _redirect_to_next_or_view(request, subscription.device)
 
     subscription.save(update_fields=['enabled', 'warn_threshold', 'crit_threshold', 'poll_interval_sec'])
 
     messages.success(request, 'Subscription updated.')
-    return redirect('device_metrics', pk=subscription.device_id)
+    return _redirect_to_next_or_view(request, subscription.device)
 
 
 @login_required

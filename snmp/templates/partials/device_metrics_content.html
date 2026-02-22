@@ -1,0 +1,309 @@
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="font-display text-lg font-semibold text-surface-900">Metric Subscriptions</h2>
+        <p class="text-sm text-surface-700">Device: {{ device.hostname }} ({{ device.ip }})</p>
+      </div>
+      <a href="{% url 'device_host_settings' device.pk %}" class="inline-flex rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">
+        Edit host
+      </a>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2 px-4 py-3">
+    {% for message in messages %}
+    <div class="rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-brand-700">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="border-t border-surface-200 px-4 py-3">
+    <div class="rounded-md border border-info-100 bg-info-50 px-3 py-2 text-sm text-info-900">
+      <span class="font-semibold">Next step:</span>
+      {% if not device.profile_id %}
+        assign a profile in the <span class="font-medium">Profiles</span> block.
+      {% elif not bindings %}
+        current profile has no active metric bindings; choose another preset or create/update profile bindings.
+      {% elif not has_subscriptions %}
+        apply profile metrics in <span class="font-medium">Apply Profile Metrics</span>, then run <span class="font-medium">Pull metrics</span>.
+      {% else %}
+        subscriptions are ready; you can run <span class="font-medium">Pull metrics</span> or monitor timeseries below.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="border-t border-surface-200 px-4 py-4">
+    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-700">Collection workflow</h3>
+    <div class="grid gap-4 md:grid-cols-2">
+    <form method="post" class="rounded-lg border border-surface-200 p-3">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+      <input type="hidden" name="action" value="run_discovery" />
+      <h3 class="mb-1 text-sm font-semibold text-surface-900">Step 1. Run discovery</h3>
+      <p class="mb-3 text-xs text-surface-700">Reads device identity and interfaces, then attempts profile matching.</p>
+      <div class="flex gap-2">
+        <input type="text" name="community" value="{{ device.snmp_community_ro|default:'public' }}" class="w-full rounded-md border border-surface-200 px-3 py-2 text-sm" placeholder="SNMP community" />
+        <button type="submit" class="rounded-md bg-info-600 px-3 py-2 text-sm font-medium text-white hover:bg-info-700">Run discovery</button>
+      </div>
+    </form>
+
+    <form method="post" class="rounded-lg border border-surface-200 p-3">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+      <input type="hidden" name="action" value="poll_now" />
+      <h3 class="mb-1 text-sm font-semibold text-surface-900">Step 2. Pull metrics</h3>
+      <p class="mb-3 text-xs text-surface-700">Immediately polls all enabled subscriptions configured below.</p>
+      <button type="submit" {% if not has_subscriptions %}disabled{% endif %} class="rounded-md px-3 py-2 text-sm font-medium text-white {% if has_subscriptions %}bg-surface-700 hover:bg-surface-900{% else %}cursor-not-allowed bg-surface-300{% endif %}">Pull metrics now</button>
+      {% if not has_subscriptions %}
+        <p class="mt-2 text-xs text-surface-700">Disabled until at least one subscription is created.</p>
+      {% endif %}
+    </form>
+    </div>
+  </div>
+</section>
+
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <h3 class="text-base font-semibold text-surface-900">Discovery Results</h3>
+  </div>
+  <div class="space-y-4 px-4 py-4">
+    <div class="grid gap-2 text-sm md:grid-cols-2">
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <div><span class="text-surface-600">Vendor:</span> <span class="font-medium text-surface-900">{{ device.vendor|default:"-" }}</span></div>
+        <div><span class="text-surface-600">Model:</span> <span class="font-medium text-surface-900">{{ device.model|default:"-" }}</span></div>
+        <div><span class="text-surface-600">Firmware:</span> <span class="font-medium text-surface-900">{{ device.firmware|default:"-" }}</span></div>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <div><span class="text-surface-600">SysObjectID:</span> <span class="break-all font-mono text-xs text-surface-900">{{ device.sys_object_id|default:"-" }}</span></div>
+        <div><span class="text-surface-600">Last discovery:</span> <span class="font-medium text-surface-900">{{ device.last_discovered_at|default:"-" }}</span></div>
+        <div><span class="text-surface-600">Assigned profile:</span>
+          {% if device.profile %}
+            <span class="font-medium text-surface-900">#{{ device.profile.pk }} {{ device.profile.vendor }} / {{ device.profile.model_pattern }}</span>
+          {% else %}
+            <span class="font-medium text-surface-900">-</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if discovered_subscriptions %}
+      <form method="post" class="space-y-3 rounded-lg border border-surface-200 p-3">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+        <input type="hidden" name="action" value="set_discovery_monitoring" />
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-sm font-semibold text-surface-900">Found metrics (monitoring on/off)</h4>
+          <button type="submit" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">Save monitoring state</button>
+        </div>
+
+        <div class="max-h-64 overflow-auto rounded-md border border-surface-200">
+          <table class="min-w-full divide-y divide-surface-200 text-sm">
+            <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+              <tr>
+                <th class="px-2 py-2 text-left">Monitor</th>
+                <th class="px-2 py-2 text-left">Metric</th>
+                <th class="px-2 py-2 text-left">Interface</th>
+                <th class="px-2 py-2 text-left">OID</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-100 bg-surface-0">
+              {% for sub in discovered_subscriptions %}
+                <tr>
+                  <td class="px-2 py-2">
+                    <input type="checkbox" name="enabled_subscription_ids" value="{{ sub.id }}" {% if sub.enabled %}checked{% endif %}>
+                  </td>
+                  <td class="px-2 py-2 font-medium text-surface-900">{{ sub.metric.key }}</td>
+                  <td class="px-2 py-2">{% if sub.interface %}ifIndex {{ sub.interface.if_index }}{% else %}Device{% endif %}</td>
+                  <td class="px-2 py-2 font-mono text-xs text-surface-700">{{ sub.binding.oid_template }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+    {% else %}
+      <p class="text-sm text-surface-700">No discovered metrics yet. Run discovery to detect profile and metric set.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <h3 class="text-base font-semibold text-surface-900">Profiles</h3>
+  </div>
+  <div class="space-y-4 px-4 py-4">
+    <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-800">
+      Current profile:
+      {% if device.profile %}
+        <a href="{% url 'device_profile_detail' device.profile.pk %}" class="font-medium text-brand-700 hover:text-brand-900">#{{ device.profile.pk }} {{ device.profile.vendor }} / {{ device.profile.model_pattern }}</a>
+      {% else %}
+        <span class="font-medium text-surface-900">not assigned</span>
+      {% endif %}
+    </div>
+
+    <form method="post" class="rounded-lg border border-surface-200 p-3">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+      <input type="hidden" name="action" value="assign_profile_preset" />
+      <h4 class="mb-1 text-sm font-semibold text-surface-900">Assign from preset</h4>
+      <p class="mb-3 text-xs text-surface-700">Select a ready profile and attach it to this host.</p>
+      <div class="flex flex-wrap gap-2">
+        <select name="profile_id" class="min-w-72 flex-1 rounded-md border border-surface-200 px-3 py-2 text-sm">
+          <option value="">Select preset profile...</option>
+          {% for preset in profile_presets %}
+            <option value="{{ preset.pk }}" {% if device.profile_id == preset.pk %}selected{% endif %}>#{{ preset.pk }} · P{{ preset.priority }} · {{ preset.vendor }} / {{ preset.model_pattern }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Assign preset</button>
+      </div>
+    </form>
+
+    <a href="{% url 'device_profile_create' %}?managed_device={{ device.pk }}" class="inline-flex rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">
+      Create profile manually
+    </a>
+  </div>
+</section>
+
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <h3 class="text-base font-semibold text-surface-900">Apply Profile Metrics</h3>
+  </div>
+
+  {% if not bindings %}
+    <p class="px-4 py-4 text-sm text-surface-700">No active bindings for this device profile.</p>
+  {% else %}
+    <form method="post" class="space-y-3 px-4 py-4">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+      <input type="hidden" name="action" value="apply_profile" />
+
+      <div class="flex flex-wrap gap-3 text-sm">
+        <label class="inline-flex items-center gap-2"><input type="radio" name="scope" value="optical" x-model="applyScope"> Optical interfaces</label>
+        <label class="inline-flex items-center gap-2"><input type="radio" name="scope" value="all" x-model="applyScope"> All interfaces</label>
+        <label class="inline-flex items-center gap-2"><input type="radio" name="scope" value="device" x-model="applyScope"> Device-level</label>
+      </div>
+
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-800">
+        <p class="mb-2 font-medium text-surface-900">Detected interfaces</p>
+
+        <div x-show="applyScope === 'optical'">
+          {% if optical_interfaces %}
+            <div class="max-h-28 overflow-auto">
+              <ul class="space-y-1">
+                {% for iface in optical_interfaces %}
+                  <li class="font-mono text-xs">ifIndex {{ iface.if_index }} · {{ iface.if_name|default:"-" }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <p class="text-xs text-surface-700">No optical interfaces discovered yet.</p>
+          {% endif %}
+        </div>
+
+        <div x-show="applyScope === 'all'">
+          {% if interfaces %}
+            <div class="max-h-28 overflow-auto">
+              <ul class="space-y-1">
+                {% for iface in interfaces %}
+                  <li class="font-mono text-xs">ifIndex {{ iface.if_index }} · {{ iface.if_name|default:"-" }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <p class="text-xs text-surface-700">No interfaces discovered yet.</p>
+          {% endif %}
+        </div>
+
+        <div x-show="applyScope === 'device'">
+          <p class="text-xs text-surface-700">Device-level mode: subscriptions will be created without interface binding.</p>
+        </div>
+      </div>
+
+      <div class="grid max-h-56 gap-2 overflow-auto rounded-md border border-surface-200 p-3 sm:grid-cols-2">
+        {% for binding in bindings %}
+          <label class="inline-flex items-start gap-2 text-sm">
+            <input type="checkbox" name="binding_ids" value="{{ binding.id }}" checked class="mt-1">
+            <span>
+              <span class="font-medium text-surface-900">{{ binding.metric.key }}</span>
+              <span class="block text-xs text-surface-700">{{ binding.oid_template }}</span>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="rounded-md bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700">Apply selected metrics</button>
+    </form>
+  {% endif %}
+</section>
+
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <h3 class="text-base font-semibold text-surface-900">Current Subscriptions</h3>
+  </div>
+
+  {% if not subscriptions %}
+    <p class="px-4 py-4 text-sm text-surface-700">No subscriptions configured yet.</p>
+  {% else %}
+    <div class="overflow-x-auto px-4 py-4">
+      <table class="min-w-full divide-y divide-surface-200 text-sm">
+        <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+          <tr>
+            <th class="px-2 py-2 text-left">Metric</th>
+            <th class="px-2 py-2 text-left">Interface</th>
+            <th class="px-2 py-2 text-left">Enabled</th>
+            <th class="px-2 py-2 text-left">Warn</th>
+            <th class="px-2 py-2 text-left">Crit</th>
+            <th class="px-2 py-2 text-left">Poll(s)</th>
+            <th class="px-2 py-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-100 bg-surface-0">
+          {% for sub in subscriptions %}
+            <tr>
+              <form method="post" action="{% url 'update_metric_subscription' sub.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}?tab=metrics" />
+                <td class="px-2 py-2 font-medium text-surface-900">{{ sub.metric.key }}</td>
+                <td class="px-2 py-2">{% if sub.interface %}ifIndex {{ sub.interface.if_index }}{% else %}Device{% endif %}</td>
+                <td class="px-2 py-2"><input type="checkbox" name="enabled" {% if sub.enabled %}checked{% endif %}></td>
+                <td class="px-2 py-2"><input class="w-24 rounded-md border border-surface-200 px-2 py-1" type="number" step="any" name="warn_threshold" value="{{ sub.warn_threshold|default:'' }}"></td>
+                <td class="px-2 py-2"><input class="w-24 rounded-md border border-surface-200 px-2 py-1" type="number" step="any" name="crit_threshold" value="{{ sub.crit_threshold|default:'' }}"></td>
+                <td class="px-2 py-2"><input class="w-20 rounded-md border border-surface-200 px-2 py-1" type="number" min="1" name="poll_interval_sec" value="{{ sub.poll_interval_sec|default:'' }}"></td>
+                <td class="px-2 py-2"><button class="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700" type="submit">Save</button></td>
+              </form>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-200 px-4 py-3">
+    <h3 class="text-base font-semibold text-surface-900">Timeseries</h3>
+    <a href="{% url 'export_device_metrics_csv' device.pk %}" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Export CSV</a>
+  </div>
+
+  {% if subscriptions %}
+    <div class="space-y-3 px-4 py-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <select x-model="selected" class="rounded-md border border-surface-200 px-3 py-2 text-sm">
+          {% for sub in subscriptions %}
+            <option value="{{ sub.metric.key }}|{% if sub.interface %}{{ sub.interface.if_index }}{% endif %}">
+              {{ sub.metric.key }} / {% if sub.interface %}ifIndex {{ sub.interface.if_index }}{% else %}Device{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <button type="button" @click="loadChart()" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">Load Chart</button>
+      </div>
+
+      <canvas x-ref="metricChart" height="100"></canvas>
+      <p class="text-xs text-surface-700" x-text="chartStatus"></p>
+    </div>
+  {% else %}
+    <p class="px-4 py-4 text-sm text-surface-700">No subscriptions available for chart.</p>
+  {% endif %}
+</section>
