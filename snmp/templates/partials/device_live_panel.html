@@ -22,22 +22,51 @@
     </div>
     <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
       <p class="text-xs uppercase text-surface-700">Optical Snapshot</p>
-      {% for row in optical_port_rows %}
-        <div class="mb-2 border-b border-surface-200 pb-1 last:mb-0 last:border-0 last:pb-0">
-          <p class="text-[10px] font-bold text-surface-600 uppercase">
-            Port {{ row.if_index }}{% if row.if_name %} · {{ row.if_name }}{% endif %}
-          </p>
-          <p class="text-xs text-surface-800">
-            RX: {{ row.port.rx_signal|default:'-' }} / TX: {{ row.port.tx_signal|default:'-' }}
-          </p>
-          <p class="text-[10px] text-surface-700">
-            {{ row.port.sfp_vendor|default:'' }} {{ row.port.part_number|default:'' }}
-          </p>
-        </div>
-      {% empty %}
-         <p class="text-xs text-surface-500 italic">No optical data</p>
-      {% endfor %}
+      <p class="text-sm font-semibold text-surface-900">{{ optical_ports_with_signal }}/{{ optical_ports_total }} with signal</p>
+      <p class="mt-1 text-xs text-surface-600">Eligible optical Ethernet ports</p>
     </div>
+  </div>
+
+  <div class="border-t border-surface-200 px-4 py-3">
+    <h4 class="text-xs uppercase text-surface-700">Optical Ports</h4>
+    {% if optical_port_rows %}
+    <div class="mt-2 overflow-x-auto rounded-md border border-surface-200">
+      <table class="min-w-full divide-y divide-surface-200 text-xs">
+        <thead class="bg-surface-50 uppercase text-surface-700">
+          <tr>
+            <th class="px-3 py-2 text-left">Port</th>
+            <th class="px-3 py-2 text-left">Interface</th>
+            <th class="px-3 py-2 text-left">RX</th>
+            <th class="px-3 py-2 text-left">TX</th>
+            <th class="px-3 py-2 text-left">Vendor</th>
+            <th class="px-3 py-2 text-left">Part Number</th>
+          </tr>
+        </thead>
+        <tbody class="bg-surface-0 text-surface-800">
+          {% for row in optical_port_rows %}
+          <tr class="border-t border-surface-100">
+            <td class="px-3 py-2 font-semibold">#{{ row.if_index }}</td>
+            <td class="px-3 py-2">
+              {% if row.if_name %}
+                {{ row.if_name }}
+              {% elif row.inferred %}
+                <span class="italic text-surface-500">Inferred from port metrics</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td class="px-3 py-2">{{ row.port.rx_signal|default:'-' }}</td>
+            <td class="px-3 py-2">{{ row.port.tx_signal|default:'-' }}</td>
+            <td class="px-3 py-2">{{ row.port.sfp_vendor|default:'-' }}</td>
+            <td class="px-3 py-2">{{ row.port.part_number|default:'-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="mt-2 text-xs italic text-surface-500">No optical data</p>
+    {% endif %}
   </div>
 
   {% if perms.snmp.change_device %}

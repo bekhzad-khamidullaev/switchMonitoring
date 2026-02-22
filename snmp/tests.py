@@ -1559,3 +1559,41 @@ class OpticalPipelineHardeningTests(TestCase):
         self.assertEqual(len(payload["ports"]), 70)
         returned_ports = {item["port"] for item in payload["ports"]}
         self.assertNotIn(1000, returned_ports)
+
+
+class DashboardDataConsistencyTests(TestCase):
+    def test_dashboard_superuser_uses_global_scope_counts(self):
+        user = User.objects.create_superuser(username='dash_admin', password='p1', email='dash@example.com')
+        self.client.login(username='dash_admin', password='p1')
+
+        branch_a = Branch.objects.create(name='Dash Branch A')
+        branch_b = Branch.objects.create(name='Dash Branch B')
+        Device.objects.create(hostname='up-a', ip='10.130.0.1', status=True, group=branch_a)
+        Device.objects.create(hostname='down-b', ip='10.130.0.2', status=False, group=branch_b)
+
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['up_count'], 1)
+        self.assertEqual(response.context['down_count'], 1)
+
+    def test_dashboard_vendor_model_stats_use_device_type_fallback_for_unknown(self):
+        user = User.objects.create_superuser(username='dash_admin2', password='p1', email='dash2@example.com')
+        self.client.login(username='dash_admin2', password='p1')
+
+        branch = Branch.objects.create(name='Dash Branch C')
+        vendor = Vendor.objects.create(name='Huawei')
+        model = DeviceModel.objects.create(vendor=vendor, device_model='S5735-L24')
+        Device.objects.create(
+            hostname='fallback-host',
+            ip='10.130.1.1',
+            status=True,
+            group=branch,
+            vendor='unknown',
+            model='unknown',
+            device_type=model,
+        )
+
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(any(item['vendor'] == 'Huawei' for item in response.context['vendor_stats']))
+        self.assertTrue(any(item['model'] == 'S5735-L24' for item in response.context['model_stats']))

@@ -389,32 +389,63 @@ def _build_device_metrics_summary(device):
 
 def _build_optical_port_rows(device):
     interfaces = list(device.interfaces.all())
+    interfaces_by_index = {iface.if_index: iface for iface in interfaces}
     optical_ifaces = [iface for iface in interfaces if is_eligible_optical_ethernet(iface)]
     optical_port_indexes = [iface.if_index for iface in optical_ifaces]
+    ports_qs = DevicePort.objects.filter(managed_device=device).filter(
+        Q(port__in=optical_port_indexes)
+        | Q(rx_signal__isnull=False)
+        | Q(tx_signal__isnull=False)
+        | Q(sfp_vendor__isnull=False)
+        | Q(part_number__isnull=False)
+    ).order_by('port')
     ports_map = {
         port.port: port
-        for port in DevicePort.objects.filter(
-            managed_device=device,
-            port__in=optical_port_indexes,
-        ).order_by('port')
+        for port in ports_qs
     }
-    return [
+    rows = [
         {
             'if_index': iface.if_index,
             'if_name': iface.if_name,
             'if_alias': iface.if_alias,
             'port': ports_map.get(iface.if_index),
+            'inferred': False,
         }
         for iface in sorted(optical_ifaces, key=lambda item: item.if_index)
     ]
+    existing_indexes = {row['if_index'] for row in rows}
+    for port_index, port_obj in sorted(ports_map.items(), key=lambda item: item[0]):
+        if port_index in existing_indexes:
+            continue
+        iface = interfaces_by_index.get(port_index)
+        if iface and not is_eligible_optical_ethernet(iface):
+            # Skip explicit non-eligible interfaces (e.g. GPON).
+            continue
+        rows.append(
+            {
+                'if_index': port_index,
+                'if_name': iface.if_name if iface else '',
+                'if_alias': iface.if_alias if iface else '',
+                'port': port_obj,
+                'inferred': True,
+            }
+        )
+    return rows
 
 
 def _render_device_live_panel(request, device):
     optical_port_rows = _build_optical_port_rows(device)
+    ports_with_signal = sum(
+        1
+        for row in optical_port_rows
+        if row['port'] and (row['port'].rx_signal is not None or row['port'].tx_signal is not None)
+    )
     context = {
         'device': device,
         'metrics_summary': _build_device_metrics_summary(device),
         'optical_port_rows': optical_port_rows,
+        'optical_ports_total': len(optical_port_rows),
+        'optical_ports_with_signal': ports_with_signal,
     }
     return render(request, 'partials/device_live_panel.html', context)
 

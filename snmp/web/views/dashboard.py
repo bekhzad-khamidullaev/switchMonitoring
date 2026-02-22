@@ -1,5 +1,7 @@
+from collections import Counter
+
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Max, Q
+from django.db.models import F, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -9,44 +11,66 @@ from snmp.models import AlertEvent, AlertRule, Device, DeviceNeighbor, DevicePor
 
 from .access import get_permitted_groups, user_has_global_device_access
 
+UNKNOWN_TEXT_VALUES = {'', 'unknown', 'n/a', 'na', '-', 'none', 'null'}
+
+
+def _is_unknown_text(value):
+    return (value or '').strip().lower() in UNKNOWN_TEXT_VALUES
+
+
+def _display_vendor(row):
+    vendor = (row.get('vendor') or '').strip()
+    if not _is_unknown_text(vendor):
+        return vendor
+    return (row.get('device_type__vendor__name') or '').strip() or 'Unknown'
+
+
+def _display_model(row):
+    model = (row.get('model') or '').strip()
+    if not _is_unknown_text(model):
+        return model
+    return (row.get('device_type__device_model') or '').strip() or 'Unknown'
+
 
 @login_required
 def devices_updown(request):
-    user_permitted_groups = get_permitted_groups(request.user)
+    if user_has_global_device_access(request.user):
+        base_devices = Device.objects.all()
+    else:
+        user_permitted_groups = get_permitted_groups(request.user)
+        base_devices = Device.objects.filter(group__in=user_permitted_groups)
 
     # Device Status
-    devices_online = Device.objects.filter(status=True, group__in=user_permitted_groups).count()
-    devices_offline = Device.objects.filter(status=False, group__in=user_permitted_groups).count()
+    devices_online = base_devices.filter(status=True).count()
+    devices_offline = base_devices.filter(status=False).count()
 
     # Alerts
     open_alerts = AlertEvent.objects.filter(
         state=AlertEvent.State.OPEN,
-        subscription__device__group__in=user_permitted_groups
+        subscription__device__in=base_devices
     )
     critical_alerts_count = open_alerts.filter(severity=AlertRule.Severity.CRITICAL).count()
     warning_alerts_count = open_alerts.filter(severity=AlertRule.Severity.WARNING).count()
 
     # Signal Quality Buckets
-    high_signal_20 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-20, group__in=user_permitted_groups).distinct().count()
-    high_signal_15 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-15, switch_ports_reverse__rx_signal__gt=-20, group__in=user_permitted_groups).distinct().count()
-    high_signal_10 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-11, switch_ports_reverse__rx_signal__gt=-15, group__in=user_permitted_groups).distinct().count()
-    high_signal_11 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-11, group__in=user_permitted_groups).distinct().count()
+    high_signal_20 = base_devices.filter(switch_ports_reverse__rx_signal__lte=-20).distinct().count()
+    high_signal_15 = base_devices.filter(switch_ports_reverse__rx_signal__lte=-15, switch_ports_reverse__rx_signal__gt=-20).distinct().count()
+    high_signal_10 = base_devices.filter(switch_ports_reverse__rx_signal__lte=-11, switch_ports_reverse__rx_signal__gt=-15).distinct().count()
+    high_signal_11 = base_devices.filter(switch_ports_reverse__rx_signal__lte=-11).distinct().count()
 
-    # Vendor Distribution (Top 10)
-    vendor_stats = (
-        Device.objects.filter(group__in=user_permitted_groups)
-        .values('vendor')
-        .annotate(count=Count('id'))
-        .order_by('-count')[:10]
+    device_rows = base_devices.values(
+        'vendor',
+        'model',
+        'device_type__vendor__name',
+        'device_type__device_model',
     )
-
-    # Model Distribution (Top 10)
-    model_stats = (
-        Device.objects.filter(group__in=user_permitted_groups)
-        .values('model')
-        .annotate(count=Count('id'))
-        .order_by('-count')[:10]
-    )
+    vendor_counter = Counter()
+    model_counter = Counter()
+    for row in device_rows:
+        vendor_counter[_display_vendor(row)] += 1
+        model_counter[_display_model(row)] += 1
+    vendor_stats = [{'vendor': name, 'count': count} for name, count in vendor_counter.most_common(10)]
+    model_stats = [{'model': name, 'count': count} for name, count in model_counter.most_common(10)]
 
     # Recent Events
     recent_alerts = open_alerts.select_related(
@@ -57,7 +81,7 @@ def devices_updown(request):
     time_threshold = timezone.now() - timezone.timedelta(hours=24)
     subscriptions_with_last_sample = (
         MetricSample.objects.filter(
-            subscription__device__group__in=user_permitted_groups,
+            subscription__device__in=base_devices,
             ts__gte=time_threshold,
         )
         .values('subscription_id')
