@@ -2,8 +2,16 @@
 {% block title %}Devices{% endblock %}
 
 {% block content %}
-  <div class="mb-4 rounded-panel border border-surface-200 bg-surface-0 p-4 shadow-soft">
-    <form method="get" class="grid grid-cols-1 items-center gap-2 md:grid-cols-[minmax(260px,1fr)_140px_180px_180px_auto_auto]">
+  <div class="radix-surface mb-4 border-none p-4">
+    <form
+      method="get"
+      class="grid grid-cols-1 items-center gap-2 md:grid-cols-[minmax(260px,1fr)_140px_180px_180px_auto_auto]"
+      hx-get="{% url 'devices' %}"
+      hx-target="#device-table-container"
+      hx-swap="innerHTML"
+      hx-push-url="true"
+      hx-trigger="change delay:250ms, keyup delay:400ms from:#search"
+    >
       <input
         id="search"
         type="text"
@@ -34,8 +42,10 @@
       </select>
 
       <button type="submit" class="rounded-md bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900">Apply</button>
-      <a href="{% url 'devices' %}" class="rounded-md border border-surface-200 bg-surface-0 px-4 py-2 text-sm font-medium text-surface-900 hover:bg-surface-50">Reset</a>
+      <a href="{% url 'devices' %}" class="rounded-md border border-surface-200 bg-surface-0 px-4 py-2 text-center text-sm font-medium text-surface-900 hover:bg-surface-50">Reset</a>
     </form>
   </div>
-  {% include 'partials/device_table.html' with devices_page=devices page_title='All Devices' page_subtitle='Inventory and live status overview' %}
+  <div id="device-table-container">
+    {% include 'partials/device_table.html' with devices_page=devices page_title='All Devices' page_subtitle='Inventory and live status overview' %}
+  </div>
 {% endblock %}

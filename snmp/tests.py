@@ -9,8 +9,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from snmp.models import (
+    Ats,
     Branch,
     Device,
+    DeviceModel,
     DeviceNeighbor,
     DeviceProfile,
     Interface,
@@ -18,12 +20,15 @@ from snmp.models import (
     MetricDefinition,
     MetricSample,
     MetricSubscription,
+    Vendor,
 )
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.tasks import (
+    assign_device_profiles_task,
     discover_all_devices_task,
     maintain_metric_samples_task,
     poll_all_devices_metrics_task,
+    subnet_autoprovision_task,
 )
 from snmp.web.views.device_operations import refresh_device_status
 
@@ -172,6 +177,7 @@ class DeviceSettingsProfileAssignmentTests(TestCase):
         device.refresh_from_db()
         self.assertEqual(device.hostname, 'host-settings-renamed')
         self.assertEqual(device.profile_id, profile.id)
+
 
     def test_host_settings_apply_preset_prefills_form_without_saving(self):
         device = Device.objects.create(
@@ -338,6 +344,31 @@ class DeviceSettingsProfileAssignmentTests(TestCase):
         self.assertContains(response, 'Unknown settings action: unknown_action')
         device.refresh_from_db()
         self.assertEqual(device.hostname, 'host-settings-unknown-action')
+
+
+class DeviceDisplayFieldsTests(TestCase):
+    def test_display_vendor_ignores_unknown_and_uses_device_type_vendor(self):
+        vendor = Vendor.objects.create(name='huawei')
+        model = DeviceModel.objects.create(vendor=vendor, device_model='S5735')
+        device = Device.objects.create(
+            ip='10.200.200.1',
+            vendor='unknown',
+            model='unknown',
+            device_type=model,
+        )
+
+        self.assertEqual(device.display_vendor, 'huawei')
+        self.assertEqual(device.display_model, 'S5735')
+
+    def test_display_vendor_does_not_use_sfp_vendor(self):
+        device = Device.objects.create(
+            ip='10.200.200.2',
+            vendor='unknown',
+            model='',
+            sfp_vendor='Hisense',
+        )
+
+        self.assertEqual(device.display_vendor, '')
 
 
 class DeviceListMetricsSummaryTests(TestCase):
@@ -610,22 +641,41 @@ class DeviceProfilesPageTests(TestCase):
         self.user.user_permissions.add(change_device_perm)
         self.client.login(username='profiles_user', password='p1')
 
+    @staticmethod
+    def _empty_bindings_formset_payload():
+        return {
+            'bindings-TOTAL_FORMS': '1',
+            'bindings-INITIAL_FORMS': '0',
+            'bindings-MIN_NUM_FORMS': '0',
+            'bindings-MAX_NUM_FORMS': '1000',
+            'bindings-0-metric': '',
+            'bindings-0-oid_template': '',
+            'bindings-0-index_strategy': MetricBinding.IndexStrategy.IF_INDEX,
+            'bindings-0-converter': MetricBinding.Converter.IDENTITY,
+            'bindings-0-binding_params': '',
+            'bindings-0-scale': '1.0',
+            'bindings-0-priority': '100',
+            'bindings-0-enabled_by_default': 'on',
+        }
+
     def test_profiles_page_renders(self):
         response = self.client.get(reverse('device_profiles'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('Device Profiles', response.content.decode('utf-8'))
 
     def test_create_profile_manually_and_assign_device(self):
+        payload = {
+            'vendor': 'snr',
+            'model_pattern': 'SNR-S2982G-24TE',
+            'firmware_pattern': '7.0.3',
+            'priority': '10',
+            'active': 'on',
+            'assign_managed_device_id': str(self.managed_device.pk),
+        }
+        payload.update(self._empty_bindings_formset_payload())
         response = self.client.post(
             reverse('device_profile_create'),
-            data={
-                'vendor': 'snr',
-                'model_pattern': 'SNR-S2982G-24TE',
-                'firmware_pattern': '7.0.3',
-                'priority': '10',
-                'active': 'on',
-                'assign_managed_device_id': str(self.managed_device.pk),
-            },
+            data=payload,
         )
         self.assertEqual(response.status_code, 302)
         profile = DeviceProfile.objects.get(vendor='snr', model_pattern='SNR-S2982G-24TE', firmware_pattern='7.0.3')
@@ -652,20 +702,88 @@ class DeviceProfilesPageTests(TestCase):
             priority=100,
             active=True,
         )
+        payload = {
+            'vendor': 'snr-updated',
+            'model_pattern': 'SNR-S2982G-24TE',
+            'firmware_pattern': '7.0',
+            'priority': '50',
+            'active': 'on',
+        }
+        payload.update(self._empty_bindings_formset_payload())
         response = self.client.post(
             reverse('device_profile_update', args=[profile.pk]),
-            data={
-                'vendor': 'snr-updated',
-                'model_pattern': 'SNR-S2982G-24TE',
-                'firmware_pattern': '7.0',
-                'priority': '50',
-                'active': 'on',
-            },
+            data=payload,
         )
         self.assertEqual(response.status_code, 302)
         profile.refresh_from_db()
         self.assertEqual(profile.vendor, 'snr-updated')
         self.assertEqual(profile.priority, 50)
+
+    def test_profile_update_can_delete_and_add_oid_bindings(self):
+        profile = DeviceProfile.objects.create(
+            vendor='snr',
+            model_pattern='SNR-S2982G-24TE',
+            firmware_pattern='',
+            priority=100,
+            active=True,
+        )
+        old_metric = MetricDefinition.objects.create(key='test_old_metric', title='Old Metric')
+        new_metric = MetricDefinition.objects.create(key='test_new_metric', title='New Metric')
+        existing = MetricBinding.objects.create(
+            profile=profile,
+            metric=old_metric,
+            oid_template='1.3.6.1.2.1.1.3.{index}',
+            index_strategy=MetricBinding.IndexStrategy.FIXED,
+            binding_params={'fixed_index': 0},
+            converter=MetricBinding.Converter.IDENTITY,
+            enabled_by_default=True,
+            priority=100,
+        )
+
+        response = self.client.post(
+            reverse('device_profile_update', args=[profile.pk]),
+            data={
+                'vendor': 'snr',
+                'model_pattern': 'SNR-S2982G-24TE',
+                'firmware_pattern': '',
+                'priority': '100',
+                'active': 'on',
+                'bindings-TOTAL_FORMS': '2',
+                'bindings-INITIAL_FORMS': '1',
+                'bindings-MIN_NUM_FORMS': '0',
+                'bindings-MAX_NUM_FORMS': '1000',
+                'bindings-0-id': str(existing.id),
+                'bindings-0-metric': str(old_metric.id),
+                'bindings-0-oid_template': '1.3.6.1.2.1.1.3.{index}',
+                'bindings-0-index_strategy': MetricBinding.IndexStrategy.FIXED,
+                'bindings-0-converter': MetricBinding.Converter.IDENTITY,
+                'bindings-0-binding_params': '{"fixed_index": 0}',
+                'bindings-0-scale': '1',
+                'bindings-0-priority': '100',
+                'bindings-0-enabled_by_default': 'on',
+                'bindings-0-DELETE': 'on',
+                'bindings-1-id': '',
+                'bindings-1-metric': str(new_metric.id),
+                'bindings-1-oid_template': '1.3.6.1.2.1.2.2.1.10.{if_index}',
+                'bindings-1-index_strategy': MetricBinding.IndexStrategy.IF_INDEX,
+                'bindings-1-converter': MetricBinding.Converter.DIV100,
+                'bindings-1-binding_params': '{}',
+                'bindings-1-scale': '1',
+                'bindings-1-priority': '50',
+                'bindings-1-enabled_by_default': 'on',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(MetricBinding.objects.filter(id=existing.id).exists())
+        self.assertTrue(
+            MetricBinding.objects.filter(
+                profile=profile,
+                metric=new_metric,
+                oid_template='1.3.6.1.2.1.2.2.1.10.{if_index}',
+                index_strategy=MetricBinding.IndexStrategy.IF_INDEX,
+            ).exists()
+        )
 
     def test_profile_delete(self):
         profile = DeviceProfile.objects.create(
@@ -844,6 +962,32 @@ class HostMapViewTests(TestCase):
         self.assertEqual(payload['links'][0]['right_port'], 2)
         self.assertIn(payload['links'][0]['status'], {'up', 'down', 'unknown'})
 
+    def test_host_map_deduplicates_mirrored_lldp_records(self):
+        DeviceNeighbor.objects.create(
+            mac1='aa:bb:cc:dd:ee:02',
+            port1=2,
+            mac2='aa:bb:cc:dd:ee:01',
+            port2=1,
+        )
+
+        response = self.client.get(reverse('neighbor_devices_map_data'))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload['links']), 1)
+
+    def test_host_map_keeps_parallel_lldp_links_between_same_devices(self):
+        DeviceNeighbor.objects.create(
+            mac1='aa:bb:cc:dd:ee:01',
+            port1=3,
+            mac2='aa:bb:cc:dd:ee:02',
+            port2=4,
+        )
+
+        response = self.client.get(reverse('neighbor_devices_map_data'))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload['links']), 2)
+
 
 class TaskResilienceTests(TestCase):
     def setUp(self):
@@ -852,8 +996,9 @@ class TaskResilienceTests(TestCase):
         self.settings_manager = self.settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_BROKER_URL='memory://')
         self.settings_manager.enable()
 
+    @patch('snmp.tasks._has_queue_consumers', return_value=True)
     @patch('snmp.tasks.poll_device_metrics_task.delay')
-    def test_poll_all_fanout_queues_all_devices(self, mock_delay):
+    def test_poll_all_fanout_queues_all_devices(self, mock_delay, _mock_has_consumers):
         with patch('snmp.tasks.POLL_DISPATCH_ASYNC', True):
             result = poll_all_devices_metrics_task()
         self.assertEqual(result['mode'], 'fanout')
@@ -868,6 +1013,19 @@ class TaskResilienceTests(TestCase):
         self.assertEqual(result['mode'], 'inline')
         self.assertEqual(result['saved'], 3)
         self.assertEqual(result['failed'], 1)
+
+    @patch('snmp.tasks._has_queue_consumers', return_value=False)
+    @patch('snmp.tasks.poll_device_metrics_task.delay')
+    @patch('snmp.tasks.poll_device_metrics', side_effect=[2, 1])
+    def test_poll_all_falls_back_to_inline_when_polling_queue_has_no_consumers(
+        self, mock_poll, mock_delay, _mock_has_consumers
+    ):
+        with patch('snmp.tasks.POLL_DISPATCH_ASYNC', True):
+            result = poll_all_devices_metrics_task()
+        self.assertEqual(result['mode'], 'inline')
+        self.assertEqual(result['saved'], 3)
+        self.assertEqual(result['failed'], 0)
+        mock_delay.assert_not_called()
 
     @patch('snmp.tasks._redis_queue_depth', return_value=999999)
     def test_poll_all_throttles_when_queue_is_over_limit(self, _mock_depth):
@@ -893,6 +1051,33 @@ class TaskResilienceTests(TestCase):
         result = maintain_metric_samples_task()
         self.assertEqual(result['status'], 'ok')
         mock_call_command.assert_called_once()
+
+    @patch('snmp.tasks.call_command')
+    def test_assign_device_profiles_task_calls_command(self, mock_call_command):
+        result = assign_device_profiles_task()
+        self.assertEqual(result['status'], 'ok')
+        mock_call_command.assert_called_once_with('assign_device_profiles')
+
+    @patch('snmp.tasks.call_command')
+    def test_assign_device_profiles_task_supports_force(self, mock_call_command):
+        result = assign_device_profiles_task(force=True)
+        self.assertEqual(result['force'], True)
+        mock_call_command.assert_called_once_with('assign_device_profiles', force=True)
+
+    @patch('snmp.tasks.call_command')
+    def test_subnet_autoprovision_task_chains_profile_assignment_when_enabled(self, mock_call_command):
+        with patch('snmp.tasks.AUTOPROVISION_ASSIGN_PROFILES', True):
+            result = subnet_autoprovision_task()
+        self.assertEqual(result['assigned_profiles'], True)
+        self.assertEqual(mock_call_command.call_args_list[0].args, ('subnet_discovery',))
+        self.assertEqual(mock_call_command.call_args_list[1].args, ('assign_device_profiles',))
+
+    @patch('snmp.tasks.call_command')
+    def test_subnet_autoprovision_task_skips_profile_assignment_when_disabled(self, mock_call_command):
+        with patch('snmp.tasks.AUTOPROVISION_ASSIGN_PROFILES', False):
+            result = subnet_autoprovision_task()
+        self.assertEqual(result['assigned_profiles'], False)
+        mock_call_command.assert_called_once_with('subnet_discovery')
 
 
 class MetricSampleMaintenanceTests(TestCase):
@@ -944,6 +1129,36 @@ class MetricSampleMaintenanceTests(TestCase):
             max_batches=2,
         )
         self.assertEqual(MetricSample.objects.count(), 1)
+
+
+class SubnetDiscoveryAutoprovisionTests(TestCase):
+    @patch("snmp.management.commands.subnet_discovery.run_device_discovery")
+    @patch("snmp.management.commands.subnet_discovery.Command.check_host_reachability")
+    def test_subnet_discovery_autoprovisions_hosts_and_runs_discovery(self, mock_reachability, mock_discovery):
+        branch = Branch.objects.create(name="Auto Group")
+        Ats.objects.create(name="Auto Subgroup", subnet="10.200.0.0/30", group=branch)
+        mock_reachability.return_value = True
+
+        call_command("subnet_discovery")
+
+        self.assertEqual(Device.objects.filter(ip="10.200.0.1").count(), 1)
+        self.assertEqual(Device.objects.filter(ip="10.200.0.2").count(), 1)
+
+        device = Device.objects.get(ip="10.200.0.1")
+        self.assertEqual(device.group_id, branch.id)
+        self.assertEqual(device.subgroup.name, "Auto Subgroup")
+        self.assertEqual(mock_discovery.call_count, 2)
+
+    @patch("snmp.management.commands.subnet_discovery.run_device_discovery")
+    @patch("snmp.management.commands.subnet_discovery.Command.check_host_reachability")
+    def test_subnet_discovery_skips_unreachable_hosts(self, mock_reachability, mock_discovery):
+        Ats.objects.create(name="Auto Subgroup 2", subnet="10.201.0.0/30")
+        mock_reachability.return_value = False
+
+        call_command("subnet_discovery")
+
+        self.assertFalse(Device.objects.filter(ip__startswith="10.201.0.").exists())
+        mock_discovery.assert_not_called()
 
 
 class DiscoveryNeighborSyncTests(TestCase):

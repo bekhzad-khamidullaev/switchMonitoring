@@ -3,11 +3,10 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
-from django.db.models import Count
-from django.db.models import Max
-from django.db.models import Q
-from django.http import Http404
+from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from snmp.forms import DeviceForm, DeviceHostSettingsForm
 from snmp.models import Device, DeviceProfile, MetricSample, MetricSubscription
@@ -18,7 +17,7 @@ from .access import (
     user_can_access_device,
     user_has_global_device_access,
 )
-from .device_operations import refresh_device_status
+from .device_operations import refresh_device_status, update_optical_info
 from .metrics import (
     METRICS_SETTINGS_ACTIONS,
     build_device_metrics_context,
@@ -40,6 +39,14 @@ HOST_SETTINGS_SNMP_FIELDS = (
     'serial_number', 'rx_signal', 'tx_signal', 'sfp_vendor', 'part_number', 'last_discovered_at',
 )
 
+SNMP_SENTINEL_PREFIX = "__"
+METRIC_TOPIC_RULES = (
+    ("System", ("sys_", "snmp_")),
+    ("ICMP", ("icmp_",)),
+    ("Optical", ("optical_", "rx_", "tx_", "sfp_")),
+    ("Interface", ("if_", "port_")),
+)
+
 
 def _first_form_error(form):
     non_field_errors = form.non_field_errors()
@@ -56,6 +63,33 @@ def _get_device_for_user_or_404(user, pk):
     if not user_can_access_device(user, device):
         raise Http404
     return device
+
+
+def _metric_topic(metric_key):
+    key = (metric_key or "").strip().lower()
+    for topic, prefixes in METRIC_TOPIC_RULES:
+        if key.startswith(prefixes):
+            return topic
+    return "Other"
+
+
+def _is_snmp_subscription(subscription):
+    oid_template = ""
+    if subscription.binding_id and subscription.binding:
+        oid_template = (subscription.binding.oid_template or "").strip()
+    return bool(oid_template) and not oid_template.startswith(SNMP_SENTINEL_PREFIX)
+
+
+def _group_subscriptions_by_topic(subscriptions):
+    grouped = {}
+    ordered_topics = []
+    for item in subscriptions:
+        topic = _metric_topic(item.metric.key)
+        if topic not in grouped:
+            grouped[topic] = []
+            ordered_topics.append(topic)
+        grouped[topic].append(item)
+    return [{"topic": topic, "items": grouped[topic]} for topic in ordered_topics]
 
 
 def _build_host_settings_sections(form):
@@ -105,9 +139,11 @@ def devices(request):
     if search_query:
         search_filter = (
             Q(pk__icontains=search_query)
+            | Q(vendor__icontains=search_query)
             | Q(device_type__vendor__name__icontains=search_query)
             | Q(hostname__icontains=search_query)
             | Q(ip__icontains=search_query)
+            | Q(model__icontains=search_query)
             | Q(device_type__device_model__icontains=search_query)
             | Q(sfp_vendor__icontains=search_query)
             | Q(part_number__icontains=search_query)
@@ -151,26 +187,171 @@ def devices(request):
         .order_by('device_type__vendor__name')
     )
 
-    return render(
-        request,
-        'device_list.html',
-        {
-            'devices': page_items,
-            'group_options': group_options,
-            'vendor_options': vendor_options,
-            'selected_status': status_filter,
-            'selected_group': group_filter,
-            'selected_vendor': vendor_filter,
-            'selected_search': search_query,
-        },
-    )
+    context = {
+        'devices': page_items,
+        'group_options': group_options,
+        'vendor_options': vendor_options,
+        'selected_status': status_filter,
+        'selected_group': group_filter,
+        'selected_vendor': vendor_filter,
+        'selected_search': search_query,
+    }
+
+    if request.headers.get('HX-Request') == 'true':
+        return render(
+            request,
+            'partials/device_table.html',
+            {
+                **context,
+                'devices_page': page_items,
+                'page_title': 'All Devices',
+                'page_subtitle': 'Inventory and live status overview',
+            },
+        )
+
+    return render(request, 'device_list.html', context)
 
 
 @login_required
 def device_detail(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
+    active_tab = (request.GET.get('tab') or 'overview').strip().lower()
+    if active_tab not in {'overview', 'metrics', 'config', 'profile'}:
+        active_tab = 'overview'
+
+    latest_sample_query = (
+        MetricSample.objects
+        .filter(subscription_id=OuterRef('pk'))
+        .order_by('-ts', '-id')
+    )
+    subscriptions = list(
+        MetricSubscription.objects
+        .filter(device=device)
+        .select_related('metric', 'interface', 'binding')
+        .annotate(
+            last_sample_ts=Subquery(latest_sample_query.values('ts')[:1]),
+            last_value_float=Subquery(latest_sample_query.values('value_float')[:1]),
+            last_value_text=Subquery(latest_sample_query.values('value_text')[:1]),
+            last_quality=Subquery(latest_sample_query.values('quality')[:1]),
+        )
+        .order_by('interface__if_index', 'metric__key')
+    )
+    device_level_subscriptions = [item for item in subscriptions if item.interface_id is None]
+    interface_level_subscriptions = [item for item in subscriptions if item.interface_id is not None]
+    snmp_subscriptions = [item for item in subscriptions if _is_snmp_subscription(item)]
+    auxiliary_subscriptions = [item for item in subscriptions if not _is_snmp_subscription(item)]
+    snmp_device_level_subscriptions = [item for item in snmp_subscriptions if item.interface_id is None]
+    snmp_interface_level_subscriptions = [item for item in snmp_subscriptions if item.interface_id is not None]
+    snmp_device_groups = _group_subscriptions_by_topic(snmp_device_level_subscriptions)
+    snmp_interface_groups = _group_subscriptions_by_topic(snmp_interface_level_subscriptions)
+    auxiliary_groups = _group_subscriptions_by_topic(auxiliary_subscriptions)
+
+    profile_bindings = []
+    if device.profile_id:
+        profile_bindings = list(
+            device.profile.metric_bindings
+            .select_related('metric')
+            .order_by('priority', 'metric__key')
+        )
+
+    host_config_sections = [
+        {
+            'title': 'Host identity',
+            'items': [
+                {'label': 'ID', 'value': device.pk},
+                {'label': 'IP', 'value': device.ip},
+                {'label': 'Hostname', 'value': device.hostname or '-'},
+                {'label': 'Status', 'value': 'Up' if device.status else 'Down'},
+                {'label': 'Vendor', 'value': device.display_vendor or '-'},
+                {'label': 'Model', 'value': device.display_model or '-'},
+                {'label': 'Firmware', 'value': device.firmware or '-'},
+                {'label': 'sysObjectID', 'value': device.sys_object_id or '-'},
+            ],
+        },
+        {
+            'title': 'Topology and inventory',
+            'items': [
+                {'label': 'Group', 'value': device.group.name if device.group_id else '-'},
+                {'label': 'Subgroup', 'value': device.subgroup.name if device.subgroup_id else '-'},
+                {'label': 'Device type', 'value': str(device.device_type) if device.device_type_id else '-'},
+                {'label': 'Uptime', 'value': device.uptime or '-'},
+                {'label': 'Switch MAC', 'value': device.switch_mac or '-'},
+                {'label': 'Neighbor', 'value': str(device.neighbor) if device.neighbor_id else '-'},
+                {'label': 'Parent port', 'value': str(device.parent_port) if device.parent_port_id else '-'},
+                {'label': 'Serial number', 'value': device.serial_number or '-'},
+                {'label': 'Software version', 'value': device.soft_version or '-'},
+                {'label': 'Last discovered', 'value': device.last_discovered_at},
+                {'label': 'Updated', 'value': device.updated},
+            ],
+        },
+        {
+            'title': 'SNMP access',
+            'items': [
+                {'label': 'SNMP version', 'value': device.get_snmp_version_display()},
+                {'label': 'RO community', 'value': device.snmp_community_ro or '-'},
+                {'label': 'RW community', 'value': device.snmp_community_rw or '-'},
+                {'label': 'Auth profile', 'value': device.auth_profile or '-'},
+            ],
+        },
+        {
+            'title': 'Optical and module',
+            'items': [
+                {'label': 'RX signal', 'value': device.rx_signal if device.rx_signal is not None else '-'},
+                {'label': 'TX signal', 'value': device.tx_signal if device.tx_signal is not None else '-'},
+                {'label': 'SFP vendor', 'value': device.sfp_vendor or '-'},
+                {'label': 'Part number', 'value': device.part_number or '-'},
+                {'label': 'Updated', 'value': device.updated},
+            ],
+        },
+    ]
+
+    metrics_summary = _build_device_metrics_summary(device)
+    profile_sections = []
+    if device.profile_id:
+        profile_sections = [
+            {
+                'title': 'Profile identity',
+                'items': [
+                    {'label': 'Profile ID', 'value': device.profile_id},
+                    {'label': 'Profile name', 'value': str(device.profile)},
+                    {'label': 'Active', 'value': 'Yes' if device.profile.active else 'No'},
+                    {'label': 'Priority', 'value': device.profile.priority},
+                ],
+            },
+            {
+                'title': 'Matching rules',
+                'items': [
+                    {'label': 'Vendor', 'value': device.profile.vendor or '-'},
+                    {'label': 'Model pattern', 'value': device.profile.model_pattern or '-'},
+                    {'label': 'Firmware pattern', 'value': device.profile.firmware_pattern or '-'},
+                ],
+            },
+        ]
+    return render(
+        request,
+        'device_detail.html',
+        {
+            'device': device,
+            'metrics_summary': metrics_summary,
+            'active_tab': active_tab,
+            'subscriptions': subscriptions,
+            'device_level_subscriptions': device_level_subscriptions,
+            'interface_level_subscriptions': interface_level_subscriptions,
+            'snmp_subscriptions': snmp_subscriptions,
+            'snmp_device_groups': snmp_device_groups,
+            'snmp_interface_groups': snmp_interface_groups,
+            'auxiliary_subscriptions': auxiliary_subscriptions,
+            'auxiliary_groups': auxiliary_groups,
+            'host_config_sections': host_config_sections,
+            'profile_sections': profile_sections,
+            'profile_bindings': profile_bindings,
+        },
+    )
+
+
+def _build_device_metrics_summary(device):
     metric_subscriptions = MetricSubscription.objects.filter(device=device)
-    metrics_summary = {
+    return {
         'subscriptions_total': metric_subscriptions.count(),
         'subscriptions_enabled': metric_subscriptions.filter(enabled=True).count(),
         'last_sample_ts': (
@@ -180,7 +361,14 @@ def device_detail(request, pk):
             .get('last_ts')
         ),
     }
-    return render(request, 'device_detail.html', {'device': device, 'metrics_summary': metrics_summary})
+
+
+def _render_device_live_panel(request, device):
+    context = {
+        'device': device,
+        'metrics_summary': _build_device_metrics_summary(device),
+    }
+    return render(request, 'partials/device_live_panel.html', context)
 
 
 @login_required
@@ -287,6 +475,10 @@ def device_delete(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     if request.method == 'POST':
         device.delete()
+        if request.headers.get('HX-Request') == 'true':
+            response = HttpResponse(status=200)
+            response['HX-Redirect'] = reverse('devices')
+            return response
         return redirect('devices')
     return render(request, 'device_confirm_delete.html', {'device': device})
 
@@ -302,3 +494,31 @@ def device_confirm_delete(request, pk):
 def device_status(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     return refresh_device_status(device)
+
+
+@login_required
+def device_live_panel(request, pk):
+    device = _get_device_for_user_or_404(request.user, pk)
+    return _render_device_live_panel(request, device)
+
+
+@login_required
+@permission_required('snmp.change_device', raise_exception=True)
+def device_refresh_status_panel(request, pk):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+    device = _get_device_for_user_or_404(request.user, pk)
+    refresh_device_status(device)
+    device.refresh_from_db()
+    return _render_device_live_panel(request, device)
+
+
+@login_required
+@permission_required('snmp.change_device', raise_exception=True)
+def device_refresh_optics_panel(request, pk):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+    device = _get_device_for_user_or_404(request.user, pk)
+    update_optical_info(request, pk)
+    device.refresh_from_db()
+    return _render_device_live_panel(request, device)

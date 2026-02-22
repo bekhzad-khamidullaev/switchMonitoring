@@ -2,13 +2,27 @@
 {% block title %}Delete Device{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-xl rounded-panel border border-danger-100 bg-surface-0 p-6 shadow-soft text-center">
-  <h2 class="font-display text-xl font-semibold text-surface-900">Delete Device</h2>
-  <p class="mt-4">Are you sure you want to delete device "{{ device.hostname }}"?</p>
-  <form method="post" class="mt-4 flex justify-center items-center" action="{% url 'device_delete' device.pk %}">
-    {% csrf_token %}
-    <button type="submit" class="focus:outline-none text-white bg-danger-600 hover:bg-danger-700 focus:ring-4 focus:ring-danger-200 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2">Delete</button>
-    <a href="{% url 'device_detail' device.pk %}" class="focus:outline-none text-surface-900 bg-warning-300 hover:bg-warning-200 focus:ring-4 focus:ring-warning-200 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2">Cancel</a>
-  </form>
+<div class="mx-auto max-w-xl space-y-4">
+  <section class="radix-surface border border-danger-200 bg-surface-0 shadow-soft">
+    <div class="border-b border-danger-200 px-5 py-4">
+      <h2 class="radix-title text-lg font-semibold text-danger-700">Delete Device #{{ device.pk }}</h2>
+      <p class="mt-1 text-sm text-surface-700">{{ device.hostname|default:'-' }} · {{ device.ip|default:'-' }}</p>
+    </div>
+
+    <div class="space-y-4 px-5 py-5">
+      <p class="text-sm text-surface-800">This action cannot be undone. Device inventory, subscriptions and linked records may become unavailable in UI views.</p>
+
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-700">
+        <span class="font-semibold text-surface-900">Confirmation target:</span>
+        {{ device.hostname|default:device.ip }}
+      </div>
+
+      <form method="post" action="{% url 'device_delete' device.pk %}" class="flex flex-wrap items-center gap-2" hx-post="{% url 'device_delete' device.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-md bg-danger-600 px-4 py-2 text-sm font-semibold text-white hover:bg-danger-700">Delete device</button>
+        <a href="{% url 'device_detail' device.pk %}" class="rounded-md bg-surface-200 px-4 py-2 text-sm font-medium text-surface-900 hover:bg-surface-300">Cancel</a>
+      </form>
+    </div>
+  </section>
 </div>
 {% endblock %}

@@ -1,0 +1,60 @@
+<div class="overflow-x-auto px-4 py-4">
+  <table class="min-w-full divide-y divide-surface-200 text-sm">
+    <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+      <tr>
+        <th class="px-2 py-2 text-left">Device</th>
+        <th class="px-2 py-2 text-left">Group</th>
+        <th class="px-2 py-2 text-left">Port</th>
+        <th class="px-2 py-2 text-left">Name/Alias</th>
+        <th class="px-2 py-2 text-left">VLAN</th>
+        <th class="px-2 py-2 text-left">MAC Count</th>
+        <th class="px-2 py-2 text-left">Last MAC</th>
+        <th class="px-2 py-2 text-left">Last IP</th>
+        <th class="px-2 py-2 text-left">Last Seen</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-surface-100 bg-surface-0">
+      {% for item in page_obj %}
+        <tr>
+          <td class="px-2 py-2">
+            <a href="{% url 'device_detail' item.managed_device_id %}" class="text-brand-700 hover:underline">
+              {{ item.managed_device.hostname|default:item.managed_device.ip }}
+            </a>
+          </td>
+          <td class="px-2 py-2">{{ item.managed_device.group.name|default:"-" }}</td>
+          <td class="px-2 py-2">p{{ item.port }}</td>
+          <td class="px-2 py-2">{{ item.alias|default:item.name|default:item.description|default:"-" }}</td>
+          <td class="px-2 py-2">{{ item.pvid }}</td>
+          <td class="px-2 py-2">{{ item.mac_count }}</td>
+          <td class="px-2 py-2">{{ item.last_mac|default:"-" }}</td>
+          <td class="px-2 py-2">{{ item.last_ip|default:"-" }}</td>
+          <td class="px-2 py-2">{{ item.last_seen|date:"Y-m-d H:i:s"|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="9" class="px-2 py-4 text-surface-700">No port activity found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="flex items-center justify-between border-t border-surface-200 px-4 py-3 text-sm text-surface-700">
+  <div>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+  <div class="flex items-center gap-2">
+    {% if page_obj.has_previous %}
+      {% if report_url_name == 'endpoint_activity_report' %}
+        <a href="{% url 'endpoint_activity_report' endpoint_type=endpoint_type %}?page={{ page_obj.previous_page_number }}&search={{ search }}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="{% url 'endpoint_activity_report' endpoint_type=endpoint_type %}?page={{ page_obj.previous_page_number }}&search={{ search }}" hx-target="#port-activity-wrap" hx-swap="innerHTML" hx-push-url="true">Previous</a>
+      {% else %}
+        <a href="{% url 'port_activity_report' %}?page={{ page_obj.previous_page_number }}&search={{ search }}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="{% url 'port_activity_report' %}?page={{ page_obj.previous_page_number }}&search={{ search }}" hx-target="#port-activity-wrap" hx-swap="innerHTML" hx-push-url="true">Previous</a>
+      {% endif %}
+    {% endif %}
+    {% if page_obj.has_next %}
+      {% if report_url_name == 'endpoint_activity_report' %}
+        <a href="{% url 'endpoint_activity_report' endpoint_type=endpoint_type %}?page={{ page_obj.next_page_number }}&search={{ search }}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="{% url 'endpoint_activity_report' endpoint_type=endpoint_type %}?page={{ page_obj.next_page_number }}&search={{ search }}" hx-target="#port-activity-wrap" hx-swap="innerHTML" hx-push-url="true">Next</a>
+      {% else %}
+        <a href="{% url 'port_activity_report' %}?page={{ page_obj.next_page_number }}&search={{ search }}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="{% url 'port_activity_report' %}?page={{ page_obj.next_page_number }}&search={{ search }}" hx-target="#port-activity-wrap" hx-swap="innerHTML" hx-push-url="true">Next</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>

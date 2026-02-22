@@ -18,14 +18,18 @@ from snmp.web.views.devices import (
     device_delete,
     device_detail,
     device_host_settings,
+    device_live_panel,
+    device_refresh_optics_panel,
+    device_refresh_status_panel,
     device_status,
     device_update,
     devices,
 )
-from snmp.web.views.exports import export_low_signal_devices_to_excel, port_activity_report
+from snmp.web.views.exports import endpoint_activity_report, export_low_signal_devices_to_excel, port_activity_report
 from snmp.web.views.integrations import run_bulk_device_job, sync_hosts_from_zabbix
 from snmp.web.views.metrics import (
     device_metrics,
+    device_metrics_timeseries_table,
     export_device_metrics_csv,
     update_metric_subscription,
 )
@@ -36,6 +40,7 @@ from snmp.web.views.profiles import (
     device_profile_update,
     device_profiles,
 )
+from snmp.web.views.search import mac_ip_search_report
 
 urlpatterns = [
     path('', devices, name='devices'),
@@ -47,6 +52,9 @@ urlpatterns = [
     path('devices/<int:pk>/delete/', device_delete, name='device_delete'),
     path('devices/<int:pk>/confirm_delete/', device_confirm_delete, name='device_confirm_delete'),
     path('devices/<int:pk>/status/', device_status, name='device_status'),
+    path('devices/<int:pk>/panel/', device_live_panel, name='device_live_panel'),
+    path('devices/<int:pk>/panel/refresh-status/', device_refresh_status_panel, name='device_refresh_status_panel'),
+    path('devices/<int:pk>/panel/refresh-optics/', device_refresh_optics_panel, name='device_refresh_optics_panel'),
     path('devices/<int:pk>/optics/update/', update_optical_info, name='update_optical_info'),
     path('devices/network-map/', neighbor_devices_map, name='neighbor_devices_map'),
     path('devices/network-map/data/', neighbor_devices_map_data, name='neighbor_devices_map_data'),
@@ -62,7 +70,10 @@ urlpatterns = [
     path('devices/jobs/bulk/', run_bulk_device_job, name='run_bulk_device_job'),
     path('devices/export/low-signal/', export_low_signal_devices_to_excel, name='export_low_signal_devices_to_excel'),
     path('devices/reports/port-activity/', port_activity_report, name='port_activity_report'),
+    path('devices/reports/endpoints/<str:endpoint_type>/', endpoint_activity_report, name='endpoint_activity_report'),
+    path('devices/reports/mac-ip-search/', mac_ip_search_report, name='mac_ip_search_report'),
     path('devices/<int:pk>/metrics/', device_metrics, name='device_metrics'),
+    path('devices/<int:pk>/metrics/timeseries-table/', device_metrics_timeseries_table, name='device_metrics_timeseries_table'),
     path('profiles/', device_profiles, name='device_profiles'),
     path('profiles/create/', device_profile_create, name='device_profile_create'),
     path('profiles/<int:pk>/', device_profile_detail, name='device_profile_detail'),

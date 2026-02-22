@@ -1,0 +1,82 @@
+:root {
+  --bg-canvas: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-soft: #f1f5f9;
+  --text-strong: #0f172a;
+  --text-muted: #475569;
+  --border-soft: #dbe3ef;
+  --accent: #0f766e;
+  --accent-ink: #134e4a;
+  --danger: #b91c1c;
+  --ok: #15803d;
+}
+
+body {
+  background:
+    radial-gradient(circle at 10% 10%, rgba(15, 118, 110, 0.08), transparent 32%),
+    radial-gradient(circle at 85% 0%, rgba(14, 116, 144, 0.08), transparent 24%),
+    var(--bg-canvas);
+}
+
+.radix-surface {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.radix-title {
+  color: var(--text-strong);
+  font-family: Sora, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.radix-subtle {
+  color: var(--text-muted);
+}
+
+.radix-tabs {
+  display: inline-flex;
+  gap: 6px;
+  border-radius: 10px;
+  background-color: var(--bg-soft);
+  padding: 4px;
+}
+
+.radix-tab {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.radix-tab[data-active="true"] {
+  background-color: var(--bg-panel);
+  color: var(--text-strong);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-flex;
+}
+
+.radix-loader {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 118, 110, 0.2);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

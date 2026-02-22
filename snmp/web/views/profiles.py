@@ -2,9 +2,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.db.transaction import atomic
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
-from snmp.forms import DeviceProfileForm
+from snmp.forms import DeviceProfileForm, MetricBindingInlineFormSet
 from snmp.models import Device, DeviceProfile
 
 from .access import get_permitted_groups, user_has_global_device_access
@@ -60,16 +63,15 @@ def device_profiles(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    return render(
-        request,
-        'device_profiles.html',
-        {
-            'profiles': page_obj,
-            'search_query': search_query,
-            'is_paginated': page_obj.has_other_pages(),
-            'page_obj': page_obj,
-        }
-    )
+    context = {
+        'profiles': page_obj,
+        'search_query': search_query,
+        'is_paginated': page_obj.has_other_pages(),
+        'page_obj': page_obj,
+    }
+    if request.headers.get('HX-Request') == 'true':
+        return render(request, 'partials/device_profiles_grid.html', context)
+    return render(request, 'device_profiles.html', context)
 
 
 @login_required
@@ -84,10 +86,14 @@ def device_profile_create(request):
 
     if request.method == 'POST':
         form = DeviceProfileForm(request.POST)
+        bindings_formset = MetricBindingInlineFormSet(request.POST, prefix='bindings')
         assign_device_id = request.POST.get('assign_managed_device_id', '').strip()
-        if form.is_valid():
-            profile = form.save()
-            assigned_device = _assign_profile_to_device(profile, assign_device_id, request.user)
+        if form.is_valid() and bindings_formset.is_valid():
+            with atomic():
+                profile = form.save()
+                bindings_formset.instance = profile
+                bindings_formset.save()
+                assigned_device = _assign_profile_to_device(profile, assign_device_id, request.user)
             if assigned_device:
                 messages.success(request, f'Profile created and assigned to {assigned_device.hostname or assigned_device.ip}.')
             else:
@@ -95,12 +101,14 @@ def device_profile_create(request):
             return redirect('device_profile_detail', pk=profile.pk)
     else:
         form = DeviceProfileForm(initial=initial)
+        bindings_formset = MetricBindingInlineFormSet(prefix='bindings')
 
     return render(
         request,
         'device_profile_form.html',
         {
             'form': form,
+            'bindings_formset': bindings_formset,
             'title': 'Create Profile',
             'submit_label': 'Create',
             'managed_devices': _permitted_devices(request.user).order_by('hostname', 'ip')[:500],
@@ -132,10 +140,13 @@ def device_profile_update(request, pk):
     profile = get_object_or_404(DeviceProfile, pk=pk)
     if request.method == 'POST':
         form = DeviceProfileForm(request.POST, instance=profile)
+        bindings_formset = MetricBindingInlineFormSet(request.POST, instance=profile, prefix='bindings')
         assign_device_id = request.POST.get('assign_managed_device_id', '').strip()
-        if form.is_valid():
-            profile = form.save()
-            assigned_device = _assign_profile_to_device(profile, assign_device_id, request.user)
+        if form.is_valid() and bindings_formset.is_valid():
+            with atomic():
+                profile = form.save()
+                bindings_formset.save()
+                assigned_device = _assign_profile_to_device(profile, assign_device_id, request.user)
             if assigned_device:
                 messages.success(request, f'Profile updated and assigned to {assigned_device.hostname or assigned_device.ip}.')
             else:
@@ -143,12 +154,14 @@ def device_profile_update(request, pk):
             return redirect('device_profile_detail', pk=profile.pk)
     else:
         form = DeviceProfileForm(instance=profile)
+        bindings_formset = MetricBindingInlineFormSet(instance=profile, prefix='bindings')
 
     return render(
         request,
         'device_profile_form.html',
         {
             'form': form,
+            'bindings_formset': bindings_formset,
             'profile': profile,
             'title': f'Edit Profile #{profile.pk}',
             'submit_label': 'Save',
@@ -165,5 +178,9 @@ def device_profile_delete(request, pk):
     if request.method == 'POST':
         profile.delete()
         messages.success(request, 'Profile deleted.')
+        if request.headers.get('HX-Request') == 'true':
+            response = HttpResponse(status=200)
+            response['HX-Redirect'] = reverse('device_profiles')
+            return response
         return redirect('device_profiles')
     return render(request, 'device_profile_confirm_delete.html', {'profile': profile})

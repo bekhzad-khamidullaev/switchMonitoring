@@ -14,6 +14,10 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 
+def _is_unknown_text(value: str) -> bool:
+    return (value or '').strip().lower() in {'', 'unknown', 'n/a', 'na', '-', 'none', 'null'}
+
+
 class DeviceQuerySet(models.QuerySet):
     def active(self):
         return self.filter(status=True)
@@ -192,17 +196,7 @@ class Vendor(models.Model):
 class DeviceModel(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
     device_model = models.CharField(max_length=200)
-    rx_oid = models.CharField(max_length=200, null=True, blank=True)
-    tx_oid = models.CharField(max_length=200, null=True, blank=True)
-    part_num_oid = models.CharField(max_length=200, null=True, blank=True)
     sfp_vendor = models.CharField(max_length=200, null=True, blank=True)
-    port_num_oid = models.CharField(max_length=200, null=True, blank=True)
-    max_ports_oid = models.CharField(max_length=200, null=True, blank=True)
-    description_oid = models.CharField(max_length=200, null=True, blank=True)
-    speed_oid = models.CharField(max_length=200, null=True, blank=True)
-    duplex_oid = models.CharField(max_length=200, null=True, blank=True)
-    admin_state_oid = models.CharField(max_length=200, null=True, blank=True)
-    oper_state_oid = models.CharField(max_length=200, null=True, blank=True)
 
     class Meta:
         managed = True
@@ -242,7 +236,6 @@ class DevicePort(models.Model):
     tx_signal = models.FloatField(null=True, blank=True)
     sfp_vendor = models.CharField(max_length=50, null=True, blank=True)
     part_number = models.CharField(max_length=50, null=True, blank=True)
-    mac_on_port = models.ForeignKey("Mac", models.DO_NOTHING, blank=False, null=False, default=0)
 
     class Meta:
         managed = True
@@ -272,36 +265,6 @@ class Mac(models.Model):
         managed = True
         db_table = 'mac'
         unique_together = (('managed_device', 'mac', 'vlan'),)
-
-class ListMacHistory(models.Model):
-    """
-    Read-only class. The mat_listMacHistory is a materialized view to speed up searches upon mac history
-    """
-    managed_device = models.ForeignKey(
-        'Device',
-        models.DO_NOTHING,
-        db_column='switch',
-        blank=False,
-        null=False,
-        default=0,
-        related_name='hist_switch',
-    )
-    mac = models.CharField(max_length=17, default='', blank=False, null=False)
-    port = models.SmallIntegerField()
-    vlan = models.SmallIntegerField()
-    ip = models.CharField(max_length=15, blank=True, null=True)
-    data = models.DateTimeField(primary_key=True)
-
-    def save(self, *args, **kwargs):
-        return
-
-    def delete(self, *args, **kwargs):
-        return
-
-    class Meta:
-        managed = False
-        db_table = 'mat_listmachistory'
-
 
 class DeviceProfile(models.Model):
     vendor = models.CharField(max_length=120)
@@ -409,6 +372,22 @@ class Device(models.Model):
 
     def effective_snmp_community(self):
         return self.snmp_community_ro or settings.SNMP_DEFAULT_COMMUNITY_RO
+
+    @property
+    def display_vendor(self):
+        if not _is_unknown_text(self.vendor):
+            return self.vendor
+        if self.device_type_id and self.device_type and self.device_type.vendor:
+            return self.device_type.vendor.name
+        return ''
+
+    @property
+    def display_model(self):
+        if not _is_unknown_text(self.model):
+            return self.model
+        if self.device_type_id and self.device_type:
+            return self.device_type.device_model
+        return ''
 
     @property
     def branch(self):

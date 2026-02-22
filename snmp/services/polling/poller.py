@@ -6,8 +6,9 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
+from ping3 import ping
 
-from snmp.models import Device, MetricSample, MetricSubscription
+from snmp.models import Device, DevicePort, MetricSample, MetricSubscription
 from snmp.services.discovery.read_base_snmp import snmp_get_many
 from snmp.services.metrics.runtime import apply_converter, render_oid, validate_numeric
 from snmp.services.alerting.evaluator import evaluate_subscription_thresholds
@@ -16,6 +17,9 @@ from snmp.services.observability.metrics import record_poll_metrics
 logger = logging.getLogger(__name__)
 
 LOCK_TTL_SECONDS = 120
+ICMP_BINDING_SENTINEL = '__icmp_ping__'
+PORT_RX_SIGNAL_SENTINEL = '__port_rx_signal__'
+PORT_TX_SIGNAL_SENTINEL = '__port_tx_signal__'
 
 
 def _lock_key(device_id: int) -> str:
@@ -53,6 +57,8 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
 
         samples: List[MetricSample] = []
         resolved = []
+        icmp_subscriptions = []
+        port_signal_subscriptions = []
         now = timezone.now()
         for subscription in subscriptions:
             interval = subscription.poll_interval_sec or subscription.metric.default_interval_sec
@@ -63,6 +69,15 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
             if not subscription.binding_id:
                 continue
             try:
+                if subscription.binding and subscription.binding.oid_template == ICMP_BINDING_SENTINEL:
+                    icmp_subscriptions.append(subscription)
+                    continue
+                if subscription.binding and subscription.binding.oid_template in {
+                    PORT_RX_SIGNAL_SENTINEL,
+                    PORT_TX_SIGNAL_SENTINEL,
+                }:
+                    port_signal_subscriptions.append(subscription)
+                    continue
                 oid_resolution = render_oid(
                     binding=subscription.binding,
                     device=device,
@@ -90,6 +105,95 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 timeout=timeout,
                 retries=retries,
             )
+
+        if icmp_subscriptions:
+            try:
+                latency_seconds = ping(str(device.ip), timeout=timeout, unit='s')
+            except Exception as exc:
+                for subscription in icmp_subscriptions:
+                    samples.append(
+                        MetricSample(
+                            subscription=subscription,
+                            value_text='',
+                            quality=MetricSample.Quality.BAD,
+                            raw_value=str(exc),
+                        )
+                    )
+            else:
+                if latency_seconds in (None, False):
+                    for subscription in icmp_subscriptions:
+                        samples.append(
+                            MetricSample(
+                                subscription=subscription,
+                                value_text='',
+                                quality=MetricSample.Quality.BAD,
+                                raw_value='timeout',
+                            )
+                        )
+                else:
+                    latency_ms = float(latency_seconds) * 1000.0
+                    for subscription in icmp_subscriptions:
+                        samples.append(
+                            MetricSample(
+                                subscription=subscription,
+                                value_float=latency_ms,
+                                value_text='',
+                                quality=MetricSample.Quality.GOOD,
+                                raw_value=str(latency_seconds),
+                            )
+                            )
+
+        if port_signal_subscriptions:
+            ports = {
+                p.port: p
+                for p in DevicePort.objects.filter(managed_device=device).only('port', 'rx_signal', 'tx_signal')
+            }
+            for subscription in port_signal_subscriptions:
+                if_index = subscription.interface.if_index if subscription.interface_id and subscription.interface else None
+                if if_index is None:
+                    samples.append(
+                        MetricSample(
+                            subscription=subscription,
+                            value_text='',
+                            quality=MetricSample.Quality.BAD,
+                            raw_value='interface is required',
+                        )
+                    )
+                    continue
+                port = ports.get(if_index)
+                if not port:
+                    samples.append(
+                        MetricSample(
+                            subscription=subscription,
+                            value_text='',
+                            quality=MetricSample.Quality.BAD,
+                            raw_value='port data is missing',
+                        )
+                    )
+                    continue
+                if subscription.binding.oid_template == PORT_RX_SIGNAL_SENTINEL:
+                    signal_value = port.rx_signal
+                else:
+                    signal_value = port.tx_signal
+                if signal_value is None:
+                    samples.append(
+                        MetricSample(
+                            subscription=subscription,
+                            value_text='',
+                            quality=MetricSample.Quality.UNKNOWN,
+                            raw_value='no signal',
+                        )
+                    )
+                    continue
+                samples.append(
+                    MetricSample(
+                        subscription=subscription,
+                        value_float=float(signal_value),
+                        value_text='',
+                        quality=MetricSample.Quality.GOOD,
+                        raw_value=str(signal_value),
+                    )
+                )
 
         for subscription, oid in resolved:
             raw_result = oid_to_value.get(oid)

@@ -100,6 +100,10 @@ class MetricsConfig:
     retention_hour: str
     retention_minute: int
     legacy_tasks_enabled: bool
+    autoprovision_enabled: bool
+    autoprovision_hour: str
+    autoprovision_minute: int
+    autoprovision_assign_profiles: bool
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -124,6 +128,14 @@ class MetricsConfig:
                 },
             },
             "legacy_tasks_enabled": self.legacy_tasks_enabled,
+            "autoprovision": {
+                "enabled": self.autoprovision_enabled,
+                "schedule": {
+                    "hour": self.autoprovision_hour,
+                    "minute": self.autoprovision_minute,
+                },
+                "assign_profiles": self.autoprovision_assign_profiles,
+            },
         }
 
 
@@ -202,4 +214,8 @@ def load_metrics_config() -> MetricsConfig:
         retention_hour=os.getenv("METRIC_SAMPLE_RETENTION_HOUR", "2"),
         retention_minute=env_int("METRIC_SAMPLE_RETENTION_MINUTE", 20, minimum=0, maximum=59),
         legacy_tasks_enabled=env_bool("LEGACY_TASKS_ENABLED", False),
+        autoprovision_enabled=env_bool("AUTOPROVISION_ENABLED", True),
+        autoprovision_hour=os.getenv("AUTOPROVISION_HOUR", "3"),
+        autoprovision_minute=env_int("AUTOPROVISION_MINUTE", 10, minimum=0, maximum=59),
+        autoprovision_assign_profiles=env_bool("AUTOPROVISION_ASSIGN_PROFILES", True),
     )

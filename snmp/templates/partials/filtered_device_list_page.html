@@ -1,0 +1,33 @@
+<div class="space-y-4">
+  <section class="radix-surface border-none p-4">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="radix-title text-lg font-semibold">{{ page_title }}</h1>
+        <p class="text-sm text-surface-700">{{ page_subtitle }}</p>
+      </div>
+    </div>
+
+    <form
+      method="get"
+      class="max-w-md"
+      hx-get="{{ request.path }}"
+      hx-target="#device-table-container"
+      hx-swap="innerHTML"
+      hx-push-url="true"
+      hx-trigger="change delay:250ms, keyup delay:400ms from:#search"
+    >
+      <input
+        id="search"
+        type="text"
+        name="search"
+        value="{{ selected_search }}"
+        class="w-full rounded-md border border-surface-200 bg-surface-0 px-3 py-2 text-sm text-surface-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+        placeholder="Search: ID / hostname / ip / model"
+      >
+    </form>
+  </section>
+
+  <div id="device-table-container">
+    {% include 'partials/device_table.html' with devices_page=devices_page page_title=page_title page_subtitle=page_subtitle %}
+  </div>
+</div>

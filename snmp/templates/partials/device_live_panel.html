@@ -1,0 +1,47 @@
+<div id="device-live-panel" hx-get="{% url 'device_live_panel' device.pk %}" hx-trigger="every 20s" hx-swap="outerHTML">
+<section class="radix-surface border-none">
+  <div class="border-b border-surface-200 px-4 py-3">
+    <h3 class="radix-title text-base font-semibold">Live Status</h3>
+  </div>
+  <div class="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+      <p class="text-xs uppercase text-surface-700">Status</p>
+      {% if device.status %}
+        <p class="mt-1 inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">UP</p>
+      {% else %}
+        <p class="mt-1 inline-flex rounded-full bg-danger-100 px-2.5 py-1 text-xs font-semibold text-danger-700">DOWN</p>
+      {% endif %}
+    </div>
+    <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+      <p class="text-xs uppercase text-surface-700">Subscriptions</p>
+      <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.subscriptions_enabled }}/{{ metrics_summary.subscriptions_total }} enabled</p>
+    </div>
+    <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+      <p class="text-xs uppercase text-surface-700">Last Metric Sample</p>
+      <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</p>
+    </div>
+    <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+      <p class="text-xs uppercase text-surface-700">Optical Snapshot</p>
+      <p class="text-xs text-surface-800">RX: {{ device.rx_signal|default:'-' }} / TX: {{ device.tx_signal|default:'-' }}</p>
+      <p class="text-xs text-surface-700">{{ device.sfp_vendor|default:'-' }}</p>
+    </div>
+  </div>
+
+  {% if perms.snmp.change_device %}
+  <div class="flex flex-wrap items-center gap-2 border-t border-surface-200 px-4 py-3">
+    <form method="post" hx-post="{% url 'device_refresh_status_panel' device.pk %}" hx-target="#device-live-panel" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button type="submit" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900">Refresh status</button>
+    </form>
+    <form method="post" hx-post="{% url 'device_refresh_optics_panel' device.pk %}" hx-target="#device-live-panel" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button type="submit" class="rounded-md bg-info-600 px-3 py-2 text-sm font-medium text-white hover:bg-info-700">Update optical info</button>
+    </form>
+    <span class="htmx-indicator items-center gap-2 text-xs text-surface-600">
+      <span class="radix-loader"></span>
+      Updating
+    </span>
+  </div>
+  {% endif %}
+</section>
+</div>

@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from snmp.models import Device
+from snmp.services.discovery.normalize import normalize_vendor_model
 from snmp.services.discovery.profile_matcher import match_device_profile
 
 class Command(BaseCommand):
@@ -35,6 +36,13 @@ class Command(BaseCommand):
             vendor = device.vendor
             model = device.model
             firmware = device.firmware or ""
+
+            # If metadata is incomplete, at least derive vendor from sysObjectID.
+            if not vendor and device.sys_object_id:
+                normalized = normalize_vendor_model(device.sys_object_id, "")
+                detected_vendor = normalized.get("vendor", "")
+                if detected_vendor and detected_vendor != "unknown":
+                    vendor = detected_vendor
 
             # Fallback to device_type if available
             if not vendor and device.device_type and device.device_type.vendor:

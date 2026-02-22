@@ -2,5 +2,5 @@
 {% block title %}Critical Signal Devices{% endblock %}
 
 {% block content %}
-  {% include 'partials/device_table.html' with devices_page=devices_high_signal page_title='Signal <= -20 dBm' page_subtitle='Critical optical signal level' %}
+  {% include 'partials/filtered_device_list_page.html' with devices_page=devices_page page_title=page_title page_subtitle=page_subtitle selected_search=selected_search %}
 {% endblock %}

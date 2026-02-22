@@ -49,6 +49,10 @@ services:
       RUN_MIGRATIONS: "1"
       SEED_DEVICE_PROFILES_ON_DEPLOY: "1"
       RUN_COLLECTSTATIC: "1"
+      AUTOPROVISION_ENABLED: "True"
+      AUTOPROVISION_HOUR: "3"
+      AUTOPROVISION_MINUTE: "10"
+      AUTOPROVISION_ASSIGN_PROFILES: "True"
     volumes:
       - static_data:/app/static_files
       - media_data:/app/media
@@ -58,7 +62,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)\""]
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import http.client, sys; c = http.client.HTTPConnection('127.0.0.1', 8000, timeout=5); c.request('GET', '/'); r = c.getresponse(); sys.exit(0 if r.status in (200, 301, 302, 303, 307, 308) else 1)\"",
+        ]
       interval: 20s
       timeout: 8s
       retries: 6

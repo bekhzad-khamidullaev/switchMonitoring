@@ -170,12 +170,18 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 CELERY_TASK_ROUTES = {
     'snmp.tasks.poll_device_metrics_task': {'queue': 'polling'},
     'snmp.tasks.poll_all_devices_metrics_task': {'queue': 'default'},
+    'snmp.tasks.discover_device_task': {'queue': 'discovery'},
     'snmp.tasks.discover_all_devices_task': {'queue': 'discovery'},
+    'snmp.tasks.subnet_autoprovision_task': {'queue': 'discovery'},
+    'snmp.tasks.subnet_discovery_task': {'queue': 'discovery'},
+    'snmp.tasks.assign_device_profiles_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_status_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_optical_info_task': {'queue': 'maintenance'},
     'snmp.tasks.update_device_inventory_task': {'queue': 'maintenance'},
     'snmp.tasks.maintain_metric_samples_task': {'queue': 'maintenance'},
-    'snmp.tasks.subnet_discovery_task': {'queue': 'discovery'},
+    'snmp.tasks.update_switch_status_task': {'queue': 'maintenance'},
+    'snmp.tasks.update_optical_info_task': {'queue': 'maintenance'},
+    'snmp.tasks.update_switch_inventory_task': {'queue': 'maintenance'},
 }
 CELERY_ENABLE_DEAD_LETTER = env_bool('CELERY_ENABLE_DEAD_LETTER', True)
 _is_amqp_broker = str(CELERY_BROKER_URL).startswith(('amqp://', 'pyamqp://'))
@@ -218,6 +224,10 @@ METRIC_SAMPLE_RETENTION_BATCH_SIZE = METRICS.retention_batch_size
 METRIC_SAMPLE_RETENTION_MAX_BATCHES = METRICS.retention_max_batches
 METRIC_SAMPLE_RETENTION_HOUR = METRICS.retention_hour
 METRIC_SAMPLE_RETENTION_MINUTE = METRICS.retention_minute
+AUTOPROVISION_ENABLED = METRICS.autoprovision_enabled
+AUTOPROVISION_HOUR = METRICS.autoprovision_hour
+AUTOPROVISION_MINUTE = METRICS.autoprovision_minute
+AUTOPROVISION_ASSIGN_PROFILES = METRICS.autoprovision_assign_profiles
 
 CELERY_BEAT_SCHEDULE = {
     'poll-all-device-metrics': {
@@ -258,6 +268,14 @@ if LEGACY_TASKS_ENABLED:
         'subnet_discovery': {
             'task': 'snmp.tasks.subnet_discovery_task',
             'schedule': crontab(minute=0, hour=3),
+        },
+    })
+
+if AUTOPROVISION_ENABLED:
+    CELERY_BEAT_SCHEDULE.update({
+        'subnet-autoprovision': {
+            'task': 'snmp.tasks.subnet_autoprovision_task',
+            'schedule': crontab(minute=AUTOPROVISION_MINUTE, hour=AUTOPROVISION_HOUR),
         },
     })
 

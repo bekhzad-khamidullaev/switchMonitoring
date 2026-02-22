@@ -23,6 +23,7 @@ METRIC_SAMPLE_RETENTION_DAYS = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_DA
 METRIC_SAMPLE_RETENTION_BATCH_SIZE = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_BATCH_SIZE', 20000))
 METRIC_SAMPLE_RETENTION_MAX_BATCHES = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_MAX_BATCHES', 10))
 DISCOVERY_LOCK_TTL_SECONDS = int(getattr(settings, 'DISCOVERY_LOCK_TTL_SECONDS', 180))
+AUTOPROVISION_ASSIGN_PROFILES = bool(getattr(settings, 'AUTOPROVISION_ASSIGN_PROFILES', True))
 
 
 def _iter_device_ids(batch_size: int):
@@ -69,6 +70,25 @@ def _redis_queue_depth(queue_name: str) -> int | None:
         return None
 
 
+def _has_queue_consumers(queue_name: str) -> bool | None:
+    try:
+        from config.celery import app as celery_app
+
+        inspect = celery_app.control.inspect(timeout=1.5)
+        active_queues = inspect.active_queues() or {}
+        if not active_queues:
+            return False
+
+        for queues in active_queues.values():
+            for queue in queues or []:
+                if (queue or {}).get('name') == queue_name:
+                    return True
+        return False
+    except Exception as exc:
+        logger.warning('queue consumers check failed', extra={'queue': queue_name, 'error': str(exc)})
+        return None
+
+
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
 def update_device_status_task(self):
     call_command('update_device_status')
@@ -105,6 +125,25 @@ def subnet_discovery_task(self):
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
+def assign_device_profiles_task(self, force: bool = False):
+    command_kwargs = {}
+    if force:
+        command_kwargs['force'] = True
+    call_command('assign_device_profiles', **command_kwargs)
+    return {'status': 'ok', 'force': bool(force)}
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
+def subnet_autoprovision_task(self):
+    call_command('subnet_discovery')
+    assigned_profiles = False
+    if AUTOPROVISION_ASSIGN_PROFILES:
+        call_command('assign_device_profiles')
+        assigned_profiles = True
+    return {'status': 'ok', 'assigned_profiles': assigned_profiles}
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
 def poll_device_metrics_task(self, device_id):
     return poll_device_metrics(device_id)
 
@@ -119,7 +158,17 @@ def poll_all_devices_metrics_task(self):
         )
         return {'queued': 0, 'mode': 'throttled', 'queue_depth': queue_depth}
 
-    if POLL_DISPATCH_ASYNC:
+    dispatch_async = POLL_DISPATCH_ASYNC
+    if dispatch_async:
+        has_polling_consumers = _has_queue_consumers('polling')
+        if has_polling_consumers is False:
+            logger.warning(
+                'polling queue has no consumers; falling back to inline execution',
+                extra={'queue': 'polling'},
+            )
+            dispatch_async = False
+
+    if dispatch_async:
         queued = 0
         for device_id in _iter_device_ids(POLL_BATCH_SIZE):
             poll_device_metrics_task.delay(device_id)
@@ -167,7 +216,7 @@ def discover_all_devices_task(self):
             'discovery fanout throttled',
             extra={'queue': 'discovery', 'depth': queue_depth, 'limit': DISCOVERY_MAX_QUEUE_DEPTH},
         )
-        return {'queued': 0, 'mode': 'throttled'}
+        return {'queued': 0, 'mode': 'throttled', 'queue_depth': queue_depth}
 
     queued = 0
     for device_id in Device.objects.values_list('id', flat=True).iterator(chunk_size=DISCOVERY_BATCH_SIZE):

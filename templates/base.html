@@ -8,17 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
-  <style>[x-cloak]{display:none !important;}</style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="{% static 'js/tailwind.config.js' %}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
-  <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="{% static 'css/radix.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-full bg-surface-100 font-sans text-surface-900">
   {% block content %}{% endblock %}
+  <script src="{% static 'js/sortable-tables.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

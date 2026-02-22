@@ -1,0 +1,38 @@
+{% if samples %}
+<div class="overflow-x-auto rounded-md border border-surface-200">
+  <table class="min-w-full divide-y divide-surface-200 text-sm">
+    <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+      <tr>
+        <th class="px-2 py-2 text-left">Timestamp</th>
+        <th class="px-2 py-2 text-left">Metric</th>
+        <th class="px-2 py-2 text-left">Interface</th>
+        <th class="px-2 py-2 text-left">Value</th>
+        <th class="px-2 py-2 text-left">Quality</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-surface-100 bg-surface-0">
+      {% for sample in samples %}
+      <tr>
+        <td class="px-2 py-2">{{ sample.ts|date:"Y-m-d H:i:s" }}</td>
+        <td class="px-2 py-2">{{ sample.subscription.metric.key }}</td>
+        <td class="px-2 py-2">{% if sample.subscription.interface_id %}ifIndex {{ sample.subscription.interface.if_index }}{% else %}Device{% endif %}</td>
+        <td class="px-2 py-2">{% if sample.value_float is not None %}{{ sample.value_float }}{% else %}{{ sample.value_text|default:'-' }}{% endif %}</td>
+        <td class="px-2 py-2">
+          {% if sample.quality == 'good' %}
+          <span class="rounded-full bg-success-100 px-2 py-1 text-xs font-semibold text-success-700">good</span>
+          {% elif sample.quality == 'bad' %}
+          <span class="rounded-full bg-danger-100 px-2 py-1 text-xs font-semibold text-danger-700">bad</span>
+          {% else %}
+          <span class="rounded-full bg-surface-100 px-2 py-1 text-xs font-semibold text-surface-700">unknown</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-3 text-sm text-surface-700">
+  No samples found for current filters.
+</div>
+{% endif %}

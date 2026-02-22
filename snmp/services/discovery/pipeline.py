@@ -110,8 +110,8 @@ def run_device_discovery(
 
     profile = match_device_profile(
         vendor=normalized.get('vendor', ''),
-        model=normalized.get('model', ''),
-        firmware=normalized.get('firmware', ''),
+        model=normalized.get('model', '') or base.get('sys_descr', ''),
+        firmware=normalized.get('firmware', '') or base.get('sys_descr', ''),
     )
     if profile is None:
         profile = match_device_profile(vendor='generic', model='', firmware='')

@@ -3,7 +3,7 @@
 {% block title %}Device Metrics{% endblock %}
 
 {% block content %}
-<div x-data="deviceMetricsPage({deviceId: {{ device.id }}, defaultSelection: '{{ subscriptions.0.metric.key|default:'' }}|{{ subscriptions.0.interface.if_index|default:'' }}' })" class="space-y-4">
+<div class="space-y-4">
   {% include 'partials/device_metrics_content.html' %}
 </div>
 {% endblock %}

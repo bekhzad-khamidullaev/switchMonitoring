@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import transaction
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -381,3 +381,48 @@ def export_device_metrics_csv(request, pk):
         ])
 
     return response
+
+
+@login_required
+@permission_required('snmp.view_metricsample', raise_exception=True)
+def device_metrics_timeseries_table(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    if not user_can_access_device(request.user, device):
+        return HttpResponse(status=403)
+
+    metric = (request.GET.get('metric') or '').strip()
+    if_index = (request.GET.get('if_index') or '').strip()
+    limit = (request.GET.get('limit') or '50').strip()
+    try:
+        limit_value = max(10, min(int(limit), 500))
+    except ValueError:
+        limit_value = 50
+
+    queryset = (
+        MetricSample.objects
+        .filter(subscription__device=device)
+        .select_related('subscription', 'subscription__metric', 'subscription__interface')
+    )
+    if metric:
+        queryset = queryset.filter(subscription__metric__key=metric)
+    if if_index:
+        try:
+            if_index_value = int(if_index)
+            queryset = queryset.filter(subscription__interface__if_index=if_index_value)
+        except ValueError:
+            if_index_value = None
+    else:
+        if_index_value = None
+
+    samples = list(queryset.order_by('-ts', '-id')[:limit_value])
+
+    return render(
+        request,
+        'partials/metric_timeseries_table.html',
+        {
+            'device': device,
+            'samples': samples,
+            'selected_metric': metric,
+            'selected_if_index': if_index_value,
+        },
+    )

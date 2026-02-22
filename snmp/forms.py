@@ -1,7 +1,8 @@
 from django import forms
 from django.conf import settings
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
-from .models import Device, DeviceProfile
+from .models import Device, DeviceProfile, MetricBinding, MetricDefinition
 
 
 class DeviceForm(forms.ModelForm):
@@ -104,3 +105,78 @@ class DeviceHostSettingsForm(forms.ModelForm):
         if commit:
             device.save()
         return device
+
+
+class MetricBindingForm(forms.ModelForm):
+    binding_params = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+        help_text='JSON object, e.g. {"fixed_index": 0}',
+    )
+
+    class Meta:
+        model = MetricBinding
+        fields = [
+            'metric',
+            'oid_template',
+            'index_strategy',
+            'converter',
+            'binding_params',
+            'scale',
+            'enabled_by_default',
+            'priority',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        import json
+
+        super().__init__(*args, **kwargs)
+        self.fields['metric'].queryset = MetricDefinition.objects.order_by('key')
+        if self.instance.pk:
+            self.initial['binding_params'] = json.dumps(self.instance.binding_params or {}, ensure_ascii=True)
+
+    def clean_binding_params(self):
+        import json
+
+        raw_value = (self.cleaned_data.get('binding_params') or '').strip()
+        if not raw_value:
+            return {}
+        try:
+            parsed = json.loads(raw_value)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f'Invalid JSON: {exc.msg}') from exc
+        if not isinstance(parsed, dict):
+            raise forms.ValidationError('binding_params must be a JSON object')
+        return parsed
+
+
+class BaseMetricBindingInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        seen = set()
+        for form in self.forms:
+            if not hasattr(form, 'cleaned_data'):
+                continue
+            if form.cleaned_data.get('DELETE'):
+                continue
+            metric = form.cleaned_data.get('metric')
+            oid_template = (form.cleaned_data.get('oid_template') or '').strip()
+            index_strategy = form.cleaned_data.get('index_strategy')
+            if not metric or not oid_template or not index_strategy:
+                continue
+            key = (metric.pk, oid_template, index_strategy)
+            if key in seen:
+                raise forms.ValidationError(
+                    f'Duplicate binding for metric={metric.key}, oid={oid_template}, index={index_strategy}.'
+                )
+            seen.add(key)
+
+
+MetricBindingInlineFormSet = inlineformset_factory(
+    parent_model=DeviceProfile,
+    model=MetricBinding,
+    form=MetricBindingForm,
+    formset=BaseMetricBindingInlineFormSet,
+    extra=1,
+    can_delete=True,
+)

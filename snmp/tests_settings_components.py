@@ -47,6 +47,10 @@ class MetricsConfigTests(SimpleTestCase):
             'METRIC_SAMPLE_RETENTION_MAX_BATCHES': '5',
             'METRIC_SAMPLE_RETENTION_HOUR': '3',
             'METRIC_SAMPLE_RETENTION_MINUTE': '11',
+            'AUTOPROVISION_ENABLED': '1',
+            'AUTOPROVISION_HOUR': '4',
+            'AUTOPROVISION_MINUTE': '12',
+            'AUTOPROVISION_ASSIGN_PROFILES': '0',
         }
         with patch.dict(os.environ, env, clear=False):
             metrics_config = load_metrics_config()
@@ -59,3 +63,7 @@ class MetricsConfigTests(SimpleTestCase):
         self.assertTrue(metrics_config.retention_enabled)
         self.assertEqual(metrics_config.retention_days, 45)
         self.assertEqual(metrics_config.retention_minute, 11)
+        self.assertTrue(metrics_config.autoprovision_enabled)
+        self.assertEqual(metrics_config.autoprovision_hour, '4')
+        self.assertEqual(metrics_config.autoprovision_minute, 12)
+        self.assertFalse(metrics_config.autoprovision_assign_profiles)

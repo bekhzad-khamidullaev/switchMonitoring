@@ -2,5 +2,5 @@
 {% block title %}Offline Devices{% endblock %}
 
 {% block content %}
-  {% include 'partials/device_table.html' with devices_page=down_devices page_title='Offline Devices' page_subtitle='Devices currently unreachable' %}
+  {% include 'partials/filtered_device_list_page.html' with devices_page=devices_page page_title=page_title page_subtitle=page_subtitle selected_search=selected_search %}
 {% endblock %}

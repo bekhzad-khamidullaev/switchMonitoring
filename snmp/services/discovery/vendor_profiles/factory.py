@@ -3,12 +3,18 @@ from __future__ import annotations
 from typing import Type
 
 from .base import BaseVendorProfile
+from .dlink import DlinkVendorProfile
+from .extreme import ExtremeVendorProfile
 from .h3c import H3cVendorProfile
 from .huawei import HuaweiVendorProfile
+from .threecom import ThreeComVendorProfile
 
 _PROFILES: tuple[Type[BaseVendorProfile], ...] = (
     HuaweiVendorProfile,
     H3cVendorProfile,
+    DlinkVendorProfile,
+    ExtremeVendorProfile,
+    ThreeComVendorProfile,
 )
 
 
@@ -29,4 +35,3 @@ def get_vendor_profile(
         ):
             return profile_class()
     return BaseVendorProfile()
-

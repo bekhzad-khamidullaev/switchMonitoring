@@ -1,0 +1,83 @@
+{% if not profiles %}
+  <div class="flex min-h-[300px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-surface-300 bg-surface-50 p-12 text-center">
+    <h3 class="mt-2 text-sm font-semibold text-surface-900">No profiles found</h3>
+    <p class="mt-1 text-sm text-surface-500">Try adjusting your search or create a new profile.</p>
+  </div>
+{% else %}
+  <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    {% for profile in profiles %}
+    <div class="radix-surface border-surface-200 shadow-sm">
+      <div class="border-b border-surface-100 bg-surface-50 p-4">
+        <div class="flex items-start justify-between">
+          <div class="min-w-0 flex-1">
+            <span class="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">#{{ profile.id }}</span>
+            <h3 class="mt-1 truncate radix-title text-lg font-bold text-surface-900" title="{{ profile.vendor }}">{{ profile.vendor|title }}</h3>
+          </div>
+          {% if profile.active %}
+            <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          {% else %}
+            <span class="flex h-2.5 w-2.5 rounded-full bg-surface-300"></span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex-1 p-4">
+        <dl class="space-y-4">
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wider text-surface-500">Model Pattern</dt>
+            <dd class="mt-1 break-words font-mono text-sm font-medium text-surface-800">{{ profile.model_pattern }}</dd>
+          </div>
+          {% if profile.firmware_pattern %}
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wider text-surface-500">Firmware Pattern</dt>
+            <dd class="mt-1 break-words font-mono text-sm text-surface-700">{{ profile.firmware_pattern }}</dd>
+          </div>
+          {% endif %}
+          <div class="grid grid-cols-3 gap-2 border-t border-surface-100 pt-4">
+            <div class="text-center">
+              <span class="block text-xl font-bold text-surface-900">{{ profile.bindings_count }}</span>
+              <span class="text-[10px] uppercase text-surface-500">Bindings</span>
+            </div>
+            <div class="border-x border-surface-100 text-center">
+              <span class="block text-xl font-bold text-surface-900">{{ profile.devices_count }}</span>
+              <span class="text-[10px] uppercase text-surface-500">Devices</span>
+            </div>
+            <div class="text-center">
+              <span class="block text-xl font-bold text-surface-900">{{ profile.priority }}</span>
+              <span class="text-[10px] uppercase text-surface-500">Priority</span>
+            </div>
+          </div>
+        </dl>
+      </div>
+
+      <div class="border-t border-surface-100 bg-surface-50/50 p-4">
+        <div class="flex items-center justify-between gap-2">
+          <a href="{% url 'device_profile_detail' profile.id %}" class="flex-1 rounded-lg border border-surface-200 bg-surface-0 px-3 py-2 text-center text-sm font-medium text-surface-700 hover:bg-surface-50">View Details</a>
+          <div class="flex gap-1">
+            <a href="{% url 'device_profile_update' profile.id %}" class="rounded-lg p-2 text-surface-500 hover:bg-surface-200 hover:text-surface-900" title="Edit">Edit</a>
+            <a href="{% url 'device_profile_delete' profile.id %}" class="rounded-lg p-2 text-danger-500 hover:bg-danger-50 hover:text-danger-700" title="Delete">Delete</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <div class="mt-6 flex items-center justify-between border-t border-surface-200 pt-4 text-sm text-surface-700">
+    <p>
+      Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span>
+      of <span class="font-medium">{{ page_obj.paginator.count }}</span>
+    </p>
+    <div class="flex items-center gap-2">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" hx-target="#profiles-grid-wrap" hx-swap="innerHTML" hx-push-url="true">Previous</a>
+      {% endif %}
+      <span class="rounded-md bg-surface-900 px-3 py-1.5 text-white">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="rounded-md border border-surface-300 px-3 py-1.5 hover:bg-surface-100" hx-get="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" hx-target="#profiles-grid-wrap" hx-swap="innerHTML" hx-push-url="true">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endif %}

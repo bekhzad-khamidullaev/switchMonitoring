@@ -1,5 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Count, F, Max, Q
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 
 from snmp.models import AlertEvent, AlertRule, Device, DeviceNeighbor, DevicePort, MetricSample
@@ -52,11 +55,25 @@ def devices_updown(request):
 
     # Polling Health (last 24h)
     time_threshold = timezone.now() - timezone.timedelta(hours=24)
-    bad_metrics_count = MetricSample.objects.filter(
-        quality=MetricSample.Quality.BAD,
-        ts__gte=time_threshold,
-        subscription__device__group__in=user_permitted_groups
+    subscriptions_with_last_sample = (
+        MetricSample.objects.filter(
+            subscription__device__group__in=user_permitted_groups,
+            ts__gte=time_threshold,
+        )
+        .values('subscription_id')
+        .annotate(
+            last_ts=Max('ts'),
+            last_bad_ts=Max('ts', filter=Q(quality=MetricSample.Quality.BAD)),
+        )
+    )
+    total_metrics_count = subscriptions_with_last_sample.count()
+    bad_metrics_count = subscriptions_with_last_sample.filter(
+        last_bad_ts__isnull=False,
+        last_ts=F('last_bad_ts'),
     ).count()
+    health_score_pct = 100
+    if total_metrics_count > 0:
+        health_score_pct = max(0, min(100, round((1 - (bad_metrics_count / total_metrics_count)) * 100)))
 
     return render(
         request,
@@ -74,6 +91,7 @@ def devices_updown(request):
             'model_stats': list(model_stats),
             'recent_alerts': recent_alerts,
             'bad_metrics_count': bad_metrics_count,
+            'health_score_pct': health_score_pct,
         },
     )
 
@@ -81,12 +99,15 @@ def devices_updown(request):
 @login_required
 def neighbor_devices_map(request):
     nodes, links = _build_host_topology(request.user)
+    node_index = {node['id']: node for node in nodes}
     return render(
         request,
         'neighbor_devices_map.html',
         {
             'topology_nodes': nodes,
             'topology_links': links,
+            'topology_tree_rows': _build_topology_tree_rows(nodes, links),
+            'topology_link_rows': _build_topology_link_rows(links, node_index),
         },
     )
 
@@ -150,31 +171,44 @@ def _build_host_topology(user):
         if not left or not right or left.pk == right.pk:
             continue
 
-        pair = tuple(sorted((left.pk, right.pk)))
-        if pair in seen:
+        left_port = int(neighbor.port1)
+        right_port = int(neighbor.port2)
+        # LLDP relations are directional; dedupe only mirrored records
+        # for the exact same device-port pair, while preserving parallel links.
+        endpoint_key = tuple(sorted(((left.pk, left_port), (right.pk, right_port))))
+        if endpoint_key in seen:
             continue
-        seen.add(pair)
+        seen.add(endpoint_key)
 
-        left_key = (str(left.pk), int(neighbor.port1))
-        right_key = (str(right.pk), int(neighbor.port2))
-        left_state = port_state_by_device_port.get(left_key)
-        right_state = port_state_by_device_port.get(right_key)
-        link_status = _resolve_link_status(left_state, right_state)
+        if left.pk <= right.pk:
+            source, target = left, right
+            source_port, target_port = left_port, right_port
+            source_mac, target_mac = mac1, mac2
+        else:
+            source, target = right, left
+            source_port, target_port = right_port, left_port
+            source_mac, target_mac = mac2, mac1
+
+        source_key = (str(source.pk), source_port)
+        target_key = (str(target.pk), target_port)
+        source_state = port_state_by_device_port.get(source_key)
+        target_state = port_state_by_device_port.get(target_key)
+        link_status = _resolve_link_status(source_state, target_state)
 
         links.append(
             {
-                'source': str(left.pk),
-                'target': str(right.pk),
-                'left_port': neighbor.port1,
-                'right_port': neighbor.port2,
-                'left_mac': mac1,
-                'right_mac': mac2,
-                'left_oper': left_state['oper'] if left_state else None,
-                'left_admin': left_state['admin'] if left_state else None,
-                'left_port_label': left_state['label'] if left_state else '',
-                'right_oper': right_state['oper'] if right_state else None,
-                'right_admin': right_state['admin'] if right_state else None,
-                'right_port_label': right_state['label'] if right_state else '',
+                'source': str(source.pk),
+                'target': str(target.pk),
+                'left_port': source_port,
+                'right_port': target_port,
+                'left_mac': source_mac,
+                'right_mac': target_mac,
+                'left_oper': source_state['oper'] if source_state else None,
+                'left_admin': source_state['admin'] if source_state else None,
+                'left_port_label': source_state['label'] if source_state else '',
+                'right_oper': target_state['oper'] if target_state else None,
+                'right_admin': target_state['admin'] if target_state else None,
+                'right_port_label': target_state['label'] if target_state else '',
                 'status': link_status,
             }
         )
@@ -202,3 +236,90 @@ def _resolve_link_status(left_state, right_state):
     if left_up is True and right_up is True:
         return 'up'
     return 'unknown'
+
+
+def _build_topology_link_rows(links, node_index):
+    rows = []
+    for link in links:
+        source = node_index.get(link['source'])
+        target = node_index.get(link['target'])
+        rows.append(
+            {
+                'source_id': link['source'],
+                'target_id': link['target'],
+                'source_name': source['hostname'] if source else link['source'],
+                'target_name': target['hostname'] if target else link['target'],
+                'source_url': source['detail_url'] if source else '',
+                'target_url': target['detail_url'] if target else '',
+                'left_port': link['left_port'],
+                'right_port': link['right_port'],
+                'left_label': link.get('left_port_label') or f"p{link['left_port']}",
+                'right_label': link.get('right_port_label') or f"p{link['right_port']}",
+                'status': link.get('status') or 'unknown',
+            }
+        )
+    return rows
+
+
+def _build_topology_tree_rows(nodes, links):
+    node_index = {node['id']: node for node in nodes}
+    adjacency = {node['id']: [] for node in nodes}
+    for link in links:
+        source = link['source']
+        target = link['target']
+        adjacency.setdefault(source, []).append((target, link))
+        adjacency.setdefault(target, []).append((source, link))
+
+    visited = set()
+    rows = []
+    ordered_ids = sorted(node_index.keys(), key=lambda key: (node_index[key].get('hostname') or '').lower())
+
+    def walk(node_id, parent_id=None, depth=0, parent_link=None):
+        if node_id in visited:
+            return
+        visited.add(node_id)
+        node = node_index[node_id]
+        if parent_id and parent_link:
+            if parent_link['source'] == parent_id:
+                left_label = parent_link.get('left_port_label') or f"p{parent_link['left_port']}"
+                right_label = parent_link.get('right_port_label') or f"p{parent_link['right_port']}"
+                ports = f'{left_label} -> {right_label}'
+            else:
+                right_label = parent_link.get('right_port_label') or f"p{parent_link['right_port']}"
+                left_label = parent_link.get('left_port_label') or f"p{parent_link['left_port']}"
+                ports = f'{right_label} -> {left_label}'
+            parent_name = node_index.get(parent_id, {}).get('hostname') or '-'
+            link_status = parent_link.get('status') or 'unknown'
+        else:
+            ports = '-'
+            parent_name = 'Root'
+            link_status = 'root'
+
+        rows.append(
+            {
+                'node_id': node_id,
+                'hostname': node.get('hostname') or node_id,
+                'ip': node.get('ip') or '',
+                'detail_url': node.get('detail_url') or '',
+                'alive': bool(node.get('status')),
+                'depth': depth,
+                'parent_name': parent_name,
+                'ports': ports,
+                'link_status': link_status,
+            }
+        )
+
+        children = sorted(
+            adjacency.get(node_id, []),
+            key=lambda item: (node_index.get(item[0], {}).get('hostname') or '').lower(),
+        )
+        for child_id, child_link in children:
+            if child_id == parent_id:
+                continue
+            walk(child_id, node_id, depth + 1, child_link)
+
+    for node_id in ordered_ids:
+        if node_id not in visited:
+            walk(node_id)
+
+    return rows

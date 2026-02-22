@@ -7,6 +7,20 @@ from snmp.services.discovery.vendor_profiles.factory import get_vendor_profile
 
 
 class DiscoveryNormalizeTests(SimpleTestCase):
+    def test_normalize_detects_iskratel_vendor(self):
+        data = normalize_vendor_model(
+            "1.3.6.1.4.1.9999.1",
+            "Iskratel ESCOM SI3000 firmware 1.2.3",
+        )
+        self.assertEqual(data["vendor"], "iskratel")
+
+    def test_normalize_vendor_from_enterprise_oid(self):
+        data = normalize_vendor_model(
+            "1.3.6.1.4.1.9.1.1208",
+            "Unknown switch description",
+        )
+        self.assertEqual(data["vendor"], "cisco")
+
     def test_normalize_huawei_vendor_model_and_firmware(self):
         data = normalize_vendor_model(
             "1.3.6.1.4.1.2011.2.23.134",
@@ -24,6 +38,14 @@ class DiscoveryNormalizeTests(SimpleTestCase):
         self.assertEqual(data["vendor"], "unknown")
         self.assertEqual(data["model"], "")
         self.assertEqual(data["firmware"], "1.0.0")
+
+    def test_normalize_extracts_model_from_platform_hint(self):
+        data = normalize_vendor_model(
+            "1.3.6.1.4.1.25506.11.1",
+            "H3C Comware Platform Software, Model: S5120-28P-EI, Version 7.1.045",
+        )
+        self.assertEqual(data["vendor"], "h3c")
+        self.assertEqual(data["model"], "S5120-28P-EI")
 
 
 class DiscoveryProfileMatcherTests(TestCase):
@@ -110,3 +132,33 @@ class VendorProfileFactoryTests(SimpleTestCase):
             sys_descr="Generic switch",
         )
         self.assertEqual(profile.name, "generic")
+
+    def test_factory_picks_dlink_profile(self):
+        profile = get_vendor_profile(
+            vendor="d-link",
+            model="DGS-3420",
+            firmware="",
+            sys_object_id="1.3.6.1.4.1.171.10.117.4.1",
+            sys_descr="D-Link DGS-3420",
+        )
+        self.assertEqual(profile.name, "dlink")
+
+    def test_factory_picks_extreme_profile(self):
+        profile = get_vendor_profile(
+            vendor="extreme networks",
+            model="X460",
+            firmware="",
+            sys_object_id="1.3.6.1.4.1.1916.2.3.1",
+            sys_descr="ExtremeXOS",
+        )
+        self.assertEqual(profile.name, "extreme")
+
+    def test_factory_picks_threecom_profile(self):
+        profile = get_vendor_profile(
+            vendor="3com",
+            model="4500G",
+            firmware="",
+            sys_object_id="1.3.6.1.4.1.43.1.19",
+            sys_descr="3Com switch",
+        )
+        self.assertEqual(profile.name, "3com")

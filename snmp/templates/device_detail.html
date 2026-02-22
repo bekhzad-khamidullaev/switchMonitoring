@@ -3,57 +3,29 @@
 {% block title %}Device Details{% endblock %}
 
 {% block content %}
-<div x-data="deviceDetailPage({
-      deviceId: {{ device.pk }},
-      initialStatus: '{{ device.status|yesno:'UP,DOWN' }}',
-      rxSignal: '{{ device.rx_signal|default:'' }}',
-      txSignal: '{{ device.tx_signal|default:'' }}',
-      sfpVendor: '{{ device.sfp_vendor|default:''|escapejs }}',
-      partNumber: '{{ device.part_number|default:''|escapejs }}'
-    })"
-  class="space-y-4">
+<div class="space-y-4">
+  {% include 'partials/device_live_panel.html' %}
 
-  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
-    <div class="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">Profile</p>
-        <p class="text-sm font-semibold text-surface-900">
-          {% if device.profile %}
-            #{{ device.profile.pk }} {{ device.profile.vendor|default:'-' }}
-          {% else %}
-            Not assigned
-          {% endif %}
-        </p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">Subscriptions</p>
-        <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.subscriptions_enabled }}/{{ metrics_summary.subscriptions_total }} enabled</p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">Last Metric Sample</p>
-        <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">Configuration</p>
-        <div class="mt-1 flex flex-wrap gap-2">
-          <a href="{% url 'device_host_settings' device.pk %}" class="rounded-md bg-brand-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-900">Host settings</a>
-          <a href="{% url 'device_host_settings' device.pk %}?tab=metrics" class="rounded-md bg-success-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-success-600">Metrics</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+  <section class="radix-surface border-none">
     <div class="border-b border-surface-200 px-4 py-3">
-      <h2 class="font-display text-lg font-semibold text-surface-900">Device Details</h2>
+      <h2 class="radix-title text-lg font-semibold">Device Details</h2>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="px-4 py-3">
+      <div class="radix-tabs">
+        <a href="?tab=overview" class="radix-tab" data-active="{% if active_tab == 'overview' %}true{% else %}false{% endif %}">Overview</a>
+        <a href="?tab=metrics" class="radix-tab" data-active="{% if active_tab == 'metrics' %}true{% else %}false{% endif %}">SNMP Metrics</a>
+        <a href="?tab=config" class="radix-tab" data-active="{% if active_tab == 'config' %}true{% else %}false{% endif %}">Host Config</a>
+        <a href="?tab=profile" class="radix-tab" data-active="{% if active_tab == 'profile' %}true{% else %}false{% endif %}">Profile</a>
+      </div>
+    </div>
+
+    {% if active_tab == 'overview' %}
+    <div class="overflow-x-auto border-t border-surface-200">
       <table class="min-w-full divide-y divide-surface-200 text-sm">
         <thead class="bg-surface-50 text-xs uppercase text-surface-700">
           <tr>
             <th class="px-3 py-2 text-left">ID</th>
-            <th class="px-3 py-2 text-left">Status</th>
             <th class="px-3 py-2 text-left">Vendor</th>
             <th class="px-3 py-2 text-left">Model</th>
             <th class="px-3 py-2 text-left">Group</th>
@@ -69,13 +41,8 @@
         <tbody class="bg-surface-0 text-surface-700">
           <tr>
             <td class="px-3 py-2">{{ device.pk }}</td>
-            <td class="px-3 py-2">
-              <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="status === 'UP' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'"
-                x-text="status"></span>
-            </td>
-            <td class="px-3 py-2">{{ device.device_type.vendor.name|default:'-' }}</td>
-            <td class="px-3 py-2">{{ device.device_type.device_model|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.display_vendor|default:'-' }}</td>
+            <td class="px-3 py-2">{{ device.display_model|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.group.name|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.subgroup.name|default:'-' }}</td>
             <td class="px-3 py-2">{{ device.hostname|default:'-' }}</td>
@@ -88,45 +55,211 @@
         </tbody>
       </table>
     </div>
+    {% endif %}
+
+    {% if active_tab == 'metrics' %}
+    <div class="space-y-4 border-t border-surface-200 p-4">
+      <div class="rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">
+        SNMP monitored metrics: <span class="font-semibold">{{ snmp_subscriptions|length }}</span>.
+        {% if auxiliary_subscriptions %}
+        <span class="ml-2">Auxiliary probes: <span class="font-semibold">{{ auxiliary_subscriptions|length }}</span>.</span>
+        {% endif %}
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold text-surface-900">System SNMP metrics (device level)</h3>
+        {% for group in snmp_device_groups %}
+        <div class="rounded-md border border-surface-200">
+          <div class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800">{{ group.topic }}</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-surface-200 text-sm">
+              <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Metric</th>
+                  <th class="px-3 py-2 text-left">Title</th>
+                  <th class="px-3 py-2 text-left">OID</th>
+                  <th class="px-3 py-2 text-left">Interval</th>
+                  <th class="px-3 py-2 text-left">Current value</th>
+                  <th class="px-3 py-2 text-left">Quality</th>
+                  <th class="px-3 py-2 text-left">Last sample</th>
+                </tr>
+              </thead>
+              <tbody class="bg-surface-0 text-surface-700">
+                {% for sub in group.items %}
+                <tr>
+                  <td class="px-3 py-2 font-mono">{{ sub.metric.key }}</td>
+                  <td class="px-3 py-2">{{ sub.metric.title|default:'-' }}</td>
+                  <td class="px-3 py-2 font-mono">{{ sub.binding.oid_template|default:'-' }}</td>
+                  <td class="px-3 py-2">{{ sub.poll_interval_sec|default:'-' }} sec</td>
+                  <td class="px-3 py-2">{% if sub.last_value_float != None %}{{ sub.last_value_float }}{% elif sub.last_value_text %}{{ sub.last_value_text }}{% else %}-{% endif %}</td>
+                  <td class="px-3 py-2">{{ sub.last_quality|default:'-' }}</td>
+                  <td class="px-3 py-2">{{ sub.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% empty %}
+        <div class="rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">No system-level SNMP metrics found for this host.</div>
+        {% endfor %}
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold text-surface-900">Interface SNMP metrics</h3>
+        {% for group in snmp_interface_groups %}
+        <div class="rounded-md border border-surface-200">
+          <div class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800">{{ group.topic }}</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-surface-200 text-sm">
+              <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Interface</th>
+                  <th class="px-3 py-2 text-left">Metric</th>
+                  <th class="px-3 py-2 text-left">OID</th>
+                  <th class="px-3 py-2 text-left">Interval</th>
+                  <th class="px-3 py-2 text-left">Current value</th>
+                  <th class="px-3 py-2 text-left">Quality</th>
+                  <th class="px-3 py-2 text-left">Last sample</th>
+                </tr>
+              </thead>
+              <tbody class="bg-surface-0 text-surface-700">
+                {% for sub in group.items %}
+                <tr>
+                  <td class="px-3 py-2">#{{ sub.interface.if_index }}{% if sub.interface.if_name %} · {{ sub.interface.if_name }}{% endif %}</td>
+                  <td class="px-3 py-2 font-mono">{{ sub.metric.key }}</td>
+                  <td class="px-3 py-2 font-mono">{{ sub.binding.oid_template|default:'-' }}</td>
+                  <td class="px-3 py-2">{{ sub.poll_interval_sec|default:'-' }} sec</td>
+                  <td class="px-3 py-2">{% if sub.last_value_float != None %}{{ sub.last_value_float }}{% elif sub.last_value_text %}{{ sub.last_value_text }}{% else %}-{% endif %}</td>
+                  <td class="px-3 py-2">{{ sub.last_quality|default:'-' }}</td>
+                  <td class="px-3 py-2">{{ sub.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% empty %}
+        <div class="rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">No interface-level SNMP metrics found for this host.</div>
+        {% endfor %}
+      </div>
+
+      {% if auxiliary_groups %}
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold text-surface-900">Auxiliary probes (non-SNMP)</h3>
+        {% for group in auxiliary_groups %}
+        <div class="rounded-md border border-surface-200">
+          <div class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800">{{ group.topic }}</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-surface-200 text-sm">
+              <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Scope</th>
+                  <th class="px-3 py-2 text-left">Metric</th>
+                  <th class="px-3 py-2 text-left">Source</th>
+                  <th class="px-3 py-2 text-left">Current value</th>
+                  <th class="px-3 py-2 text-left">Quality</th>
+                  <th class="px-3 py-2 text-left">Last sample</th>
+                </tr>
+              </thead>
+              <tbody class="bg-surface-0 text-surface-700">
+                {% for sub in group.items %}
+                <tr>
+                  <td class="px-3 py-2">{% if sub.interface_id %}Interface #{{ sub.interface.if_index }}{% else %}Device{% endif %}</td>
+                  <td class="px-3 py-2 font-mono">{{ sub.metric.key }}</td>
+                  <td class="px-3 py-2 font-mono">{{ sub.binding.oid_template|default:'-' }}</td>
+                  <td class="px-3 py-2">{% if sub.last_value_float != None %}{{ sub.last_value_float }}{% elif sub.last_value_text %}{{ sub.last_value_text }}{% else %}-{% endif %}</td>
+                  <td class="px-3 py-2">{{ sub.last_quality|default:'-' }}</td>
+                  <td class="px-3 py-2">{{ sub.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'config' %}
+    <div class="space-y-4 border-t border-surface-200 p-4">
+      {% for section in host_config_sections %}
+      <div class="rounded-md border border-surface-200">
+        <div class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800">
+          {{ section.title }}
+        </div>
+        <div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
+          {% for item in section.items %}
+          <div class="rounded-md border border-surface-200 bg-surface-0 px-3 py-2">
+            <div class="text-xs uppercase text-surface-500">{{ item.label }}</div>
+            <div class="text-sm text-surface-900">{{ item.value|default:'-' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'profile' %}
+    <div class="space-y-4 border-t border-surface-200 p-4">
+      {% for section in profile_sections %}
+      <div class="rounded-md border border-surface-200">
+        <div class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800">{{ section.title }}</div>
+        <div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
+          {% for item in section.items %}
+          <div class="rounded-md border border-surface-200 bg-surface-0 px-3 py-2">
+            <div class="text-xs uppercase text-surface-500">{{ item.label }}</div>
+            <div class="text-sm text-surface-900">{{ item.value|default:'-' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="rounded-md border border-surface-200 bg-surface-50 p-3 text-sm text-surface-700">No profile assigned to this host.</div>
+      {% endfor %}
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-surface-200 text-sm">
+          <thead class="bg-surface-50 text-xs uppercase text-surface-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Metric</th>
+              <th class="px-3 py-2 text-left">Title</th>
+              <th class="px-3 py-2 text-left">OID</th>
+              <th class="px-3 py-2 text-left">Index strategy</th>
+              <th class="px-3 py-2 text-left">Converter</th>
+              <th class="px-3 py-2 text-left">Default</th>
+              <th class="px-3 py-2 text-left">Priority</th>
+            </tr>
+          </thead>
+          <tbody class="bg-surface-0 text-surface-700">
+            {% for binding in profile_bindings %}
+            <tr>
+              <td class="px-3 py-2 font-mono">{{ binding.metric.key }}</td>
+              <td class="px-3 py-2">{{ binding.metric.title|default:'-' }}</td>
+              <td class="px-3 py-2 font-mono">{{ binding.oid_template }}</td>
+              <td class="px-3 py-2">{{ binding.get_index_strategy_display }}</td>
+              <td class="px-3 py-2">{{ binding.get_converter_display }}</td>
+              <td class="px-3 py-2">{% if binding.enabled_by_default %}Enabled{% else %}Disabled{% endif %}</td>
+              <td class="px-3 py-2">{{ binding.priority }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="px-3 py-3 text-center text-surface-500">No metric bindings in assigned profile.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="flex flex-wrap gap-2 border-t border-surface-200 px-4 py-3">
-      {% if perms.snmp.change_device %}
-      <button type="button" @click="fetchStatus()" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Refresh status</button>
-      <button type="button" @click="refreshOptics()" :disabled="busy"
-        class="rounded-md bg-info-600 px-3 py-2 text-sm font-medium text-white hover:bg-info-700 disabled:cursor-not-allowed disabled:bg-info-300">
-        <span x-show="!busy">Update optical info</span>
-        <span x-show="busy">Updating...</span>
-      </button>
       <form method="post" action="{% url 'refresh_device_inventory' device.pk %}">
         {% csrf_token %}
         <button type="submit" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">Update inventory</button>
       </form>
-      {% endif %}
       <a href="{% url 'device_host_settings' device.pk %}?tab=metrics" class="rounded-md bg-success-700 px-3 py-2 text-sm font-medium text-white hover:bg-success-600">Manage metrics</a>
-    </div>
-  </section>
-
-  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
-    <div class="border-b border-surface-200 px-4 py-3">
-      <h3 class="text-base font-semibold text-surface-900">Optical Data</h3>
-    </div>
-    <div class="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">SFP Vendor</p>
-        <p class="text-sm font-semibold text-surface-900" x-text="sfpVendor || '-' "></p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">Part Number</p>
-        <p class="text-sm font-semibold text-surface-900" x-text="partNumber || '-' "></p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">RX Signal</p>
-        <p class="text-sm font-semibold text-surface-900" x-text="rxSignal || '-' "></p>
-      </div>
-      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
-        <p class="text-xs uppercase text-surface-700">TX Signal</p>
-        <p class="text-sm font-semibold text-surface-900" x-text="txSignal || '-' "></p>
-      </div>
     </div>
   </section>
 

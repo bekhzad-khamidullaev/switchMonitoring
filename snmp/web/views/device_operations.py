@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -29,6 +29,63 @@ SNMP_COMMUNITY = settings.SNMP_DEFAULT_COMMUNITY_RO
 OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
 OID_SYSTEM_UPTIME = 'iso.3.6.1.2.1.1.3.0'
 OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
+
+
+def _apply_device_search(queryset, search_query):
+    if not search_query:
+        return queryset
+    return queryset.filter(
+        Q(pk__icontains=search_query)
+        | Q(vendor__icontains=search_query)
+        | Q(device_type__vendor__name__icontains=search_query)
+        | Q(hostname__icontains=search_query)
+        | Q(ip__icontains=search_query)
+        | Q(model__icontains=search_query)
+        | Q(device_type__device_model__icontains=search_query)
+        | Q(status__icontains=search_query)
+        | Q(sfp_vendor__icontains=search_query)
+        | Q(part_number__icontains=search_query)
+        | Q(rx_signal__icontains=search_query)
+        | Q(tx_signal__icontains=search_query)
+    )
+
+
+def _build_enriched_device_queryset(queryset):
+    return (
+        queryset.select_related('group', 'subgroup', 'device_type__vendor', 'profile')
+        .annotate(
+            metrics_subscriptions_total=Count('subscriptions', distinct=True),
+            metrics_subscriptions_enabled=Count(
+                'subscriptions',
+                filter=Q(subscriptions__enabled=True),
+                distinct=True,
+            ),
+            metrics_last_sample_ts=Max('subscriptions__samples__ts'),
+        )
+    )
+
+
+def _render_filtered_device_list(request, *, template_name, page_items, title, subtitle, search_query):
+    if request.headers.get('HX-Request') == 'true':
+        return render(
+            request,
+            'partials/device_table.html',
+            {
+                'devices_page': page_items,
+                'page_title': title,
+                'page_subtitle': subtitle,
+            },
+        )
+    return render(
+        request,
+        template_name,
+        {
+            'devices_page': page_items,
+            'page_title': title,
+            'page_subtitle': subtitle,
+            'selected_search': search_query,
+        },
+    )
 
 
 def refresh_device_status(device):
@@ -104,27 +161,23 @@ def devices_offline(request):
     offline_items = Device.objects.filter(
         status=False,
         group__in=user_permitted_groups,
-    ).order_by('subgroup')
+    )
 
-    search_query = request.GET.get('search')
-    if search_query:
-        offline_items = offline_items.filter(
-            Q(pk__icontains=search_query)
-            | Q(device_type__vendor__name__icontains=search_query)
-            | Q(hostname__icontains=search_query)
-            | Q(ip__icontains=search_query)
-            | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
-            | Q(sfp_vendor__icontains=search_query)
-            | Q(part_number__icontains=search_query)
-            | Q(rx_signal__icontains=search_query)
-            | Q(tx_signal__icontains=search_query)
-        )
+    search_query = (request.GET.get('search') or '').strip()
+    offline_items = _apply_device_search(offline_items, search_query)
+    offline_items = _build_enriched_device_queryset(offline_items).order_by('subgroup')
 
     paginator = Paginator(offline_items, 25)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
-    return render(request, 'device_list_offline.html', {'down_devices': page_items})
+    return _render_filtered_device_list(
+        request,
+        template_name='device_list_offline.html',
+        page_items=page_items,
+        title='Offline Devices',
+        subtitle='Devices currently unreachable',
+        search_query=search_query,
+    )
 
 
 @login_required
@@ -134,26 +187,22 @@ def devices_high_signal_15(request):
         rx_signal__lte=-15,
         rx_signal__gt=-20,
         group__in=user_permitted_groups,
-    ).order_by('rx_signal')
+    )
 
-    search_query = request.GET.get('search')
-    if search_query:
-        items = items.filter(
-            Q(pk__icontains=search_query)
-            | Q(device_type__vendor__name__icontains=search_query)
-            | Q(hostname__icontains=search_query)
-            | Q(ip__icontains=search_query)
-            | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
-            | Q(sfp_vendor__icontains=search_query)
-            | Q(part_number__icontains=search_query)
-            | Q(rx_signal__icontains=search_query)
-            | Q(tx_signal__icontains=search_query)
-        )
+    search_query = (request.GET.get('search') or '').strip()
+    items = _apply_device_search(items, search_query)
+    items = _build_enriched_device_queryset(items).order_by('rx_signal')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
-    return render(request, 'devices_high_sig_15.html', {'devices_high_signal': page_items})
+    return _render_filtered_device_list(
+        request,
+        template_name='devices_high_sig_15.html',
+        page_items=page_items,
+        title='Signal from -20 to -15 dBm',
+        subtitle='Degraded optical signal level',
+        search_query=search_query,
+    )
 
 
 @login_required
@@ -163,26 +212,22 @@ def devices_high_signal_10(request):
         rx_signal__lte=-11,
         rx_signal__gt=-15,
         group__in=user_permitted_groups,
-    ).order_by('rx_signal')
+    )
 
-    search_query = request.GET.get('search')
-    if search_query:
-        items = items.filter(
-            Q(pk__icontains=search_query)
-            | Q(device_type__vendor__name__icontains=search_query)
-            | Q(hostname__icontains=search_query)
-            | Q(ip__icontains=search_query)
-            | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
-            | Q(sfp_vendor__icontains=search_query)
-            | Q(part_number__icontains=search_query)
-            | Q(rx_signal__icontains=search_query)
-            | Q(tx_signal__icontains=search_query)
-        )
+    search_query = (request.GET.get('search') or '').strip()
+    items = _apply_device_search(items, search_query)
+    items = _build_enriched_device_queryset(items).order_by('rx_signal')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
-    return render(request, 'devices_high_sig_10.html', {'devices_high_signal': page_items})
+    return _render_filtered_device_list(
+        request,
+        template_name='devices_high_sig_10.html',
+        page_items=page_items,
+        title='Signal from -15 to -11 dBm',
+        subtitle='Warning optical signal level',
+        search_query=search_query,
+    )
 
 
 @login_required
@@ -191,26 +236,22 @@ def devices_high_signal_20(request):
     items = Device.objects.filter(
         rx_signal__lte=-20,
         group__in=user_permitted_groups,
-    ).order_by('rx_signal')
+    )
 
-    search_query = request.GET.get('search')
-    if search_query:
-        items = items.filter(
-            Q(pk__icontains=search_query)
-            | Q(device_type__vendor__name__icontains=search_query)
-            | Q(hostname__icontains=search_query)
-            | Q(ip__icontains=search_query)
-            | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
-            | Q(sfp_vendor__icontains=search_query)
-            | Q(part_number__icontains=search_query)
-            | Q(rx_signal__icontains=search_query)
-            | Q(tx_signal__icontains=search_query)
-        )
+    search_query = (request.GET.get('search') or '').strip()
+    items = _apply_device_search(items, search_query)
+    items = _build_enriched_device_queryset(items).order_by('rx_signal')
 
     paginator = Paginator(items, 25)
     page_items = paginator.get_page(request.GET.get('page'))
-    return render(request, 'devices_high_sig.html', {'devices_high_signal': page_items})
+    return _render_filtered_device_list(
+        request,
+        template_name='devices_high_sig.html',
+        page_items=page_items,
+        title='Signal <= -20 dBm',
+        subtitle='Critical optical signal level',
+        search_query=search_query,
+    )
 
 
 @login_required
@@ -219,26 +260,22 @@ def devices_high_signal_11(request):
     items = Device.objects.filter(
         rx_signal__lte=-11,
         group__in=user_permitted_groups,
-    ).order_by('rx_signal')
+    )
 
-    search_query = request.GET.get('search')
-    if search_query:
-        items = items.filter(
-            Q(pk__icontains=search_query)
-            | Q(device_type__vendor__name__icontains=search_query)
-            | Q(hostname__icontains=search_query)
-            | Q(ip__icontains=search_query)
-            | Q(device_type__device_model__icontains=search_query)
-            | Q(status__icontains=search_query)
-            | Q(sfp_vendor__icontains=search_query)
-            | Q(part_number__icontains=search_query)
-            | Q(rx_signal__icontains=search_query)
-            | Q(tx_signal__icontains=search_query)
-        )
+    search_query = (request.GET.get('search') or '').strip()
+    items = _apply_device_search(items, search_query)
+    items = _build_enriched_device_queryset(items).order_by('rx_signal')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
-    return render(request, 'devices_high_sig_11.html', {'devices_high_signal': page_items})
+    return _render_filtered_device_list(
+        request,
+        template_name='devices_high_sig_11.html',
+        page_items=page_items,
+        title='Signal <= -11 dBm',
+        subtitle='Attention required',
+        search_query=search_query,
+    )
 
 
 @login_required
