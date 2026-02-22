@@ -9,7 +9,6 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from openpyxl import Workbook
 
-from snmp.models import Device as DeviceModel
 from snmp.models import DevicePort, Mac
 
 from .access import get_permitted_groups
@@ -40,23 +39,28 @@ def export_low_signal_devices_to_excel(request):
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'Low Signal Devices'
-    worksheet.append(['Group', 'Subgroup', 'Hostname', 'IP', 'Model', 'Uptime', 'RX', 'TX', 'Last check'])
+    worksheet.append(['Group', 'Subgroup', 'Hostname', 'IP', 'Model', 'Port', 'Port name', 'Uptime', 'RX', 'TX', 'Last check'])
 
     permitted_groups = get_permitted_groups(request.user)
     items = (
-        DeviceModel.objects.filter(rx_signal__lte=-11, group__in=permitted_groups)
-        .select_related('subgroup', 'subgroup__group', 'device_type')
-        .order_by('rx_signal')
+        DevicePort.objects.filter(
+            managed_device__group__in=permitted_groups,
+            rx_signal__lte=-11,
+        )
+        .select_related('managed_device', 'managed_device__subgroup', 'managed_device__group', 'managed_device__device_type')
+        .order_by('rx_signal', 'managed_device__hostname', 'port')
     )
 
     for item in items:
-        group_name = sanitize_for_excel(item.group.name if item.group_id else '')
-        subgroup_name = sanitize_for_excel(item.subgroup.name if item.subgroup_id else '')
-        hostname = sanitize_for_excel(item.hostname)
-        ip_address = sanitize_for_excel(item.ip)
-        model_name = sanitize_for_excel(item.device_type.device_model if item.device_type else '')
-        uptime_str = sanitize_for_excel(str(item.uptime or ''))
-        last_update_str = item.updated.strftime('%Y-%m-%d %H:%M:%S') if item.updated else ''
+        device = item.managed_device
+        group_name = sanitize_for_excel(device.group.name if device.group_id else '')
+        subgroup_name = sanitize_for_excel(device.subgroup.name if device.subgroup_id else '')
+        hostname = sanitize_for_excel(device.hostname)
+        ip_address = sanitize_for_excel(device.ip)
+        model_name = sanitize_for_excel(device.device_type.device_model if device.device_type else '')
+        port_name = sanitize_for_excel(item.name or '')
+        uptime_str = sanitize_for_excel(str(device.uptime or ''))
+        last_update_str = device.updated.strftime('%Y-%m-%d %H:%M:%S') if device.updated else ''
 
         worksheet.append(
             [
@@ -65,6 +69,8 @@ def export_low_signal_devices_to_excel(request):
                 hostname,
                 ip_address,
                 model_name,
+                item.port,
+                port_name,
                 uptime_str,
                 item.rx_signal,
                 item.tx_signal,

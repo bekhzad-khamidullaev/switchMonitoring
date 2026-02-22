@@ -4,12 +4,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.db.models import Prefetch
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from snmp.forms import DeviceForm, DeviceHostSettingsForm
-from snmp.models import Device, DeviceProfile, MetricSample, MetricSubscription
+from snmp.models import Device, DevicePort, DeviceProfile, MetricSample, MetricSubscription
+from snmp.services.metrics.interface_filters import is_eligible_optical_ethernet
 from snmp.services.discovery.profile_matcher import match_device_profile
 
 from .access import (
@@ -36,7 +38,7 @@ HOST_SETTINGS_HOST_FIELDS = (
 HOST_SETTINGS_SNMP_FIELDS = (
     'snmp_version', 'snmp_community_ro', 'snmp_community_rw', 'auth_profile', 'status',
     'uptime', 'switch_mac', 'neighbor', 'parent_port', 'soft_version',
-    'serial_number', 'rx_signal', 'tx_signal', 'sfp_vendor', 'part_number', 'last_discovered_at',
+    'serial_number', 'last_discovered_at',
 )
 
 SNMP_SENTINEL_PREFIX = "__"
@@ -149,16 +151,26 @@ def devices(request):
             | Q(part_number__icontains=search_query)
             | Q(rx_signal__icontains=search_query)
             | Q(tx_signal__icontains=search_query)
+            | Q(switch_ports_reverse__sfp_vendor__icontains=search_query)
+            | Q(switch_ports_reverse__part_number__icontains=search_query)
+            | Q(switch_ports_reverse__rx_signal__icontains=search_query)
+            | Q(switch_ports_reverse__tx_signal__icontains=search_query)
         )
         normalized_query = search_query.lower()
         if normalized_query in UP_SEARCH_TOKENS:
             search_filter |= Q(status=True)
         elif normalized_query in DOWN_SEARCH_TOKENS:
             search_filter |= Q(status=False)
-        items = items.filter(search_filter)
+        items = items.filter(search_filter).distinct()
 
     items = (
         items.select_related('group', 'subgroup', 'device_type__vendor', 'profile')
+        .prefetch_related(
+            Prefetch(
+                'switch_ports_reverse',
+                queryset=DevicePort.objects.only('managed_device_id', 'port', 'name', 'rx_signal').order_by('port'),
+            )
+        )
         .annotate(
             metrics_subscriptions_total=Count('subscriptions', distinct=True),
             metrics_subscriptions_enabled=Count(
@@ -253,6 +265,21 @@ def device_detail(request, pk):
             .select_related('metric')
             .order_by('priority', 'metric__key')
         )
+    optical_port_rows = _build_optical_port_rows(device)
+    optical_ports_compact = []
+    for row in optical_port_rows:
+        port_obj = row['port']
+        if_name = row['if_name'] or ''
+        rx_value = port_obj.rx_signal if port_obj and port_obj.rx_signal is not None else '-'
+        tx_value = port_obj.tx_signal if port_obj and port_obj.tx_signal is not None else '-'
+        vendor_value = port_obj.sfp_vendor if port_obj and port_obj.sfp_vendor else ''
+        part_value = port_obj.part_number if port_obj and port_obj.part_number else ''
+        port_title = f"Port {row['if_index']}"
+        if if_name:
+            port_title = f"{port_title} · {if_name}"
+        compact = f"{port_title}: RX {rx_value} / TX {tx_value} {vendor_value} {part_value}".strip()
+        optical_ports_compact.append(compact)
+    optical_ports_value = " | ".join(optical_ports_compact) if optical_ports_compact else '-'
 
     host_config_sections = [
         {
@@ -296,10 +323,7 @@ def device_detail(request, pk):
         {
             'title': 'Optical and module',
             'items': [
-                {'label': 'RX signal', 'value': device.rx_signal if device.rx_signal is not None else '-'},
-                {'label': 'TX signal', 'value': device.tx_signal if device.tx_signal is not None else '-'},
-                {'label': 'SFP vendor', 'value': device.sfp_vendor or '-'},
-                {'label': 'Part number', 'value': device.part_number or '-'},
+                {'label': 'Optical ports', 'value': optical_ports_value},
                 {'label': 'Updated', 'value': device.updated},
             ],
         },
@@ -363,10 +387,34 @@ def _build_device_metrics_summary(device):
     }
 
 
+def _build_optical_port_rows(device):
+    interfaces = list(device.interfaces.all())
+    optical_ifaces = [iface for iface in interfaces if is_eligible_optical_ethernet(iface)]
+    optical_port_indexes = [iface.if_index for iface in optical_ifaces]
+    ports_map = {
+        port.port: port
+        for port in DevicePort.objects.filter(
+            managed_device=device,
+            port__in=optical_port_indexes,
+        ).order_by('port')
+    }
+    return [
+        {
+            'if_index': iface.if_index,
+            'if_name': iface.if_name,
+            'if_alias': iface.if_alias,
+            'port': ports_map.get(iface.if_index),
+        }
+        for iface in sorted(optical_ifaces, key=lambda item: item.if_index)
+    ]
+
+
 def _render_device_live_panel(request, device):
+    optical_port_rows = _build_optical_port_rows(device)
     context = {
         'device': device,
         'metrics_summary': _build_device_metrics_summary(device),
+        'optical_port_rows': optical_port_rows,
     }
     return render(request, 'partials/device_live_panel.html', context)
 
@@ -519,6 +567,8 @@ def device_refresh_optics_panel(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
     device = _get_device_for_user_or_404(request.user, pk)
-    update_optical_info(request, pk)
+    update_response = update_optical_info(request, pk)
+    if getattr(update_response, 'status_code', 500) >= 400:
+        return HttpResponse(status=502)
     device.refresh_from_db()
     return _render_device_live_panel(request, device)

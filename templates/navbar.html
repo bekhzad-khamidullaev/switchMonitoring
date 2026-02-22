@@ -2,13 +2,13 @@
   <div class="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 md:px-6 lg:px-8">
     <a href="{% url 'devices' %}" class="radix-title text-lg font-semibold">Device Monitoring</a>
 
-    <div class="hidden min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap md:flex">
+    <div class="hidden min-w-0 flex-1 items-center justify-end gap-2 overflow-visible whitespace-nowrap md:flex">
       <a href="{% url 'devices' %}" class="rounded-md bg-brand-700 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-900">Devices</a>
       <a href="{% url 'dashboard' %}" class="rounded-md border border-surface-300 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-900 hover:bg-surface-100">Dashboard</a>
       <a href="{% url 'device_profiles' %}" class="rounded-md border border-surface-300 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-900 hover:bg-surface-100">Profiles</a>
       <a href="{% url 'devices_offline' %}" class="rounded-md border border-surface-300 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-900 hover:bg-surface-100">Offline</a>
       <a href="{% url 'neighbor_devices_map' %}" class="rounded-md border border-surface-300 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-900 hover:bg-surface-100">Host Map</a>
-      <details class="relative">
+      <details class="relative z-30">
         <summary class="list-none cursor-pointer rounded-md border border-surface-300 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-900 hover:bg-surface-100">Reports</summary>
         <div class="absolute right-0 z-20 mt-2 w-56 space-y-1 rounded-md border border-surface-300 bg-white p-2 shadow-soft">
           <a href="{% url 'port_activity_report' %}" class="block rounded-md px-3 py-2 text-sm hover:bg-surface-100">Port Activity</a>

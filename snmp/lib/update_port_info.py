@@ -2,11 +2,14 @@ from pysnmp.hlapi import *
 from pysnmp import error
 import math
 from django.core.paginator import Paginator
+from django.utils import timezone
 from ..models import Mac, Device, DeviceNeighbor, DevicePort
+from ..services.metrics.interface_filters import is_eligible_optical_ethernet
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+UNKNOWN_TEXT_VALUES = {'', 'unknown', 'n/a', 'na', '-', 'none', 'null'}
 
 def mw_to_dbm(mw):
     if mw > 0:
@@ -21,10 +24,17 @@ def mw_to_dbm(mw):
 class SNMPUpdater:
     def __init__(self, selected_switch, snmp_community):
         self.selected_switch = selected_switch
-        if selected_switch.model:
-            self.model = selected_switch.model.device_model
-        else:
-            self.model = None
+        model_name = None
+        raw_model = getattr(selected_switch, 'model', None)
+        if hasattr(raw_model, 'device_model'):
+            model_name = raw_model.device_model
+        elif isinstance(raw_model, str):
+            raw_model_normalized = raw_model.strip()
+            if raw_model_normalized.lower() not in UNKNOWN_TEXT_VALUES:
+                model_name = raw_model_normalized
+        if model_name is None and getattr(selected_switch, 'device_type_id', None) and getattr(selected_switch, 'device_type', None):
+            model_name = selected_switch.device_type.device_model
+        self.model = model_name
         self.ip = selected_switch.ip
         self.snmp_community = snmp_community
         self.TX_SIGNAL_OID, self.RX_SIGNAL_OID, self.SFP_VENDOR_OID, self.PART_NUMBER_OID = self.get_snmp_oids()
@@ -32,120 +42,120 @@ class SNMPUpdater:
     def get_snmp_oids(self):
         if self.model == 'MES3500-24S':
             return (
-                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.4',
-                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.5',
-                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.2.25',
-                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.4.25',
+                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.4',
+                '1.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.5',
+                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.2.{port}',
+                '1.3.6.1.4.1.890.1.15.3.84.1.1.1.4.{port}',
             )
         elif self.model == 'MES2428':
             return (
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.4.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.5.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.25',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.25',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.4.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.5.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.{port}',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.{port}',
             )
         elif self.model == 'MES2408':
             return (
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.4.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.5.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.9',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.9',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.4.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.5.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.{port}',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.{port}',
             )
         elif self.model == 'MES2428B':
             return (
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.4.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.5.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.25',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.25',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.4.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.5.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.{port}',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.{port}',
             )
         elif self.model == 'MES2408B':
             return (
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.4.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.9.5.1',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.9',
-                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.9',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.4.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.2.1.8.{port}.5.1',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.5.{port}',
+                'iso.3.6.1.4.1.35265.52.1.1.3.1.1.10.{port}',
             )
         elif self.model == 'MES3500-24':
             return (
-                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.4',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.25.5',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.3.25',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.4.25',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.{port}.4',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.{port}.5',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.3.{port}',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.4.{port}',
             )
         elif self.model == 'MES3500-10':
             return (
-                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.9.4',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.9.5',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.3.9',
-                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.4.9',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.{port}.4',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.2.1.7.{port}.5',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.3.{port}',
+                'iso.3.6.1.4.1.890.1.5.8.68.117.1.1.4.{port}',
             )
         elif self.model == 'GS3700-24HP':
             return (
-                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.4',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.5',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.2.25',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.3.28',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.4',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.5',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.2.{port}',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.3.{port}',
             )
         elif self.model == 'MES1124MB':
             return (
-                'iso.3.6.1.4.1.89.90.1.2.1.3.49.8',
-                'iso.3.6.1.4.1.89.90.1.2.1.3.49.9',
+                'iso.3.6.1.4.1.89.90.1.2.1.3.{port}.8',
+                'iso.3.6.1.4.1.89.90.1.2.1.3.{port}.9',
                 'iso.3.6.1.4.1.35265.1.23.53.1.1.1.5',
                 '',
             )
         elif self.model == 'MGS3520-28':
             return (
-                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.4',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.25.5',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.2.25',
-                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.3.25',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.4',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.2.1.6.{port}.5',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.2.{port}',
+                'iso.3.6.1.4.1.890.1.15.3.84.1.1.1.3.{port}',
             )
         elif self.model == 'SNR-S2985G-24TC':
             return (
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.25',
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.25',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.{port}',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.{port}',
                 '',
                 '',
 
             )
         elif self.model == 'SNR-S2985G-8T':
             return (
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.9',
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.9',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.{port}',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.{port}',
                 '',
                 '',
             )
         elif self.model == 'SNR-S2982G-24T':
             return (
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.25',
-                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.25',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.22.{port}',
+                'iso.3.6.1.4.1.40418.7.100.30.1.1.17.{port}',
                 '',
                 '',
             )
         elif self.model == 'T2600G-28TS':
             return (
-                'iso.3.6.1.4.1.11863.6.96.1.7.1.1.5.49177',
-                'iso.3.6.1.4.1.11863.6.96.1.7.1.1.6.49177',
+                'iso.3.6.1.4.1.11863.6.96.1.7.1.1.5.{port}',
+                'iso.3.6.1.4.1.11863.6.96.1.7.1.1.6.{port}',
                 '',
                 '',
             )
         elif self.model == 'S3328TP-SI':
             return (
-                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.67240014',
-                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.67240014',
+                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.{port}',
+                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.{port}',
                 '',
                 '',
             )
         elif self.model == 'S3328TP-EI':
             return (
-                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.67240014',
-                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.67240014',
+                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.9.{port}',
+                'iso.3.6.1.4.1.2011.5.25.31.1.1.3.1.8.{port}',
                 '',
                 '',
             )
         else:
-            return ('iso.3.6.1.4.1.2011.5.14.6.4.1.4.234881088',
-                    'iso.3.6.1.4.1.2011.5.14.6.4.1.5.234881088',
+            return ('iso.3.6.1.4.1.2011.5.14.6.4.1.4.{port}',
+                    'iso.3.6.1.4.1.2011.5.14.6.4.1.5.{port}',
                     None,
                     None)
 
@@ -174,52 +184,117 @@ class SNMPUpdater:
     
 
     def update_switch_data(self):
-        TX_SIGNAL_raw = self.perform_snmpwalk(self.TX_SIGNAL_OID)
-        RX_SIGNAL_raw = self.perform_snmpwalk(self.RX_SIGNAL_OID)
-
-        if TX_SIGNAL_raw is not None and RX_SIGNAL_raw is not None:
-            TX_SIGNAL = self.extract_value(TX_SIGNAL_raw)
-            RX_SIGNAL = self.extract_value(RX_SIGNAL_raw)
-        else:
-            TX_SIGNAL = None
-            RX_SIGNAL = None
-
-        if self.SFP_VENDOR_OID and self.PART_NUMBER_OID is not None:
-            SFP_VENDOR_raw = self.perform_snmpwalk(self.SFP_VENDOR_OID)
-            PART_NUMBER_raw = self.perform_snmpwalk(self.PART_NUMBER_OID)
-            SFP_VENDOR = self.extract_value(SFP_VENDOR_raw)
-            PART_NUMBER = self.extract_value(PART_NUMBER_raw)
-        else:
-            SFP_VENDOR = None
-            PART_NUMBER = None
-
         switch = self.selected_switch
-        try:
-            if '3500' in self.model or 'GS3700' in self.model or 'MGS3520-28' in self.model:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) / 100.0 if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) / 100.0 if RX_SIGNAL is not None else None
-            elif '3328' in self.model or 'T2600G' in self.model:
-                Tx_SIGNAL = mw_to_dbm(float(TX_SIGNAL))
-                Rx_SIGNAL = mw_to_dbm(float(RX_SIGNAL))
-                switch.tx_signal = round(Tx_SIGNAL, 2) if TX_SIGNAL is not None else None
-                switch.rx_signal = round(Rx_SIGNAL, 2) if RX_SIGNAL is not None else None
-            elif 'SNR' in self.model:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) if RX_SIGNAL is not None else None
-            else:
-                switch.tx_signal = round(float(TX_SIGNAL), 2) / 1000.0 if TX_SIGNAL is not None else None
-                switch.rx_signal = round(float(RX_SIGNAL), 2) / 1000.0 if RX_SIGNAL is not None else None
-        except (ValueError, TypeError):
+        eligible_interfaces = [
+            iface for iface in switch.interfaces.all()
+            if is_eligible_optical_ethernet(iface)
+        ]
+        eligible_ports = {iface.if_index for iface in eligible_interfaces}
+        DevicePort.objects.filter(managed_device=switch).exclude(port__in=eligible_ports).update(
+            rx_signal=None,
+            tx_signal=None,
+            sfp_vendor=None,
+            part_number=None,
+        )
+        if not eligible_interfaces:
             switch.tx_signal = None
             switch.rx_signal = None
+            switch.sfp_vendor = None
+            switch.part_number = None
+            switch.save(update_fields=['tx_signal', 'rx_signal', 'sfp_vendor', 'part_number', 'updated'])
+            return
 
-        switch.sfp_vendor = SFP_VENDOR if SFP_VENDOR is not None else None
-        switch.part_number = PART_NUMBER if PART_NUMBER is not None else None
+        first_signals = None
+        now = timezone.now()
+        for iface in eligible_interfaces:
+            port_index = iface.if_index
+            tx_oid = self.TX_SIGNAL_OID.replace('{port}', str(port_index)) if self.TX_SIGNAL_OID else None
+            rx_oid = self.RX_SIGNAL_OID.replace('{port}', str(port_index)) if self.RX_SIGNAL_OID else None
+            vendor_oid = self.SFP_VENDOR_OID.replace('{port}', str(port_index)) if self.SFP_VENDOR_OID else None
+            part_oid = self.PART_NUMBER_OID.replace('{port}', str(port_index)) if self.PART_NUMBER_OID else None
 
+            tx_raw = self.perform_snmpwalk(tx_oid) if tx_oid else []
+            rx_raw = self.perform_snmpwalk(rx_oid) if rx_oid else []
+            tx_signal = self.extract_value(tx_raw)
+            rx_signal = self.extract_value(rx_raw)
+            parsed_tx, parsed_rx = self.parse_signals(tx_signal, rx_signal)
+
+            sfp_vendor = self.extract_value(self.perform_snmpwalk(vendor_oid)) if vendor_oid else None
+            part_number = self.extract_value(self.perform_snmpwalk(part_oid)) if part_oid else None
+
+            port_defaults = {
+                'name': iface.if_name or f"Port {port_index}",
+                'alias': iface.if_alias or '',
+                'description': '',
+                'speed': 1000,
+                'duplex': 1,
+                'admin': 1,
+                'oper': 1,
+                'lastchange': 0,
+                'discards_in': 0,
+                'discards_out': 0,
+                'mac_count': 0,
+                'pvid': 0,
+                'port_tagged': '',
+                'port_untagged': '',
+                'data': now,
+                'oct_in': 0,
+                'oct_out': 0,
+            }
+            port_obj, _ = DevicePort.objects.get_or_create(
+                managed_device=switch,
+                port=port_index,
+                defaults=port_defaults,
+            )
+            port_obj.name = iface.if_name or port_obj.name or f"Port {port_index}"
+            port_obj.alias = iface.if_alias or ''
+            port_obj.data = now
+            port_obj.tx_signal = parsed_tx
+            port_obj.rx_signal = parsed_rx
+            port_obj.sfp_vendor = sfp_vendor
+            port_obj.part_number = part_number
+            port_obj.save(update_fields=[
+                'name',
+                'alias',
+                'data',
+                'tx_signal',
+                'rx_signal',
+                'sfp_vendor',
+                'part_number',
+            ])
+
+            if first_signals is None and (parsed_tx is not None or parsed_rx is not None):
+                first_signals = (parsed_tx, parsed_rx, sfp_vendor, part_number)
+
+        if first_signals is not None:
+            switch.tx_signal, switch.rx_signal, switch.sfp_vendor, switch.part_number = first_signals
+        else:
+            switch.tx_signal = None
+            switch.rx_signal = None
+            switch.sfp_vendor = None
+            switch.part_number = None
+        switch.save(update_fields=['tx_signal', 'rx_signal', 'sfp_vendor', 'part_number', 'updated'])
+
+    def parse_signals(self, tx_val, rx_val):
+        parsed_tx = None
+        parsed_rx = None
+        model = self.model or ''
         try:
-            switch.save()
-        except Exception as e:
-            print(f"Error saving switch data: {e}")
+            if '3500' in model or 'GS3700' in model or 'MGS3520-28' in model:
+                parsed_tx = round(float(tx_val), 2) / 100.0 if tx_val is not None else None
+                parsed_rx = round(float(rx_val), 2) / 100.0 if rx_val is not None else None
+            elif '3328' in model or 'T2600G' in model:
+                parsed_tx = round(mw_to_dbm(float(tx_val)), 2) if tx_val is not None else None
+                parsed_rx = round(mw_to_dbm(float(rx_val)), 2) if rx_val is not None else None
+            elif 'SNR' in model:
+                parsed_tx = round(float(tx_val), 2) if tx_val is not None else None
+                parsed_rx = round(float(rx_val), 2) if rx_val is not None else None
+            else:
+                parsed_tx = round(float(tx_val), 2) / 1000.0 if tx_val is not None else None
+                parsed_rx = round(float(rx_val), 2) / 1000.0 if rx_val is not None else None
+        except (ValueError, TypeError):
+            pass
+        return parsed_tx, parsed_rx
 
     def extract_value(self, snmp_response):
         if snmp_response and len(snmp_response) > 0:

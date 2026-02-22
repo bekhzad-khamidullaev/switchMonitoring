@@ -211,7 +211,7 @@ class DeviceModel(models.Model):
 
 
 class DevicePort(models.Model):
-    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID', default=1)
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     managed_device = models.ForeignKey('Device', models.DO_NOTHING, blank=False, null=False, default=0, related_name='switch_ports_reverse')
     port = models.SmallIntegerField(blank=False)
     description = models.CharField(max_length=200, default='')

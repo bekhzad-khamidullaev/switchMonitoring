@@ -14,6 +14,7 @@ from snmp.models import (
     Device,
     DeviceModel,
     DeviceNeighbor,
+    DevicePort,
     DeviceProfile,
     Interface,
     MetricBinding,
@@ -23,6 +24,7 @@ from snmp.models import (
     Vendor,
 )
 from snmp.services.discovery.pipeline import run_device_discovery
+from snmp.lib.update_port_info import SNMPUpdater
 from snmp.tasks import (
     assign_device_profiles_task,
     discover_all_devices_task,
@@ -1364,3 +1366,196 @@ class PortActivityReportViewTests(TestCase):
         response = self.client.get(reverse("port_activity_report"))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Port Activity Report", response.content.decode("utf-8"))
+
+
+class OpticalMultiPortUpdaterTests(TestCase):
+    def _create_port(self, device, port, rx_signal=None, tx_signal=None):
+        return DevicePort.objects.create(
+            managed_device=device,
+            port=port,
+            description="",
+            speed=1000,
+            duplex=1,
+            admin=1,
+            oper=1,
+            lastchange=0,
+            discards_in=0,
+            discards_out=0,
+            mac_count=0,
+            pvid=0,
+            port_tagged="",
+            port_untagged="",
+            data=timezone.now(),
+            name=f"Port {port}",
+            alias="",
+            oct_in=0,
+            oct_out=0,
+            rx_signal=rx_signal,
+            tx_signal=tx_signal,
+        )
+
+    def test_updater_updates_all_eligible_ports_excludes_gpon_and_clears_stale(self):
+        device = Device.objects.create(
+            hostname="optical-sw",
+            ip="10.110.0.1",
+            model="SNR-S2985G-24TC",
+            snmp_community_ro="public",
+            status=True,
+        )
+        Interface.objects.create(device=device, if_index=1, if_name="GigabitEthernet0/0/1", if_type="6", is_optical=True)
+        Interface.objects.create(device=device, if_index=2, if_name="GPON0/1", if_type="6", is_optical=True)
+        Interface.objects.create(device=device, if_index=3, if_name="TenGigabitEthernet0/0/3", if_type="6", is_optical=True)
+        self._create_port(device, 2, rx_signal=-9.9, tx_signal=1.1)
+        self._create_port(device, 99, rx_signal=-8.8, tx_signal=2.2)
+
+        def fake_walk(oid):
+            if ".22.1" in (oid or ""):
+                return ["oid = 1.25"]
+            if ".17.1" in (oid or ""):
+                return ["oid = -14.50"]
+            if ".22.3" in (oid or ""):
+                return ["oid = 2.50"]
+            if ".17.3" in (oid or ""):
+                return ["oid = -18.00"]
+            return []
+
+        updater = SNMPUpdater(device, device.effective_snmp_community())
+        with patch.object(SNMPUpdater, "perform_snmpwalk", side_effect=fake_walk):
+            updater.update_switch_data()
+
+        port1 = DevicePort.objects.get(managed_device=device, port=1)
+        port3 = DevicePort.objects.get(managed_device=device, port=3)
+        self.assertEqual(port1.tx_signal, 1.25)
+        self.assertEqual(port1.rx_signal, -14.5)
+        self.assertEqual(port3.tx_signal, 2.5)
+        self.assertEqual(port3.rx_signal, -18.0)
+
+        gpon_port = DevicePort.objects.get(managed_device=device, port=2)
+        stale_port = DevicePort.objects.get(managed_device=device, port=99)
+        self.assertIsNone(gpon_port.rx_signal)
+        self.assertIsNone(gpon_port.tx_signal)
+        self.assertIsNone(stale_port.rx_signal)
+        self.assertIsNone(stale_port.tx_signal)
+
+    def test_updater_sets_device_level_from_first_port_with_actual_signal(self):
+        device = Device.objects.create(
+            hostname="optical-sw-fallback",
+            ip="10.110.0.2",
+            model="SNR-S2985G-24TC",
+            snmp_community_ro="public",
+            status=True,
+        )
+        Interface.objects.create(device=device, if_index=1, if_name="GigabitEthernet0/0/1", if_type="6", is_optical=True)
+        Interface.objects.create(device=device, if_index=3, if_name="TenGigabitEthernet0/0/3", if_type="6", is_optical=True)
+
+        def fake_walk(oid):
+            if ".22.1" in (oid or "") or ".17.1" in (oid or ""):
+                return []
+            if ".22.3" in (oid or ""):
+                return ["oid = 3.00"]
+            if ".17.3" in (oid or ""):
+                return ["oid = -17.25"]
+            return []
+
+        updater = SNMPUpdater(device, device.effective_snmp_community())
+        with patch.object(SNMPUpdater, "perform_snmpwalk", side_effect=fake_walk):
+            updater.update_switch_data()
+
+        device.refresh_from_db()
+        self.assertEqual(device.tx_signal, 3.0)
+        self.assertEqual(device.rx_signal, -17.25)
+
+
+class OpticalPipelineHardeningTests(TestCase):
+    def _create_port(self, device, port, rx_signal=None, tx_signal=None):
+        return DevicePort.objects.create(
+            managed_device=device,
+            port=port,
+            description="",
+            speed=1000,
+            duplex=1,
+            admin=1,
+            oper=1,
+            lastchange=0,
+            discards_in=0,
+            discards_out=0,
+            mac_count=0,
+            pvid=0,
+            port_tagged="",
+            port_untagged="",
+            data=timezone.now(),
+            name=f"Port {port}",
+            alias="",
+            oct_in=0,
+            oct_out=0,
+            rx_signal=rx_signal,
+            tx_signal=tx_signal,
+        )
+
+    def test_update_optical_info_command_continues_after_single_device_failure(self):
+        first = Device.objects.create(hostname="fail-sw", ip="10.120.0.1", status=True)
+        second = Device.objects.create(hostname="ok-sw", ip="10.120.0.2", status=True)
+
+        with patch(
+            "snmp.management.commands.update_optical_info.SNMPUpdater.update_switch_data",
+            side_effect=[RuntimeError("boom"), None],
+        ) as mocked_update:
+            call_command("update_optical_info")
+
+        self.assertEqual(mocked_update.call_count, 2)
+
+    def test_snmp_updater_uses_device_type_model_when_device_model_unknown(self):
+        vendor = Vendor.objects.create(name="SNR")
+        model = DeviceModel.objects.create(vendor=vendor, device_model="SNR-S2985G-24TC")
+        device = Device.objects.create(
+            hostname="fallback-model",
+            ip="10.120.1.1",
+            model="unknown",
+            device_type=model,
+            snmp_community_ro="public",
+        )
+
+        updater = SNMPUpdater(device, device.effective_snmp_community())
+        self.assertEqual(updater.model, "SNR-S2985G-24TC")
+        self.assertIn("{port}", updater.TX_SIGNAL_OID)
+
+    def test_update_optical_info_endpoint_returns_all_eligible_ports_without_limit(self):
+        user = User.objects.create_user(username="optics_api_user", password="p1")
+        change_perm = Permission.objects.get(codename="change_device")
+        user.user_permissions.add(change_perm)
+        self.client.login(username="optics_api_user", password="p1")
+
+        device = Device.objects.create(
+            hostname="many-optics",
+            ip="10.120.2.1",
+            model="SNR-S2985G-24TC",
+            snmp_community_ro="public",
+        )
+
+        for index in range(1, 71):
+            Interface.objects.create(
+                device=device,
+                if_index=index,
+                if_name=f"GigabitEthernet0/0/{index}",
+                if_type="6",
+                is_optical=True,
+            )
+            self._create_port(device, index, rx_signal=-10.0, tx_signal=1.0)
+
+        Interface.objects.create(
+            device=device,
+            if_index=1000,
+            if_name="GPON0/1",
+            if_type="6",
+            is_optical=True,
+        )
+        self._create_port(device, 1000, rx_signal=-15.0, tx_signal=0.5)
+
+        with patch("snmp.lib.update_port_info.SNMPUpdater.update_switch_data", return_value=None):
+            response = self.client.post(reverse("update_optical_info", args=[device.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["ports"]), 70)
+        returned_ports = {item["port"] for item in payload["ports"]}
+        self.assertNotIn(1000, returned_ports)

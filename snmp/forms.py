@@ -67,7 +67,6 @@ class DeviceHostSettingsForm(forms.ModelForm):
             'neighbor', 'parent_port',
             'profile', 'group', 'subgroup',
             'soft_version', 'serial_number',
-            'rx_signal', 'tx_signal', 'sfp_vendor', 'part_number',
             'last_discovered_at',
         ]
         widgets = {

@@ -22,14 +22,18 @@
     </div>
     <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
       <p class="text-xs uppercase text-surface-700">Optical Snapshot</p>
-      {% for port in device.switch_ports_reverse.all %}
-        {% if port.rx_signal or port.tx_signal %}
-          <div class="mb-2 border-b border-surface-200 pb-1 last:mb-0 last:border-0 last:pb-0">
-            <p class="text-[10px] font-bold text-surface-600 uppercase">{{ port.name }}</p>
-            <p class="text-xs text-surface-800">RX: {{ port.rx_signal|default:'-' }} / TX: {{ port.tx_signal|default:'-' }}</p>
-            <p class="text-[10px] text-surface-700">{{ port.sfp_vendor|default:'' }} {{ port.part_number|default:'' }}</p>
-          </div>
-        {% endif %}
+      {% for row in optical_port_rows %}
+        <div class="mb-2 border-b border-surface-200 pb-1 last:mb-0 last:border-0 last:pb-0">
+          <p class="text-[10px] font-bold text-surface-600 uppercase">
+            Port {{ row.if_index }}{% if row.if_name %} · {{ row.if_name }}{% endif %}
+          </p>
+          <p class="text-xs text-surface-800">
+            RX: {{ row.port.rx_signal|default:'-' }} / TX: {{ row.port.tx_signal|default:'-' }}
+          </p>
+          <p class="text-[10px] text-surface-700">
+            {{ row.port.sfp_vendor|default:'' }} {{ row.port.part_number|default:'' }}
+          </p>
+        </div>
       {% empty %}
          <p class="text-xs text-surface-500 italic">No optical data</p>
       {% endfor %}

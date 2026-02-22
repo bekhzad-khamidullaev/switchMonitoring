@@ -1,16 +1,16 @@
 import logging
 import re
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Min, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from snmp.models import Device, DeviceModel
+from snmp.models import Device, DeviceModel, DevicePort
+from snmp.services.metrics.interface_filters import is_eligible_optical_ethernet
 
 from .access import (
     convert_uptime_to_human_readable,
@@ -25,7 +25,6 @@ except Exception:  # pragma: no cover - optional dependency
 
 logger = logging.getLogger("ICMP RESPONSE")
 
-SNMP_COMMUNITY = settings.SNMP_DEFAULT_COMMUNITY_RO
 OID_SYSTEM_HOSTNAME = 'iso.3.6.1.2.1.1.5.0'
 OID_SYSTEM_UPTIME = 'iso.3.6.1.2.1.1.3.0'
 OID_SYSTEM_DESCRIPTION = 'iso.3.6.1.2.1.1.1.0'
@@ -47,12 +46,22 @@ def _apply_device_search(queryset, search_query):
         | Q(part_number__icontains=search_query)
         | Q(rx_signal__icontains=search_query)
         | Q(tx_signal__icontains=search_query)
-    )
+        | Q(switch_ports_reverse__sfp_vendor__icontains=search_query)
+        | Q(switch_ports_reverse__part_number__icontains=search_query)
+        | Q(switch_ports_reverse__rx_signal__icontains=search_query)
+        | Q(switch_ports_reverse__tx_signal__icontains=search_query)
+    ).distinct()
 
 
 def _build_enriched_device_queryset(queryset):
     return (
         queryset.select_related('group', 'subgroup', 'device_type__vendor', 'profile')
+        .prefetch_related(
+            Prefetch(
+                'switch_ports_reverse',
+                queryset=DevicePort.objects.only('managed_device_id', 'port', 'name', 'rx_signal').order_by('port'),
+            )
+        )
         .annotate(
             metrics_subscriptions_total=Count('subscriptions', distinct=True),
             metrics_subscriptions_enabled=Count(
@@ -123,17 +132,35 @@ def update_optical_info(request, pk):
         return JsonResponse({'error': 'Forbidden'}, status=403)
 
     try:
-        snmp_updater = SNMPUpdater(device, settings.SNMP_DEFAULT_COMMUNITY_RO)
+        snmp_updater = SNMPUpdater(device, device.effective_snmp_community())
         snmp_updater.update_switch_data()
+        device.refresh_from_db()
+        eligible_interfaces = [iface for iface in device.interfaces.all() if is_eligible_optical_ethernet(iface)]
+        eligible_ports = sorted({iface.if_index for iface in eligible_interfaces})
+        interface_map = {iface.if_index: iface for iface in eligible_interfaces}
+        top_ports = list(
+            DevicePort.objects.filter(
+                managed_device=device,
+                port__in=eligible_ports,
+            )
+            .order_by('port')
+            .values('port', 'name', 'rx_signal', 'tx_signal', 'sfp_vendor', 'part_number')
+        )
+        for port_info in top_ports:
+            iface = interface_map.get(port_info['port'])
+            port_info['if_name'] = iface.if_name if iface else ''
+            port_info['if_alias'] = iface.if_alias if iface else ''
         return JsonResponse(
             {
                 'rx_signal': device.rx_signal,
                 'tx_signal': device.tx_signal,
                 'sfp_vendor': device.sfp_vendor,
                 'part_number': device.part_number,
+                'ports': top_ports,
             }
         )
     except Exception:
+        logger.exception('Optical update failed for device_id=%s ip=%s', device.pk, device.ip)
         return JsonResponse({'error': 'An error occurred during SNMP update.'}, status=500)
 
 
@@ -184,14 +211,16 @@ def devices_offline(request):
 def devices_high_signal_15(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
-        rx_signal__lte=-15,
-        rx_signal__gt=-20,
+        switch_ports_reverse__rx_signal__lte=-15,
+        switch_ports_reverse__rx_signal__gt=-20,
         group__in=user_permitted_groups,
-    )
+    ).distinct()
 
     search_query = (request.GET.get('search') or '').strip()
     items = _apply_device_search(items, search_query)
-    items = _build_enriched_device_queryset(items).order_by('rx_signal')
+    items = _build_enriched_device_queryset(items).annotate(
+        min_optical_rx=Min('switch_ports_reverse__rx_signal')
+    ).order_by('min_optical_rx')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
@@ -209,14 +238,16 @@ def devices_high_signal_15(request):
 def devices_high_signal_10(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
-        rx_signal__lte=-11,
-        rx_signal__gt=-15,
+        switch_ports_reverse__rx_signal__lte=-11,
+        switch_ports_reverse__rx_signal__gt=-15,
         group__in=user_permitted_groups,
-    )
+    ).distinct()
 
     search_query = (request.GET.get('search') or '').strip()
     items = _apply_device_search(items, search_query)
-    items = _build_enriched_device_queryset(items).order_by('rx_signal')
+    items = _build_enriched_device_queryset(items).annotate(
+        min_optical_rx=Min('switch_ports_reverse__rx_signal')
+    ).order_by('min_optical_rx')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
@@ -234,13 +265,15 @@ def devices_high_signal_10(request):
 def devices_high_signal_20(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
-        rx_signal__lte=-20,
+        switch_ports_reverse__rx_signal__lte=-20,
         group__in=user_permitted_groups,
-    )
+    ).distinct()
 
     search_query = (request.GET.get('search') or '').strip()
     items = _apply_device_search(items, search_query)
-    items = _build_enriched_device_queryset(items).order_by('rx_signal')
+    items = _build_enriched_device_queryset(items).annotate(
+        min_optical_rx=Min('switch_ports_reverse__rx_signal')
+    ).order_by('min_optical_rx')
 
     paginator = Paginator(items, 25)
     page_items = paginator.get_page(request.GET.get('page'))
@@ -258,13 +291,15 @@ def devices_high_signal_20(request):
 def devices_high_signal_11(request):
     user_permitted_groups = get_permitted_groups(request.user)
     items = Device.objects.filter(
-        rx_signal__lte=-11,
+        switch_ports_reverse__rx_signal__lte=-11,
         group__in=user_permitted_groups,
-    )
+    ).distinct()
 
     search_query = (request.GET.get('search') or '').strip()
     items = _apply_device_search(items, search_query)
-    items = _build_enriched_device_queryset(items).order_by('rx_signal')
+    items = _build_enriched_device_queryset(items).annotate(
+        min_optical_rx=Min('switch_ports_reverse__rx_signal')
+    ).order_by('min_optical_rx')
 
     paginator = Paginator(items, 100)
     page_items = paginator.get_page(request.GET.get('page'))
@@ -287,9 +322,10 @@ def refresh_device_inventory(request, pk):
     device = get_object_or_404(Device, pk=pk)
     if not user_can_access_device(request.user, device):
         return JsonResponse({'error': 'Forbidden'}, status=403)
+    snmp_community = device.effective_snmp_community()
 
-    hostname_resp = perform_snmpwalk(device.ip, OID_SYSTEM_HOSTNAME, SNMP_COMMUNITY)
-    uptime_resp = perform_snmpwalk(device.ip, OID_SYSTEM_UPTIME, SNMP_COMMUNITY)
+    hostname_resp = perform_snmpwalk(device.ip, OID_SYSTEM_HOSTNAME, snmp_community)
+    uptime_resp = perform_snmpwalk(device.ip, OID_SYSTEM_UPTIME, snmp_community)
     if not hostname_resp or not uptime_resp:
         return JsonResponse({'error': 'Missing SNMP response'}, status=502)
 
@@ -303,7 +339,7 @@ def refresh_device_inventory(request, pk):
         return JsonResponse({'error': 'Unexpected uptime response format.'}, status=500)
     device.uptime = convert_uptime_to_human_readable(match_uptime.group(1).strip())
 
-    description_resp = perform_snmpwalk(device.ip, OID_SYSTEM_DESCRIPTION, SNMP_COMMUNITY)
+    description_resp = perform_snmpwalk(device.ip, OID_SYSTEM_DESCRIPTION, snmp_community)
     if description_resp:
         response_description = str(description_resp[0]).strip().split()
         with transaction.atomic():
