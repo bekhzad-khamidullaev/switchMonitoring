@@ -17,6 +17,14 @@ from snmp.services.polling.poller import poll_device_metrics
 
 from .access import user_can_access_device
 
+METRICS_SETTINGS_ACTIONS = {
+    'run_discovery',
+    'poll_now',
+    'assign_profile_preset',
+    'apply_profile',
+    'set_discovery_monitoring',
+}
+
 
 def _validate_thresholds(subscription: MetricSubscription, warn_value, crit_value):
     threshold_error = subscription.validate_thresholds(warn_value=warn_value, crit_value=crit_value)
@@ -134,7 +142,7 @@ def build_device_metrics_context(device):
 
 def handle_device_metrics_post(request, device):
     action = (request.POST.get('action') or '').strip()
-    if not action:
+    if not action or action not in METRICS_SETTINGS_ACTIONS:
         return None
     if not request.user.has_perm('snmp.change_device'):
         return HttpResponse(status=403)

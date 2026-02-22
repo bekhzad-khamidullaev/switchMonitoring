@@ -4,21 +4,14 @@ from pathlib import Path
 
 from celery.schedules import crontab
 from kombu import Exchange, Queue
+from config.settings.components import (
+    env_bool,
+    env_list,
+    load_host_config,
+    load_metrics_config,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-
-def env_bool(name, default=False):
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.lower() in {"1", "true", "yes", "on"}
-
-
-def env_list(name, default=""):
-    value = os.getenv(name, default)
-    return [item.strip() for item in value.split(",") if item.strip()]
-
 
 DJANGO_ENV = os.getenv("DJANGO_ENV", "dev").strip().lower()
 DEBUG = env_bool("DEBUG", DJANGO_ENV not in {"prod", "production"})
@@ -29,8 +22,10 @@ if not SECRET_KEY:
     else:
         raise RuntimeError("DJANGO_SECRET_KEY is required when DEBUG is False")
 
-ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
-CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
+HOSTING = load_host_config(env_name=DJANGO_ENV)
+ALLOWED_HOSTS = HOSTING.allowed_hosts
+CSRF_TRUSTED_ORIGINS = HOSTING.csrf_trusted_origins
+HOST_CONFIG = HOSTING.as_dict()
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -208,13 +203,26 @@ if CELERY_ENABLE_DEAD_LETTER and _is_amqp_broker:
         Queue('discovery.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='discovery.dead'),
         Queue('maintenance.dead', exchange=Exchange(_dead_letter_exchange, type='direct'), routing_key='maintenance.dead'),
     )
-LEGACY_TASKS_ENABLED = env_bool('LEGACY_TASKS_ENABLED', False)
-METRIC_SAMPLE_RETENTION_ENABLED = env_bool('METRIC_SAMPLE_RETENTION_ENABLED', False)
+METRICS = load_metrics_config()
+METRICS_CONFIG = METRICS.as_dict()
+LEGACY_TASKS_ENABLED = METRICS.legacy_tasks_enabled
+POLL_ALL_DEVICES_INTERVAL_SEC = METRICS.poll_interval_sec
+POLL_ALL_DEVICES_ASYNC_DISPATCH = METRICS.poll_async_dispatch
+POLL_BATCH_SIZE = METRICS.poll_batch_size
+POLL_MAX_QUEUE_DEPTH = METRICS.poll_max_queue_depth
+DISCOVERY_BATCH_SIZE = METRICS.discovery_batch_size
+DISCOVERY_MAX_QUEUE_DEPTH = METRICS.discovery_max_queue_depth
+METRIC_SAMPLE_RETENTION_ENABLED = METRICS.retention_enabled
+METRIC_SAMPLE_RETENTION_DAYS = METRICS.retention_days
+METRIC_SAMPLE_RETENTION_BATCH_SIZE = METRICS.retention_batch_size
+METRIC_SAMPLE_RETENTION_MAX_BATCHES = METRICS.retention_max_batches
+METRIC_SAMPLE_RETENTION_HOUR = METRICS.retention_hour
+METRIC_SAMPLE_RETENTION_MINUTE = METRICS.retention_minute
 
 CELERY_BEAT_SCHEDULE = {
     'poll-all-device-metrics': {
         'task': 'snmp.tasks.poll_all_devices_metrics_task',
-        'schedule': int(os.getenv('POLL_ALL_DEVICES_INTERVAL_SEC', '300')),
+        'schedule': POLL_ALL_DEVICES_INTERVAL_SEC,
     },
     'discover-all-devices': {
         'task': 'snmp.tasks.discover_all_devices_task',
@@ -227,8 +235,8 @@ if METRIC_SAMPLE_RETENTION_ENABLED:
         'maintain-metric-samples': {
             'task': 'snmp.tasks.maintain_metric_samples_task',
             'schedule': crontab(
-                minute=int(os.getenv('METRIC_SAMPLE_RETENTION_MINUTE', '20')),
-                hour=os.getenv('METRIC_SAMPLE_RETENTION_HOUR', '2'),
+                minute=METRIC_SAMPLE_RETENTION_MINUTE,
+                hour=METRIC_SAMPLE_RETENTION_HOUR,
             ),
         },
     })

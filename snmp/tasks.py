@@ -1,5 +1,4 @@
 import logging
-import os
 from urllib.parse import urlparse
 
 import redis
@@ -15,14 +14,15 @@ from snmp.services.polling.poller import poll_device_metrics
 
 logger = logging.getLogger(__name__)
 
-POLL_DISPATCH_ASYNC = os.getenv('POLL_ALL_DEVICES_ASYNC_DISPATCH', '1').lower() in {'1', 'true', 'yes', 'on'}
-POLL_BATCH_SIZE = int(os.getenv('POLL_BATCH_SIZE', '500'))
-DISCOVERY_BATCH_SIZE = int(os.getenv('DISCOVERY_BATCH_SIZE', '200'))
-POLL_MAX_QUEUE_DEPTH = int(os.getenv('POLL_MAX_QUEUE_DEPTH', '20000'))
-METRIC_SAMPLE_RETENTION_DAYS = int(os.getenv('METRIC_SAMPLE_RETENTION_DAYS', '30'))
-METRIC_SAMPLE_RETENTION_BATCH_SIZE = int(os.getenv('METRIC_SAMPLE_RETENTION_BATCH_SIZE', '20000'))
-METRIC_SAMPLE_RETENTION_MAX_BATCHES = int(os.getenv('METRIC_SAMPLE_RETENTION_MAX_BATCHES', '10'))
-DISCOVERY_LOCK_TTL_SECONDS = int(os.getenv('DISCOVERY_LOCK_TTL_SECONDS', '180'))
+POLL_DISPATCH_ASYNC = bool(getattr(settings, 'POLL_ALL_DEVICES_ASYNC_DISPATCH', True))
+POLL_BATCH_SIZE = int(getattr(settings, 'POLL_BATCH_SIZE', 500))
+DISCOVERY_BATCH_SIZE = int(getattr(settings, 'DISCOVERY_BATCH_SIZE', 200))
+POLL_MAX_QUEUE_DEPTH = int(getattr(settings, 'POLL_MAX_QUEUE_DEPTH', 20000))
+DISCOVERY_MAX_QUEUE_DEPTH = int(getattr(settings, 'DISCOVERY_MAX_QUEUE_DEPTH', 1000))
+METRIC_SAMPLE_RETENTION_DAYS = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_DAYS', 30))
+METRIC_SAMPLE_RETENTION_BATCH_SIZE = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_BATCH_SIZE', 20000))
+METRIC_SAMPLE_RETENTION_MAX_BATCHES = int(getattr(settings, 'METRIC_SAMPLE_RETENTION_MAX_BATCHES', 10))
+DISCOVERY_LOCK_TTL_SECONDS = int(getattr(settings, 'DISCOVERY_LOCK_TTL_SECONDS', 180))
 
 
 def _iter_device_ids(batch_size: int):
@@ -162,12 +162,15 @@ def discover_device_task(self, device_id):
 def discover_all_devices_task(self):
     queue_depth = _redis_queue_depth('discovery')
     # Discovery usually has a lower limit than polling as it's more heavy
-    if queue_depth is not None and queue_depth >= 1000:
-        logger.warning('discovery fanout throttled', extra={'queue': 'discovery', 'depth': queue_depth})
+    if queue_depth is not None and queue_depth >= DISCOVERY_MAX_QUEUE_DEPTH:
+        logger.warning(
+            'discovery fanout throttled',
+            extra={'queue': 'discovery', 'depth': queue_depth, 'limit': DISCOVERY_MAX_QUEUE_DEPTH},
+        )
         return {'queued': 0, 'mode': 'throttled'}
 
     queued = 0
-    for device_id in Device.objects.values_list('id', flat=True).iterator(chunk_size=1000):
+    for device_id in Device.objects.values_list('id', flat=True).iterator(chunk_size=DISCOVERY_BATCH_SIZE):
         discover_device_task.delay(device_id)
         queued += 1
 

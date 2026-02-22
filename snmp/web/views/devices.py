@@ -17,7 +17,11 @@ from .access import (
     user_has_global_device_access,
 )
 from .device_operations import refresh_device_status
-from .metrics import build_device_metrics_context, handle_device_metrics_post
+from .metrics import (
+    METRICS_SETTINGS_ACTIONS,
+    build_device_metrics_context,
+    handle_device_metrics_post,
+)
 
 logger = logging.getLogger("ICMP RESPONSE")
 
@@ -191,10 +195,14 @@ def device_host_settings(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
     if request.method == 'POST':
         action = (request.POST.get('action') or 'save').strip()
-        if action not in HOST_SETTINGS_ACTIONS:
+        if action in METRICS_SETTINGS_ACTIONS:
             response = handle_device_metrics_post(request, device)
             if response is not None:
                 return response
+        elif action not in HOST_SETTINGS_ACTIONS:
+            messages.warning(request, f'Unknown settings action: {action}')
+            form = DeviceHostSettingsForm(request.POST, instance=device)
+            return _render_device_host_settings(request, device, form, error_message)
         if action == 'apply_profile_preset':
             preset_profile_id = (request.POST.get('profile') or '').strip()
             prefill_data = request.POST.copy()

@@ -293,6 +293,52 @@ class DeviceSettingsProfileAssignmentTests(TestCase):
         device.refresh_from_db()
         self.assertIsNone(device.profile_id)
 
+    def test_host_settings_unknown_action_is_reported_without_saving(self):
+        device = Device.objects.create(
+            ip='10.1.2.33',
+            hostname='host-settings-unknown-action',
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        response = self.client.post(
+            reverse('device_host_settings', args=[device.pk]),
+            data={
+                'action': 'unknown_action',
+                'ip': str(device.ip),
+                'hostname': device.hostname,
+                'vendor': '',
+                'model': '',
+                'firmware': '',
+                'sys_object_id': '',
+                'snmp_version': '2c',
+                'auth_profile': '',
+                'status': 'on',
+                'device_type': '',
+                'uptime': '',
+                'switch_mac': '',
+                'snmp_community_ro': 'public',
+                'snmp_community_rw': 'private',
+                'neighbor': '',
+                'parent_port': '',
+                'profile': '',
+                'group': '',
+                'subgroup': '',
+                'soft_version': '',
+                'serial_number': '',
+                'rx_signal': '',
+                'tx_signal': '',
+                'sfp_vendor': '',
+                'part_number': '',
+                'last_discovered_at': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Unknown settings action: unknown_action')
+        device.refresh_from_db()
+        self.assertEqual(device.hostname, 'host-settings-unknown-action')
+
 
 class MetricsPageActionTests(TestCase):
     def setUp(self):
