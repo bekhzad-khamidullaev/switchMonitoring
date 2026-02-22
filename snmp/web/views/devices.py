@@ -3,12 +3,14 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
+from django.db.models import Count
+from django.db.models import Max
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from snmp.forms import DeviceForm, DeviceHostSettingsForm
-from snmp.models import Device, DeviceProfile
+from snmp.models import Device, DeviceProfile, MetricSample, MetricSubscription
 from snmp.services.discovery.profile_matcher import match_device_profile
 
 from .access import (
@@ -81,9 +83,9 @@ def _render_device_host_settings(request, device, form, error_message):
 def devices(request):
     user_permitted_groups = get_permitted_groups(request.user)
     if user_has_global_device_access(request.user):
-        items = Device.objects.all().order_by('-pk')
+        items = Device.objects.all()
     else:
-        items = Device.objects.filter(group__in=user_permitted_groups).order_by('-pk')
+        items = Device.objects.filter(group__in=user_permitted_groups)
     search_query = (request.GET.get('search') or '').strip()
     status_filter = (request.GET.get('status') or '').strip().lower()
     group_filter = (request.GET.get('group') or request.GET.get('branch') or '').strip()
@@ -119,6 +121,20 @@ def devices(request):
             search_filter |= Q(status=False)
         items = items.filter(search_filter)
 
+    items = (
+        items.select_related('group', 'subgroup', 'device_type__vendor', 'profile')
+        .annotate(
+            metrics_subscriptions_total=Count('subscriptions', distinct=True),
+            metrics_subscriptions_enabled=Count(
+                'subscriptions',
+                filter=Q(subscriptions__enabled=True),
+                distinct=True,
+            ),
+            metrics_last_sample_ts=Max('subscriptions__samples__ts'),
+        )
+        .order_by('-pk')
+    )
+
     paginator = Paginator(items, 25)
     page_number = request.GET.get('page')
     page_items = paginator.get_page(page_number)
@@ -153,7 +169,18 @@ def devices(request):
 @login_required
 def device_detail(request, pk):
     device = _get_device_for_user_or_404(request.user, pk)
-    return render(request, 'device_detail.html', {'device': device})
+    metric_subscriptions = MetricSubscription.objects.filter(device=device)
+    metrics_summary = {
+        'subscriptions_total': metric_subscriptions.count(),
+        'subscriptions_enabled': metric_subscriptions.filter(enabled=True).count(),
+        'last_sample_ts': (
+            MetricSample.objects
+            .filter(subscription__device=device)
+            .aggregate(last_ts=Max('ts'))
+            .get('last_ts')
+        ),
+    }
+    return render(request, 'device_detail.html', {'device': device, 'metrics_summary': metrics_summary})
 
 
 @login_required

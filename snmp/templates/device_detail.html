@@ -14,6 +14,36 @@
   class="space-y-4">
 
   <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
+    <div class="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">Profile</p>
+        <p class="text-sm font-semibold text-surface-900">
+          {% if device.profile %}
+            #{{ device.profile.pk }} {{ device.profile.vendor|default:'-' }}
+          {% else %}
+            Not assigned
+          {% endif %}
+        </p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">Subscriptions</p>
+        <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.subscriptions_enabled }}/{{ metrics_summary.subscriptions_total }} enabled</p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">Last Metric Sample</p>
+        <p class="text-sm font-semibold text-surface-900">{{ metrics_summary.last_sample_ts|date:"Y-m-d H:i:s"|default:'-' }}</p>
+      </div>
+      <div class="rounded-md border border-surface-200 bg-surface-50 px-3 py-2">
+        <p class="text-xs uppercase text-surface-700">Configuration</p>
+        <div class="mt-1 flex flex-wrap gap-2">
+          <a href="{% url 'device_host_settings' device.pk %}" class="rounded-md bg-brand-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-900">Host settings</a>
+          <a href="{% url 'device_host_settings' device.pk %}?tab=metrics" class="rounded-md bg-success-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-success-600">Metrics</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rounded-panel border border-surface-200 bg-surface-0 shadow-soft">
     <div class="border-b border-surface-200 px-4 py-3">
       <h2 class="font-display text-lg font-semibold text-surface-900">Device Details</h2>
     </div>

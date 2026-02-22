@@ -18,6 +18,7 @@
           <th class="px-3 py-2 text-left">Model</th>
           <th class="px-3 py-2 text-left">Hostname</th>
           <th class="px-3 py-2 text-left">IP</th>
+          <th class="px-3 py-2 text-left">Profile / Metrics</th>
           <th class="px-3 py-2 text-left">Uptime</th>
           <th class="px-3 py-2 text-left">Last Update</th>
           <th class="px-3 py-2 text-left">Actions</th>
@@ -45,6 +46,31 @@
             {% endif %}
           </td>
           <td class="px-3 py-2">{{ device.ip }}</td>
+          <td class="px-3 py-2">
+            <div class="space-y-1">
+              <div class="text-xs text-surface-700">
+                Profile:
+                {% if device.profile %}
+                  <span class="font-semibold text-surface-900">#{{ device.profile.pk }} {{ device.profile.vendor|default:'-' }}</span>
+                {% else %}
+                  <span class="font-semibold text-warning-700">not assigned</span>
+                {% endif %}
+              </div>
+              <div class="text-xs text-surface-700">
+                Metrics:
+                <span class="font-semibold text-surface-900">{{ device.metrics_subscriptions_enabled|default:0 }}/{{ device.metrics_subscriptions_total|default:0 }}</span>
+                {% if device.metrics_last_sample_ts %}
+                  <span class="text-surface-600">· {{ device.metrics_last_sample_ts|date:"m-d H:i" }}</span>
+                {% endif %}
+              </div>
+              <div class="flex flex-wrap gap-1 pt-0.5">
+                {% url 'device_host_settings' device.pk as host_settings_url %}
+                {% include 'components/link_button.html' with href=host_settings_url label='Host' tone='surface' size='xs' %}
+                {% url 'device_host_settings' device.pk as metrics_settings_url %}
+                {% include 'components/link_button.html' with href=metrics_settings_url|add:'?tab=metrics' label='Metrics' tone='success' size='xs' %}
+              </div>
+            </div>
+          </td>
           <td class="px-3 py-2">{{ device.uptime|default:'-' }}</td>
           <td class="px-3 py-2">{{ device.updated|date:"Y-m-d H:i:s" }}</td>
           <td class="px-3 py-2">
@@ -62,7 +88,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="11" class="px-3 py-8 text-center text-sm text-surface-700">No devices found for current filters.</td>
+          <td colspan="12" class="px-3 py-8 text-center text-sm text-surface-700">No devices found for current filters.</td>
         </tr>
         {% endfor %}
       </tbody>

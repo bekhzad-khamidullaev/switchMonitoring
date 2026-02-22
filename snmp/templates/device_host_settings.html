@@ -28,13 +28,18 @@
     <h2 class="font-display mb-2 text-xl font-semibold text-surface-900">Host Settings</h2>
     <p class="mb-5 text-sm text-surface-700">Device #{{ device.pk }} · {{ device.hostname|default:device.ip }}</p>
 
+    <div class="mb-5 rounded-md border border-info-100 bg-info-50 p-3 text-sm text-info-900">
+      Configuration flow: use <span class="font-semibold">Host Profile</span> and <span class="font-semibold">SNMP & Inventory</span> tabs for host fields.
+      Use <span class="font-semibold">Metrics Monitoring</span> tab for discovery, subscriptions, and polling actions.
+    </div>
+
     <div class="mb-5 flex flex-wrap gap-2 border-b border-surface-200 pb-4">
       <button type="button" @click="activeTab='host'" :class="activeTab === 'host' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">Host Profile</button>
       <button type="button" @click="activeTab='snmp'" :class="activeTab === 'snmp' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">SNMP & Inventory</button>
       <button type="button" @click="activeTab='metrics'" :class="activeTab === 'metrics' ? 'bg-brand-700 text-white' : 'bg-surface-100 text-surface-700 hover:bg-surface-200'" class="rounded-md px-3 py-2 text-sm font-medium">Metrics Monitoring</button>
     </div>
 
-    <form method="post" x-show="activeTab === 'host' || activeTab === 'snmp'" class="space-y-4">
+    <form method="post" x-show="activeTab === 'host' || activeTab === 'snmp'" x-cloak class="space-y-4">
       {% csrf_token %}
       <input type="hidden" name="tab" x-model="activeTab" />
 
@@ -96,7 +101,11 @@
         {% endfor %}
       </div>
 
-      <div class="flex flex-wrap gap-2 border-t border-surface-200 pt-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-surface-200 pt-4">
+        <p class="text-xs text-surface-700">These actions modify host settings only.</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
         <button type="submit" name="action" value="save" class="rounded-md bg-success-600 px-4 py-2 text-sm font-medium text-white hover:bg-success-700">Save settings</button>
         <button type="submit" name="action" value="recommend_profile" class="rounded-md bg-info-600 px-4 py-2 text-sm font-medium text-white hover:bg-info-700">Recommend profile</button>
         <button type="submit" name="action" value="apply_profile_preset" class="rounded-md bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900">Apply preset</button>
@@ -106,7 +115,7 @@
       </div>
     </form>
 
-    <div x-show="activeTab === 'metrics'" x-data="deviceMetricsPage({deviceId: {{ device.id }}, defaultSelection: '{{ subscriptions.0.metric.key|default:'' }}|{{ subscriptions.0.interface.if_index|default:'' }}' })" class="space-y-4">
+    <div x-show="activeTab === 'metrics'" x-cloak x-data="deviceMetricsPage({deviceId: {{ device.id }}, defaultSelection: '{{ subscriptions.0.metric.key|default:'' }}|{{ subscriptions.0.interface.if_index|default:'' }}' })" class="space-y-4">
       {% include 'partials/device_metrics_content.html' %}
     </div>
   </div>

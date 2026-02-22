@@ -340,6 +340,48 @@ class DeviceSettingsProfileAssignmentTests(TestCase):
         self.assertEqual(device.hostname, 'host-settings-unknown-action')
 
 
+class DeviceListMetricsSummaryTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='list_admin', password='p1', email='list@example.com')
+        self.client.login(username='list_admin', password='p1')
+
+    def test_devices_list_renders_profile_and_metrics_summary(self):
+        profile = DeviceProfile.objects.create(
+            vendor='huawei',
+            model_pattern='S57',
+            firmware_pattern='',
+            priority=10,
+            active=True,
+        )
+        device = Device.objects.create(
+            ip='10.20.30.40',
+            hostname='summary-host',
+            profile=profile,
+            snmp_version='2c',
+            snmp_community_ro='public',
+            snmp_community_rw='private',
+        )
+        metric = MetricDefinition.objects.create(key='summary_metric', title='Summary Metric')
+        subscription = MetricSubscription.objects.create(
+            device=device,
+            metric=metric,
+            enabled=True,
+        )
+        MetricSample.objects.create(
+            subscription=subscription,
+            value_float=1.23,
+            quality=MetricSample.Quality.GOOD,
+        )
+
+        response = self.client.get(reverse('devices'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Profile / Metrics')
+        self.assertContains(response, '#')
+        self.assertContains(response, 'huawei')
+        self.assertContains(response, '1/1')
+        self.assertContains(response, f'/snmp/devices/{device.pk}/host-settings/?tab=metrics')
+
+
 class MetricsPageActionTests(TestCase):
     def setUp(self):
         self.managed_device = Device.objects.create(hostname='sw-metrics', ip='10.0.0.50')
