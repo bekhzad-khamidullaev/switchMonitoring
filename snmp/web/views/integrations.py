@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 from urllib3.exceptions import InsecureRequestWarning
+import logging
 
 from snmp.models import Ats, Branch
 from snmp.models import Device as DeviceModel
@@ -12,8 +13,27 @@ from snmp.tasks import discover_device_task, poll_device_metrics_task
 
 from .access import get_permitted_groups, user_has_global_device_access
 
-if not settings.ZABBIX_VERIFY_SSL:
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+logger = logging.getLogger(__name__)
+
+
+def _configure_zabbix_ssl_warnings(verify_ssl: bool) -> None:
+    if verify_ssl:
+        return
+    try:
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    except Exception:
+        logger.debug("failed to disable urllib3 warnings for insecure zabbix ssl")
+
+
+def _zabbix_request(zabbix_url, headers, payload, verify_ssl):
+    response = requests.post(zabbix_url, headers=headers, json=payload, verify=verify_ssl, timeout=30)
+    response.raise_for_status()
+    parsed = response.json()
+    if not isinstance(parsed, dict):
+        raise ValueError('invalid zabbix response format')
+    if parsed.get('error'):
+        raise ValueError(f"zabbix api error: {parsed.get('error')}")
+    return parsed
 
 
 def _normalize_name(raw_name):
@@ -88,6 +108,7 @@ def sync_hosts_from_zabbix(request):
     verify_ssl = settings.ZABBIX_VERIFY_SSL
     if not zabbix_url or not zabbix_token:
         return redirect('dashboard')
+    _configure_zabbix_ssl_warnings(verify_ssl)
 
     headers = {
         'Content-Type': 'application/json',
@@ -105,57 +126,88 @@ def sync_hosts_from_zabbix(request):
     }
 
     try:
-        response = requests.post(zabbix_url, headers=headers, json=payload, verify=verify_ssl, timeout=15)
-        response.raise_for_status()
-        hosts_result = response.json()
+        hosts_result = _zabbix_request(zabbix_url, headers, payload, verify_ssl)
 
         if 'result' not in hosts_result:
             return redirect('dashboard')
 
+        host_entries = [item for item in hosts_result.get('result', []) if isinstance(item, dict)]
+        host_ids = [str(item.get('hostid', '')).strip() for item in host_entries if str(item.get('hostid', '')).strip()]
+        if not host_ids:
+            return redirect('dashboard')
+
+        interfaces_payload = {
+            'jsonrpc': '2.0',
+            'method': 'hostinterface.get',
+            'params': {
+                'output': ['hostid', 'ip'],
+                'hostids': host_ids,
+            },
+            'auth': zabbix_token,
+            'id': 2,
+        }
+        interfaces_result = _zabbix_request(zabbix_url, headers, interfaces_payload, verify_ssl)
+        interfaces_by_hostid = {}
+        unresolved_ips = []
+        for row in interfaces_result.get('result', []):
+            if not isinstance(row, dict):
+                continue
+            hostid = str(row.get('hostid', '')).strip()
+            ip_value = str(row.get('ip', '')).strip()
+            if not ip_value:
+                continue
+            if not hostid:
+                unresolved_ips.append(ip_value)
+                continue
+            # Keep first interface with a non-empty IP for each host.
+            interfaces_by_hostid.setdefault(hostid, ip_value)
+        if unresolved_ips:
+            # Fallback for non-standard payloads without hostid (seen in some proxies/mocks).
+            for hostid, ip_value in zip(host_ids, unresolved_ips):
+                interfaces_by_hostid.setdefault(hostid, ip_value)
+
         processed_ips = set()
-        for host_data in hosts_result['result']:
-            hostname = host_data['name']
+        for host_data in host_entries:
+            hostid = str(host_data.get('hostid', '')).strip()
+            hostname = _normalize_name(host_data.get('name') or host_data.get('host'))
+            if not hostid:
+                continue
+
+            ip_address = interfaces_by_hostid.get(hostid)
+            if not ip_address:
+                continue
+            if ip_address in processed_ips:
+                continue
+            processed_ips.add(ip_address)
+
             group = _select_group_from_hostgroups(host_data.get('hostgroups'))
-            interfaces_payload = {
-                'jsonrpc': '2.0',
-                'method': 'hostinterface.get',
-                'params': {'output': ['ip'], 'hostids': [host_data['hostid']]},
-                'auth': zabbix_token,
-                'id': 1,
-            }
-            interfaces_response = requests.post(
-                zabbix_url,
-                headers=headers,
-                json=interfaces_payload,
-                verify=verify_ssl,
-                timeout=15,
-            )
-            interfaces_response.raise_for_status()
-            interfaces_result = interfaces_response.json()
+            defaults = {'hostname': hostname}
+            if group:
+                defaults['group'] = group
 
-            if 'result' in interfaces_result and interfaces_result['result']:
-                ip_address = interfaces_result['result'][0]['ip']
-                if ip_address in processed_ips:
-                    continue
-                processed_ips.add(ip_address)
-                defaults = {'hostname': hostname}
-                if group:
-                    defaults['group'] = group
-
+            try:
                 device, created = DeviceModel.objects.get_or_create(ip=ip_address, defaults=defaults)
-                if not created:
-                    updates = {}
-                    if hostname and device.hostname != hostname:
-                        updates['hostname'] = hostname
-                    if group and device.group_id != group.id:
-                        updates['group'] = group
-                    if device.subgroup_id is not None:
-                        updates['subgroup'] = None
-                    if updates:
-                        DeviceModel.objects.filter(pk=device.pk).update(**updates)
+            except Exception:
+                logger.exception(
+                    'zabbix sync failed to upsert device',
+                    extra={'hostid': hostid, 'ip': ip_address, 'hostname': hostname},
+                )
+                continue
+
+            if not created:
+                updates = {}
+                if hostname and device.hostname != hostname:
+                    updates['hostname'] = hostname
+                if group and device.group_id != group.id:
+                    updates['group'] = group
+                if device.subgroup_id is not None:
+                    updates['subgroup'] = None
+                if updates:
+                    DeviceModel.objects.filter(pk=device.pk).update(**updates)
 
         return redirect('dashboard')
     except Exception:
+        logger.exception('zabbix sync failed')
         return redirect('dashboard')
 
 
