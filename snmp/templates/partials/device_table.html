@@ -41,9 +41,11 @@
           <td class="px-3 py-2">{{ device.display_model|default:'-' }}</td>
           <td class="px-3 py-2 font-medium text-surface-900">
             {{ device.hostname|default:'-' }}
-            {% if device.rx_signal and device.rx_signal <= -11 %}
-            <span class="ml-2 inline-flex rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700">{{ device.rx_signal }} dBm</span>
-            {% endif %}
+            {% for port in device.switch_ports_reverse.all %}
+              {% if port.rx_signal and port.rx_signal <= -11 %}
+              <span class="ml-2 inline-flex rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700" title="{{ port.name }}">{{ port.name }}: {{ port.rx_signal }} dBm</span>
+              {% endif %}
+            {% endfor %}
           </td>
           <td class="px-3 py-2">{{ device.ip }}</td>
           <td class="px-3 py-2">

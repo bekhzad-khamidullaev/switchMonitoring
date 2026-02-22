@@ -130,7 +130,8 @@ def assign_device_profiles_task(self, force: bool = False):
     if force:
         command_kwargs['force'] = True
     call_command('assign_device_profiles', **command_kwargs)
-    return {'status': 'ok', 'force': bool(force)}
+    call_command('enforce_monitoring_baseline')
+    return {'status': 'ok', 'force': bool(force), 'monitoring_baseline_applied': True}
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})
@@ -140,7 +141,8 @@ def subnet_autoprovision_task(self):
     if AUTOPROVISION_ASSIGN_PROFILES:
         call_command('assign_device_profiles')
         assigned_profiles = True
-    return {'status': 'ok', 'assigned_profiles': assigned_profiles}
+    call_command('enforce_monitoring_baseline')
+    return {'status': 'ok', 'assigned_profiles': assigned_profiles, 'monitoring_baseline_applied': True}
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, retry_kwargs={'max_retries': 5})

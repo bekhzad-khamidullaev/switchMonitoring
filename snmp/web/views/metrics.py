@@ -10,6 +10,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from snmp.models import Device, DeviceProfile, MetricBinding, MetricSample, MetricSubscription
+from snmp.services.metrics.interface_filters import is_eligible_optical_ethernet
 from snmp.services.discovery.pipeline import run_device_discovery
 from snmp.services.discovery.read_base_snmp import SnmpReadError
 from snmp.services.metrics.registry import get_active_bindings_for_device
@@ -44,6 +45,8 @@ def _sync_discovered_metric_subscriptions(device, bindings, interfaces):
         targets = [None]
         if binding.index_strategy == MetricBinding.IndexStrategy.IF_INDEX:
             targets = interfaces
+            if binding.metric.key in {"optical_rx_power", "optical_tx_power"}:
+                targets = [iface for iface in targets if is_eligible_optical_ethernet(iface)]
             if not targets:
                 continue
 
@@ -111,7 +114,7 @@ def build_device_metrics_context(device):
         .order_by('priority', 'vendor', 'model_pattern')
     )
     interfaces = list(device.interfaces.order_by('if_index'))
-    optical_interfaces = [iface for iface in interfaces if iface.is_optical]
+    optical_interfaces = [iface for iface in interfaces if is_eligible_optical_ethernet(iface)]
     subscriptions = (
         MetricSubscription.objects
         .filter(device=device)
@@ -222,11 +225,17 @@ def handle_device_metrics_post(request, device):
         elif scope == 'all':
             target_interfaces = interfaces
         else:
-            target_interfaces = [iface for iface in interfaces if iface.is_optical]
+            target_interfaces = [iface for iface in interfaces if is_eligible_optical_ethernet(iface)]
 
         created_or_updated = 0
         for binding in selected_bindings:
-            for interface in target_interfaces:
+            binding_interfaces = target_interfaces
+            if (
+                binding.index_strategy == MetricBinding.IndexStrategy.IF_INDEX
+                and binding.metric.key in {"optical_rx_power", "optical_tx_power"}
+            ):
+                binding_interfaces = [iface for iface in target_interfaces if iface and is_eligible_optical_ethernet(iface)]
+            for interface in binding_interfaces:
                 defaults = {
                     'binding': binding,
                     'enabled': True,

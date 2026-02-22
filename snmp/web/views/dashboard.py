@@ -27,10 +27,10 @@ def devices_updown(request):
     warning_alerts_count = open_alerts.filter(severity=AlertRule.Severity.WARNING).count()
 
     # Signal Quality Buckets
-    high_signal_20 = Device.objects.filter(rx_signal__lte=-20, group__in=user_permitted_groups).count()
-    high_signal_15 = Device.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, group__in=user_permitted_groups).count()
-    high_signal_10 = Device.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, group__in=user_permitted_groups).count()
-    high_signal_11 = Device.objects.filter(rx_signal__lte=-11, group__in=user_permitted_groups).count()
+    high_signal_20 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-20, group__in=user_permitted_groups).distinct().count()
+    high_signal_15 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-15, switch_ports_reverse__rx_signal__gt=-20, group__in=user_permitted_groups).distinct().count()
+    high_signal_10 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-11, switch_ports_reverse__rx_signal__gt=-15, group__in=user_permitted_groups).distinct().count()
+    high_signal_11 = Device.objects.filter(switch_ports_reverse__rx_signal__lte=-11, group__in=user_permitted_groups).distinct().count()
 
     # Vendor Distribution (Top 10)
     vendor_stats = (

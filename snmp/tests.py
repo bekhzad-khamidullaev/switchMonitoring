@@ -557,6 +557,81 @@ class MetricsPageActionTests(TestCase):
         self.assertIn('metric,if_index,value_float', csv_payload)
         self.assertIn('rx_power_dbm_t', csv_payload)
 
+    def test_apply_profile_optical_scope_excludes_gpon_and_keeps_ethernet_optics(self):
+        profile = DeviceProfile.objects.create(
+            vendor='generic',
+            model_pattern='TEST',
+            firmware_pattern='',
+            priority=1,
+            active=True,
+        )
+        metric = MetricDefinition.objects.create(key='optical_rx_power', title='Optical RX Power')
+        binding = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric,
+            oid_template='__port_rx_signal__',
+            index_strategy=MetricBinding.IndexStrategy.IF_INDEX,
+            enabled_by_default=True,
+        )
+        self.managed_device.profile = profile
+        self.managed_device.save(update_fields=['profile'])
+
+        iface_eth_optic_1 = Interface.objects.create(
+            device=self.managed_device,
+            if_index=101,
+            if_name='GigabitEthernet0/0/1',
+            if_alias='uplink sfp',
+            if_type='6',
+            is_optical=True,
+        )
+        iface_gpon = Interface.objects.create(
+            device=self.managed_device,
+            if_index=102,
+            if_name='GPON0/1',
+            if_alias='pon subscriber',
+            if_type='6',
+            is_optical=True,
+        )
+        iface_eth_optic_2 = Interface.objects.create(
+            device=self.managed_device,
+            if_index=103,
+            if_name='TenGigabitEthernet0/0/3',
+            if_alias='core qsfp',
+            if_type='6',
+            is_optical=True,
+        )
+
+        response = self.client.post(
+            reverse('device_metrics', args=[self.managed_device.pk]),
+            data={
+                'action': 'apply_profile',
+                'scope': 'optical',
+                'binding_ids': [str(binding.id)],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            MetricSubscription.objects.filter(
+                device=self.managed_device,
+                interface=iface_eth_optic_1,
+                metric=metric,
+            ).exists()
+        )
+        self.assertTrue(
+            MetricSubscription.objects.filter(
+                device=self.managed_device,
+                interface=iface_eth_optic_2,
+                metric=metric,
+            ).exists()
+        )
+        self.assertFalse(
+            MetricSubscription.objects.filter(
+                device=self.managed_device,
+                interface=iface_gpon,
+                metric=metric,
+            ).exists()
+        )
+
 
 class ApiOnboardValidationTests(TestCase):
     def setUp(self):
@@ -1056,13 +1131,17 @@ class TaskResilienceTests(TestCase):
     def test_assign_device_profiles_task_calls_command(self, mock_call_command):
         result = assign_device_profiles_task()
         self.assertEqual(result['status'], 'ok')
-        mock_call_command.assert_called_once_with('assign_device_profiles')
+        self.assertEqual(result['monitoring_baseline_applied'], True)
+        self.assertEqual(mock_call_command.call_args_list[0].args, ('assign_device_profiles',))
+        self.assertEqual(mock_call_command.call_args_list[1].args, ('enforce_monitoring_baseline',))
 
     @patch('snmp.tasks.call_command')
     def test_assign_device_profiles_task_supports_force(self, mock_call_command):
         result = assign_device_profiles_task(force=True)
         self.assertEqual(result['force'], True)
-        mock_call_command.assert_called_once_with('assign_device_profiles', force=True)
+        self.assertEqual(mock_call_command.call_args_list[0].args, ('assign_device_profiles',))
+        self.assertEqual(mock_call_command.call_args_list[0].kwargs, {'force': True})
+        self.assertEqual(mock_call_command.call_args_list[1].args, ('enforce_monitoring_baseline',))
 
     @patch('snmp.tasks.call_command')
     def test_subnet_autoprovision_task_chains_profile_assignment_when_enabled(self, mock_call_command):
@@ -1071,13 +1150,15 @@ class TaskResilienceTests(TestCase):
         self.assertEqual(result['assigned_profiles'], True)
         self.assertEqual(mock_call_command.call_args_list[0].args, ('subnet_discovery',))
         self.assertEqual(mock_call_command.call_args_list[1].args, ('assign_device_profiles',))
+        self.assertEqual(mock_call_command.call_args_list[2].args, ('enforce_monitoring_baseline',))
 
     @patch('snmp.tasks.call_command')
     def test_subnet_autoprovision_task_skips_profile_assignment_when_disabled(self, mock_call_command):
         with patch('snmp.tasks.AUTOPROVISION_ASSIGN_PROFILES', False):
             result = subnet_autoprovision_task()
         self.assertEqual(result['assigned_profiles'], False)
-        mock_call_command.assert_called_once_with('subnet_discovery')
+        self.assertEqual(mock_call_command.call_args_list[0].args, ('subnet_discovery',))
+        self.assertEqual(mock_call_command.call_args_list[1].args, ('enforce_monitoring_baseline',))
 
 
 class MetricSampleMaintenanceTests(TestCase):

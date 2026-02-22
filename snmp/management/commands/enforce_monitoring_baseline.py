@@ -3,42 +3,12 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from snmp.models import Device, DeviceProfile, Interface, MetricBinding, MetricDefinition, MetricSubscription
+from snmp.models import Device, DeviceProfile, MetricBinding, MetricDefinition, MetricSubscription
+from snmp.services.metrics.interface_filters import is_eligible_optical_ethernet, is_gpon
 
 ICMP_BINDING_SENTINEL = "__icmp_ping__"
 PORT_RX_SIGNAL_SENTINEL = "__port_rx_signal__"
 PORT_TX_SIGNAL_SENTINEL = "__port_tx_signal__"
-GPON_TOKENS = ("gpon", "xgpon", "epon", "pon")
-ETHERNET_TOKENS = ("ethernet", "eth", "ge", "xe", "te", "gi", "fa")
-OPTICAL_TOKENS = ("sfp", "qsfp", "xfp", "optic", "fiber", "fibre")
-
-
-def _norm(value: str | None) -> str:
-    return (value or "").strip().lower()
-
-
-def _is_gpon(interface: Interface) -> bool:
-    text = " ".join((_norm(interface.if_name), _norm(interface.if_alias), _norm(interface.if_type)))
-    return any(token in text for token in GPON_TOKENS)
-
-
-def _is_ethernet(interface: Interface) -> bool:
-    if _norm(interface.if_type) in {"6", "ethernetcsmacd"}:
-        return True
-
-    text = " ".join((_norm(interface.if_name), _norm(interface.if_alias), _norm(interface.if_type)))
-    return any(token in text for token in ETHERNET_TOKENS)
-
-
-def _is_optical(interface: Interface) -> bool:
-    if interface.is_optical:
-        return True
-    text = " ".join((_norm(interface.if_name), _norm(interface.if_alias), _norm(interface.if_type)))
-    return any(token in text for token in OPTICAL_TOKENS)
-
-
-def _eligible_optical_ethernet(interface: Interface) -> bool:
-    return _is_ethernet(interface) and _is_optical(interface) and not _is_gpon(interface)
 
 
 class Command(BaseCommand):
@@ -262,10 +232,10 @@ class Command(BaseCommand):
                     ]
 
                 for interface in device.interfaces.all():
-                    if _is_gpon(interface):
+                    if is_gpon(interface):
                         stats["interfaces_skipped_gpon"] += 1
                         continue
-                    if not _eligible_optical_ethernet(interface):
+                    if not is_eligible_optical_ethernet(interface):
                         continue
                     stats["interfaces_eligible"] += 1
                     for binding in optical_bindings:
