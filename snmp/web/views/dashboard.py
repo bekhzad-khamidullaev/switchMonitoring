@@ -1,9 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.shortcuts import render
-from django.urls import reverse
+from django.db.models import Count, Q
+from django.utils import timezone
 
-from snmp.models import Device, DeviceNeighbor, DevicePort
+from snmp.models import AlertEvent, AlertRule, Device, DeviceNeighbor, DevicePort, MetricSample
 
 from .access import get_permitted_groups, user_has_global_device_access
 
@@ -11,12 +10,53 @@ from .access import get_permitted_groups, user_has_global_device_access
 @login_required
 def devices_updown(request):
     user_permitted_groups = get_permitted_groups(request.user)
+
+    # Device Status
     devices_online = Device.objects.filter(status=True, group__in=user_permitted_groups).count()
     devices_offline = Device.objects.filter(status=False, group__in=user_permitted_groups).count()
+
+    # Alerts
+    open_alerts = AlertEvent.objects.filter(
+        state=AlertEvent.State.OPEN,
+        subscription__device__group__in=user_permitted_groups
+    )
+    critical_alerts_count = open_alerts.filter(severity=AlertRule.Severity.CRITICAL).count()
+    warning_alerts_count = open_alerts.filter(severity=AlertRule.Severity.WARNING).count()
+
+    # Signal Quality Buckets
     high_signal_20 = Device.objects.filter(rx_signal__lte=-20, group__in=user_permitted_groups).count()
     high_signal_15 = Device.objects.filter(rx_signal__lte=-15, rx_signal__gt=-20, group__in=user_permitted_groups).count()
     high_signal_10 = Device.objects.filter(rx_signal__lte=-11, rx_signal__gt=-15, group__in=user_permitted_groups).count()
     high_signal_11 = Device.objects.filter(rx_signal__lte=-11, group__in=user_permitted_groups).count()
+
+    # Vendor Distribution (Top 10)
+    vendor_stats = (
+        Device.objects.filter(group__in=user_permitted_groups)
+        .values('vendor')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+
+    # Model Distribution (Top 10)
+    model_stats = (
+        Device.objects.filter(group__in=user_permitted_groups)
+        .values('model')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+
+    # Recent Events
+    recent_alerts = open_alerts.select_related(
+        'subscription__device', 'subscription__metric'
+    ).order_by('-opened_at')[:8]
+
+    # Polling Health (last 24h)
+    time_threshold = timezone.now() - timezone.timedelta(hours=24)
+    bad_metrics_count = MetricSample.objects.filter(
+        quality=MetricSample.Quality.BAD,
+        ts__gte=time_threshold,
+        subscription__device__group__in=user_permitted_groups
+    ).count()
 
     return render(
         request,
@@ -24,10 +64,16 @@ def devices_updown(request):
         {
             'up_count': devices_online,
             'down_count': devices_offline,
+            'critical_alerts_count': critical_alerts_count,
+            'warning_alerts_count': warning_alerts_count,
             'high_sig_sw': high_signal_20,
             'high_sig_sw_15': high_signal_15,
             'high_sig_sw_10': high_signal_10,
             'high_sig_sw_11': high_signal_11,
+            'vendor_stats': list(vendor_stats),
+            'model_stats': list(model_stats),
+            'recent_alerts': recent_alerts,
+            'bad_metrics_count': bad_metrics_count,
         },
     )
 
