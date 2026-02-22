@@ -358,7 +358,7 @@ def export_device_metrics_csv(request, pk):
 
     queryset = (
         MetricSample.objects
-        .filter(subscription__device=device)
+        .filter(device=device)
         .select_related('subscription', 'subscription__metric', 'subscription__interface')
     )
     if metric:
@@ -409,7 +409,7 @@ def device_metrics_timeseries_table(request, pk):
 
     queryset = (
         MetricSample.objects
-        .filter(subscription__device=device)
+        .filter(device=device)
         .select_related('subscription', 'subscription__metric', 'subscription__interface')
     )
     if metric:

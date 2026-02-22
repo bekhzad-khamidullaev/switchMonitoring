@@ -176,7 +176,7 @@ def api_device_timeseries(request, device_id):
 
     samples = (
         MetricSample.objects
-        .filter(subscription__device=device)
+        .filter(device=device)
         .select_related('subscription', 'subscription__metric', 'subscription__interface')
     )
 

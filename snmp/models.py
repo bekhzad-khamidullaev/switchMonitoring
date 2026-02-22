@@ -11,7 +11,6 @@ from django.db.models.functions import Coalesce, Lower, Trim
 from django.db.models.signals import post_migrate, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
-from simple_history.models import HistoricalRecords
 
 
 def _is_unknown_text(value: str) -> bool:
@@ -354,7 +353,6 @@ class Device(models.Model):
     last_discovered_at = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    history = HistoricalRecords()
 
     class Meta:
         managed = True
@@ -542,6 +540,11 @@ class MetricSample(models.Model):
         BAD = 'bad', 'Bad'
         UNKNOWN = 'unknown', 'Unknown'
 
+    device = models.ForeignKey(
+        'Device',
+        on_delete=models.CASCADE,
+        related_name='metric_samples',
+    )
     subscription = models.ForeignKey('MetricSubscription', on_delete=models.CASCADE, related_name='samples')
     ts = models.DateTimeField(default=timezone.now, db_index=True)
     value_float = models.FloatField(null=True, blank=True)
@@ -553,6 +556,7 @@ class MetricSample(models.Model):
         managed = True
         db_table = 'metric_sample'
         indexes = [
+            models.Index(fields=['device', 'ts']),
             models.Index(fields=['subscription', 'ts']),
             models.Index(fields=['quality', 'ts']),
             models.Index(fields=['ts', 'id']),
@@ -561,6 +565,19 @@ class MetricSample(models.Model):
 
     def __str__(self):
         return f"{self.subscription_id}@{self.ts}"
+
+    def save(self, *args, **kwargs):
+        if self.device_id is None and self.subscription_id:
+            if hasattr(self, 'subscription') and self.subscription and self.subscription.device_id:
+                self.device_id = self.subscription.device_id
+            elif self.subscription_id:
+                self.device_id = (
+                    MetricSubscription.objects
+                    .filter(pk=self.subscription_id)
+                    .values_list('device_id', flat=True)
+                    .first()
+                )
+        super().save(*args, **kwargs)
 
 
 class AlertRule(models.Model):

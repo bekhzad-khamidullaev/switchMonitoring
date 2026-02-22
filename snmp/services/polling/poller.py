@@ -48,6 +48,10 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
         except Device.DoesNotExist:
             logger.warning('poll skipped because device does not exist', extra={'device_id': device_id})
             return 0
+
+        def _sample(subscription, **kwargs):
+            return MetricSample(device=device, subscription=subscription, **kwargs)
+
         subscriptions = list(
             MetricSubscription.objects
             .filter(device=device, enabled=True)
@@ -86,7 +90,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 resolved.append((subscription, oid_resolution.oid))
             except ValueError as exc:
                 samples.append(
-                    MetricSample(
+                    _sample(
                         subscription=subscription,
                         value_text='',
                         quality=MetricSample.Quality.BAD,
@@ -112,7 +116,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
             except Exception as exc:
                 for subscription in icmp_subscriptions:
                     samples.append(
-                        MetricSample(
+                        _sample(
                             subscription=subscription,
                             value_text='',
                             quality=MetricSample.Quality.BAD,
@@ -123,7 +127,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 if latency_seconds in (None, False):
                     for subscription in icmp_subscriptions:
                         samples.append(
-                            MetricSample(
+                            _sample(
                                 subscription=subscription,
                                 value_text='',
                                 quality=MetricSample.Quality.BAD,
@@ -134,7 +138,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                     latency_ms = float(latency_seconds) * 1000.0
                     for subscription in icmp_subscriptions:
                         samples.append(
-                            MetricSample(
+                            _sample(
                                 subscription=subscription,
                                 value_float=latency_ms,
                                 value_text='',
@@ -152,7 +156,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 if_index = subscription.interface.if_index if subscription.interface_id and subscription.interface else None
                 if if_index is None:
                     samples.append(
-                        MetricSample(
+                        _sample(
                             subscription=subscription,
                             value_text='',
                             quality=MetricSample.Quality.BAD,
@@ -163,7 +167,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 port = ports.get(if_index)
                 if not port:
                     samples.append(
-                        MetricSample(
+                        _sample(
                             subscription=subscription,
                             value_text='',
                             quality=MetricSample.Quality.BAD,
@@ -177,7 +181,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                     signal_value = port.tx_signal
                 if signal_value is None:
                     samples.append(
-                        MetricSample(
+                        _sample(
                             subscription=subscription,
                             value_text='',
                             quality=MetricSample.Quality.UNKNOWN,
@@ -186,7 +190,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                     )
                     continue
                 samples.append(
-                    MetricSample(
+                    _sample(
                         subscription=subscription,
                         value_float=float(signal_value),
                         value_text='',
@@ -200,7 +204,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
             if isinstance(raw_result, Exception):
                 snmp_errors += 1
                 samples.append(
-                    MetricSample(
+                    _sample(
                         subscription=subscription,
                         value_text='',
                         quality=MetricSample.Quality.BAD,
@@ -221,7 +225,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
 
             if numeric_value is not None:
                 samples.append(
-                    MetricSample(
+                    _sample(
                         subscription=subscription,
                         value_float=numeric_value,
                         value_text='',
@@ -232,7 +236,7 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
             else:
                 text_value = '' if converted is None else str(converted)
                 samples.append(
-                    MetricSample(
+                    _sample(
                         subscription=subscription,
                         value_float=None,
                         value_text=text_value,
