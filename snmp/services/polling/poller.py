@@ -9,9 +9,14 @@ from django.utils import timezone
 from ping3 import ping
 
 from snmp.models import Device, DevicePort, MetricSample, MetricSubscription
-from snmp.services.discovery.read_base_snmp import snmp_get_many
-from snmp.services.metrics.runtime import apply_converter, render_oid, validate_numeric
 from snmp.services.alerting.evaluator import evaluate_subscription_thresholds
+from snmp.services.discovery.read_base_snmp import snmp_get_many
+from snmp.services.metrics.runtime import (
+    apply_converter,
+    is_invalid_numeric,
+    render_oid,
+    validate_numeric,
+)
 from snmp.services.observability.metrics import record_poll_metrics
 
 logger = logging.getLogger(__name__)
@@ -200,7 +205,19 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 )
 
         for subscription, oid in resolved:
-            raw_result = oid_to_value.get(oid)
+            if oid not in oid_to_value:
+                snmp_errors += 1
+                samples.append(
+                    _sample(
+                        subscription=subscription,
+                        value_text='',
+                        quality=MetricSample.Quality.BAD,
+                        raw_value='missing SNMP value',
+                    )
+                )
+                continue
+
+            raw_result = oid_to_value[oid]
             if isinstance(raw_result, Exception):
                 snmp_errors += 1
                 samples.append(
@@ -222,8 +239,23 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                 value=converted,
                 binding_params=subscription.binding.binding_params,
             )
+            value_type = subscription.metric.value_type
 
-            if numeric_value is not None:
+            if value_type in {
+                subscription.metric.ValueType.FLOAT,
+                subscription.metric.ValueType.INTEGER,
+                subscription.metric.ValueType.BOOLEAN,
+            }:
+                if numeric_value is None:
+                    samples.append(
+                        _sample(
+                            subscription=subscription,
+                            value_text='',
+                            quality=MetricSample.Quality.BAD,
+                            raw_value=str(raw_result),
+                        )
+                    )
+                    continue
                 samples.append(
                     _sample(
                         subscription=subscription,
@@ -233,17 +265,40 @@ def poll_device_metrics(device_id: int, timeout: int = 2, retries: int = 1) -> i
                         raw_value=str(raw_result),
                     )
                 )
-            else:
-                text_value = '' if converted is None else str(converted)
+                continue
+
+            if is_invalid_numeric(converted, subscription.binding.binding_params):
                 samples.append(
                     _sample(
                         subscription=subscription,
-                        value_float=None,
-                        value_text=text_value,
-                        quality=MetricSample.Quality.GOOD if text_value else MetricSample.Quality.UNKNOWN,
+                        value_text='',
+                        quality=MetricSample.Quality.BAD,
                         raw_value=str(raw_result),
                     )
                 )
+                continue
+
+            text_value = '' if converted is None else str(converted)
+            if not text_value:
+                samples.append(
+                    _sample(
+                        subscription=subscription,
+                        value_text='',
+                        quality=MetricSample.Quality.BAD,
+                        raw_value=str(raw_result),
+                    )
+                )
+                continue
+
+            samples.append(
+                _sample(
+                    subscription=subscription,
+                    value_float=numeric_value,
+                    value_text=text_value,
+                    quality=MetricSample.Quality.GOOD,
+                    raw_value=str(raw_result),
+                )
+            )
 
         with transaction.atomic():
             MetricSample.objects.bulk_create(samples, batch_size=1000)

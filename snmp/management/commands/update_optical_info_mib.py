@@ -309,8 +309,7 @@ class SNMPDevicePoller:
         self.entity_map = {}
         walk_results = await snmp_walk_symbolic(self.snmp_engine, self.community, self.ip, self.port, ENT_ALIAS_MAPPING_IDENTIFIER)
         if not walk_results:
-            logger.warning(f"[{self.ip}] Failed to get entAliasMappingIdentifier. Trying fallback mapping.")
-            await self._get_physical_entity_mapping_fallback()
+            logger.error(f"[{self.ip}] Failed to get entAliasMappingIdentifier. Entity mapping is unavailable.")
             return
 
         try:
@@ -326,42 +325,6 @@ class SNMPDevicePoller:
         except pysnmp_error.SmiError:
              logger.error(f"[{self.ip}] Failed to resolve IF-MIB::ifIndex for mapping.")
         logger.info(f"[{self.ip}] Built entity map. Found {len(self.entity_map)} mappings.")
-
-    async def _get_physical_entity_mapping_fallback(self):
-        # Альтернативный маппинг по именам (менее надежный)
-        if not self.interfaces: await self._get_interfaces()
-        if_name_map = {idx: data.get('name') or data.get('description') for idx, data in self.interfaces.items()}
-        entity_walk_tasks = {
-            'name': snmp_walk_symbolic(self.snmp_engine, self.community, self.ip, self.port, ENT_PHYSICAL_NAME),
-            'descr': snmp_walk_symbolic(self.snmp_engine, self.community, self.ip, self.port, ENT_PHYSICAL_DESCR),
-            'class': snmp_walk_symbolic(self.snmp_engine, self.community, self.ip, self.port, ENT_PHYSICAL_CLASS),
-        }
-        entity_results = await asyncio.gather(*entity_walk_tasks.values())
-        entity_data = {}
-        # ... (парсинг результатов walk'а по entPhysical*) ...
-        for key, data in zip(entity_walk_tasks.keys(), entity_results):
-             if not isinstance(data, dict): continue
-             for oid_str, (oid_obj, value_obj) in data.items():
-                 try:
-                     ent_idx = int(oid_obj[-1])
-                     if ent_idx not in entity_data: entity_data[ent_idx] = {}
-                     parsed_val = parse_snmp_value((oid_obj, value_obj), None)
-                     if key == 'class' : parsed_val = int(parsed_val)
-                     entity_data[ent_idx][key] = parsed_val
-                 except: pass
-        # Сопоставление
-        for if_idx, if_name in if_name_map.items():
-            if not if_name: continue
-            for ent_idx, ent_info in entity_data.items():
-                if ent_info.get('class') == 10: # Ищем порт
-                    ent_name = ent_info.get('name') or ent_info.get('descr')
-                    if ent_name and (if_name == ent_name or if_name in ent_name or ent_name in if_name):
-                         if if_idx not in self.entity_map:
-                             self.entity_map[if_idx] = ent_idx
-                             logger.debug(f"[{self.ip}] Fallback mapped ifIndex {if_idx} to entPhysicalIndex {ent_idx}")
-                             break
-        logger.info(f"[{self.ip}] Fallback mapping complete. Found {len(self.entity_map)} mappings.")
-
 
     async def _get_interfaces(self):
         logger.debug(f"[{self.ip}] Fetching interface table (IF-MIB)...")

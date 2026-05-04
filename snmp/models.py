@@ -508,7 +508,7 @@ class MetricSubscription(models.Model):
                 name='uq_subscription_interface_metric',
             ),
             models.CheckConstraint(
-                check=Q(poll_interval_sec__isnull=True) | Q(poll_interval_sec__gte=5),
+                condition=Q(poll_interval_sec__isnull=True) | Q(poll_interval_sec__gte=5),
                 name='chk_subscription_poll_interval_gte_5',
             ),
         ]

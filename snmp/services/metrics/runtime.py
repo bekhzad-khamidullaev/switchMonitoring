@@ -1,9 +1,8 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional
 
 from snmp.models import Device, Interface, MetricBinding
-
 
 SENTINEL_INVALID_NUMBERS = {-65535.0, -32768.0, 2147483647.0}
 
@@ -39,6 +38,8 @@ def apply_converter(converter: str, raw_value: Any, binding_params: Optional[Dic
     if numeric is None and converter != MetricBinding.Converter.ENUM_MAP:
         return None
 
+    if converter == MetricBinding.Converter.DIV10:
+        return numeric / 10.0
     if converter == MetricBinding.Converter.DIV100:
         return numeric / 100.0
     if converter == MetricBinding.Converter.DIV1000:
@@ -52,23 +53,34 @@ def apply_converter(converter: str, raw_value: Any, binding_params: Optional[Dic
     return raw_value
 
 
-def validate_numeric(value: Any, binding_params: Optional[Dict[str, Any]] = None) -> Optional[float]:
+def is_invalid_numeric(value: Any, binding_params: Optional[Dict[str, Any]] = None) -> bool:
     params = binding_params or {}
     numeric = _as_float(value)
     if numeric is None:
-        return None
+        return False
 
     invalid_values = {_as_float(v) for v in params.get('invalid_values', [])}
     invalid_values = {v for v in invalid_values if v is not None}
     all_invalid = SENTINEL_INVALID_NUMBERS | invalid_values
     if numeric in all_invalid:
-        return None
+        return True
 
     min_allowed = _as_float(params.get('min_allowed'))
     max_allowed = _as_float(params.get('max_allowed'))
     if min_allowed is not None and numeric < min_allowed:
-        return None
+        return True
     if max_allowed is not None and numeric > max_allowed:
+        return True
+
+    return False
+
+
+def validate_numeric(value: Any, binding_params: Optional[Dict[str, Any]] = None) -> Optional[float]:
+    numeric = _as_float(value)
+    if numeric is None:
+        return None
+
+    if is_invalid_numeric(numeric, binding_params):
         return None
 
     return numeric

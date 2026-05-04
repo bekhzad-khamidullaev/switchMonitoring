@@ -164,11 +164,8 @@ def poll_all_devices_metrics_task(self):
     if dispatch_async:
         has_polling_consumers = _has_queue_consumers('polling')
         if has_polling_consumers is False:
-            logger.warning(
-                'polling queue has no consumers; falling back to inline execution',
-                extra={'queue': 'polling'},
-            )
-            dispatch_async = False
+            logger.error('polling queue has no consumers', extra={'queue': 'polling'})
+            return {'queued': 0, 'mode': 'no_consumers', 'queue_depth': queue_depth}
 
     if dispatch_async:
         queued = 0

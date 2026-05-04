@@ -49,16 +49,16 @@ def _normalize_mac(value: str) -> str:
     return ''
 
 
-def _parse_port_id(value: str, fallback: int) -> int:
+def _parse_port_id(value: str, default: int) -> int:
     if value is None:
-        return fallback
+        return default
     text = str(value).strip()
     if text.isdigit():
         return int(text)
     match = _DIGIT_SUFFIX.search(text)
     if match:
         return int(match.group(1))
-    return fallback
+    return default
 
 
 def _import_pysnmp():
@@ -154,7 +154,7 @@ def snmp_get_many(
 
         if len(var_binds) < len(chunk):
             for oid in chunk[len(var_binds) :]:
-                result[oid] = ''
+                result[oid] = SnmpReadError('missing SNMP value in batch response')
 
     return result
 
@@ -251,7 +251,7 @@ def read_lldp_neighbors(ip: str, community: str, timeout: int = 2, retries: int 
                 'remote_chassis_id': chassis_id,
                 'remote_chassis_mac': _normalize_mac(chassis_id),
                 'remote_port_id': remote_port_raw,
-                'remote_port': _parse_port_id(remote_port_raw, fallback=0),
+                'remote_port': _parse_port_id(remote_port_raw, default=0),
                 'remote_port_desc': remote_port_desc.get(suffix, ''),
                 'remote_sys_name': remote_sys_name.get(suffix, ''),
             }

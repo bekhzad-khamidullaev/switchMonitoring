@@ -7,7 +7,6 @@ from snmp.models import DeviceProfile
 def _matches(pattern: str, value: str) -> bool:
     if not pattern:
         return True
-    # If pattern is .*, it should match empty value too (fallback case)
     if not value:
         return pattern == '.*' or pattern == ''
     return re.search(pattern, value, re.IGNORECASE) is not None

@@ -11,6 +11,10 @@ class MetricsRuntimeTests(SimpleTestCase):
         result = apply_converter(MetricBinding.Converter.DIV100, '1234')
         self.assertEqual(result, 12.34)
 
+    def test_apply_converter_div10(self):
+        result = apply_converter(MetricBinding.Converter.DIV10, '123')
+        self.assertEqual(result, 12.3)
+
     def test_apply_converter_mw_to_dbm(self):
         result = apply_converter(MetricBinding.Converter.MW_TO_DBM, '1000')
         self.assertAlmostEqual(result, 0.0, places=4)

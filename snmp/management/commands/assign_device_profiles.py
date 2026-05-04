@@ -1,7 +1,9 @@
 from django.core.management.base import BaseCommand
+
 from snmp.models import Device
 from snmp.services.discovery.normalize import normalize_vendor_model
 from snmp.services.discovery.profile_matcher import match_device_profile
+
 
 class Command(BaseCommand):
     help = 'Assign DeviceProfiles to Devices based on vendor, model, and firmware'
@@ -21,7 +23,7 @@ class Command(BaseCommand):
         devices = Device.objects.all()
         if not force:
             devices = devices.filter(profile__isnull=True)
-        
+
         if limit:
             devices = devices[:limit]
 
@@ -31,7 +33,7 @@ class Command(BaseCommand):
         assigned = 0
         failed = 0
         skipped = 0
-        
+
         for device in devices:
             vendor = device.vendor
             model = device.model
@@ -44,7 +46,6 @@ class Command(BaseCommand):
                 if detected_vendor and detected_vendor != "unknown":
                     vendor = detected_vendor
 
-            # Fallback to device_type if available
             if not vendor and device.device_type and device.device_type.vendor:
                 vendor = device.device_type.vendor.name
             if not model and device.device_type:
@@ -55,17 +56,13 @@ class Command(BaseCommand):
                 model=model,
                 firmware=firmware
             )
-            
-            # If no match and we have a generic profile, use it as fallback for unknown devices
-            if not profile:
-                profile = match_device_profile(vendor='generic', model='', firmware='')
 
             if profile:
-                is_generic = profile.vendor == 'generic'
                 if verbose:
-                    match_type = "Generic Fallback" if is_generic else "Metadata Match"
-                    self.stdout.write(f"{match_type} for {device.ip} ({vendor or 'unknown'}/{model or 'unknown'}): {profile}")
-                
+                    self.stdout.write(
+                        f"Metadata match for {device.ip} ({vendor or 'unknown'}/{model or 'unknown'}): {profile}"
+                    )
+
                 if not dry_run:
                     device.profile = profile
                     device.save()

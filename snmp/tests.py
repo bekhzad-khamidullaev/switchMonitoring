@@ -1093,15 +1093,15 @@ class TaskResilienceTests(TestCase):
 
     @patch('snmp.tasks._has_queue_consumers', return_value=False)
     @patch('snmp.tasks.poll_device_metrics_task.delay')
-    @patch('snmp.tasks.poll_device_metrics', side_effect=[2, 1])
-    def test_poll_all_falls_back_to_inline_when_polling_queue_has_no_consumers(
+    @patch('snmp.tasks.poll_device_metrics')
+    def test_poll_all_reports_no_consumers_without_inline_execution(
         self, mock_poll, mock_delay, _mock_has_consumers
     ):
         with patch('snmp.tasks.POLL_DISPATCH_ASYNC', True):
             result = poll_all_devices_metrics_task()
-        self.assertEqual(result['mode'], 'inline')
-        self.assertEqual(result['saved'], 3)
-        self.assertEqual(result['failed'], 0)
+        self.assertEqual(result['mode'], 'no_consumers')
+        self.assertEqual(result['queued'], 0)
+        mock_poll.assert_not_called()
         mock_delay.assert_not_called()
 
     @patch('snmp.tasks._redis_queue_depth', return_value=999999)
@@ -1439,7 +1439,7 @@ class OpticalMultiPortUpdaterTests(TestCase):
 
     def test_updater_sets_device_level_from_first_port_with_actual_signal(self):
         device = Device.objects.create(
-            hostname="optical-sw-fallback",
+            hostname="optical-sw-secondary-signal",
             ip="10.110.0.2",
             model="SNR-S2985G-24TC",
             snmp_community_ro="public",
@@ -1508,7 +1508,7 @@ class OpticalPipelineHardeningTests(TestCase):
         vendor = Vendor.objects.create(name="SNR")
         model = DeviceModel.objects.create(vendor=vendor, device_model="SNR-S2985G-24TC")
         device = Device.objects.create(
-            hostname="fallback-model",
+            hostname="device-type-model",
             ip="10.120.1.1",
             model="unknown",
             device_type=model,
@@ -1576,7 +1576,7 @@ class DashboardDataConsistencyTests(TestCase):
         self.assertEqual(response.context['up_count'], 1)
         self.assertEqual(response.context['down_count'], 1)
 
-    def test_dashboard_vendor_model_stats_use_device_type_fallback_for_unknown(self):
+    def test_dashboard_vendor_model_stats_use_device_type_for_unknown_metadata(self):
         user = User.objects.create_superuser(username='dash_admin2', password='p1', email='dash2@example.com')
         self.client.login(username='dash_admin2', password='p1')
 
@@ -1584,7 +1584,7 @@ class DashboardDataConsistencyTests(TestCase):
         vendor = Vendor.objects.create(name='Huawei')
         model = DeviceModel.objects.create(vendor=vendor, device_model='S5735-L24')
         Device.objects.create(
-            hostname='fallback-host',
+            hostname='device-type-host',
             ip='10.130.1.1',
             status=True,
             group=branch,

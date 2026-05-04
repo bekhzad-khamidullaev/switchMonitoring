@@ -108,6 +108,74 @@ class ApiIntegrationTests(TestCase):
         self.assertEqual(sample.quality, MetricSample.Quality.GOOD)
         self.assertAlmostEqual(sample.value_float, -12.34, places=2)
 
+    @patch("snmp.services.polling.poller.snmp_get_many")
+    def test_polling_records_missing_snmp_value_as_bad_sample(self, mock_get_many):
+        profile = DeviceProfile.objects.create(vendor="huawei", model_pattern=r"S33\d{2}", active=True)
+        device = Device.objects.create(hostname="sw-bad", ip="10.10.10.11", profile=profile)
+        interface = Interface.objects.create(device=device, if_index=1, if_name="GigabitEthernet0/0/1")
+        metric = MetricDefinition.objects.create(
+            key="rx_power_missing",
+            title="RX Power Missing",
+            value_type=MetricDefinition.ValueType.FLOAT,
+        )
+        binding = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric,
+            oid_template="1.3.6.1.4.1.9999.1.1.{if_index}",
+            index_strategy=MetricBinding.IndexStrategy.IF_INDEX,
+            converter=MetricBinding.Converter.DIV100,
+        )
+        subscription = MetricSubscription.objects.create(
+            device=device,
+            interface=interface,
+            metric=metric,
+            binding=binding,
+            enabled=True,
+        )
+
+        mock_get_many.return_value = {}
+        saved = poll_device_metrics(device.id)
+
+        self.assertEqual(saved, 1)
+        sample = MetricSample.objects.get(subscription=subscription)
+        self.assertEqual(sample.quality, MetricSample.Quality.BAD)
+        self.assertEqual(sample.value_text, "")
+        self.assertEqual(sample.raw_value, "missing SNMP value")
+
+    @patch("snmp.services.polling.poller.snmp_get_many")
+    def test_polling_records_invalid_numeric_as_bad_sample(self, mock_get_many):
+        profile = DeviceProfile.objects.create(vendor="huawei", model_pattern=r"S33\d{2}", active=True)
+        device = Device.objects.create(hostname="sw-invalid", ip="10.10.10.12", profile=profile)
+        interface = Interface.objects.create(device=device, if_index=1, if_name="GigabitEthernet0/0/1")
+        metric = MetricDefinition.objects.create(
+            key="rx_power_invalid",
+            title="RX Power Invalid",
+            value_type=MetricDefinition.ValueType.FLOAT,
+        )
+        binding = MetricBinding.objects.create(
+            profile=profile,
+            metric=metric,
+            oid_template="1.3.6.1.4.1.9999.1.1.{if_index}",
+            index_strategy=MetricBinding.IndexStrategy.IF_INDEX,
+            converter=MetricBinding.Converter.IDENTITY,
+            binding_params={"invalid_values": [-65535]},
+        )
+        subscription = MetricSubscription.objects.create(
+            device=device,
+            interface=interface,
+            metric=metric,
+            binding=binding,
+            enabled=True,
+        )
+
+        mock_get_many.return_value = {"1.3.6.1.4.1.9999.1.1.1": "-65535"}
+        saved = poll_device_metrics(device.id)
+
+        self.assertEqual(saved, 1)
+        sample = MetricSample.objects.get(subscription=subscription)
+        self.assertEqual(sample.quality, MetricSample.Quality.BAD)
+        self.assertIsNone(sample.value_float)
+
     def test_api_device_metrics_respects_branch_permissions(self):
         group = Branch.objects.create(name="North Zone")
         device = Device.objects.create(hostname="sw-1", ip="10.0.0.2", group=group)

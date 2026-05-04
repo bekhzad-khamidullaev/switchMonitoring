@@ -9,6 +9,11 @@ from .h3c import H3cVendorProfile
 from .huawei import HuaweiVendorProfile
 from .threecom import ThreeComVendorProfile
 
+
+class VendorProfileNotFound(LookupError):
+    pass
+
+
 _PROFILES: tuple[Type[BaseVendorProfile], ...] = (
     HuaweiVendorProfile,
     H3cVendorProfile,
@@ -34,4 +39,12 @@ def get_vendor_profile(
             sys_descr=sys_descr,
         ):
             return profile_class()
-    return BaseVendorProfile()
+    if BaseVendorProfile.supports(
+        vendor=vendor,
+        model=model,
+        firmware=firmware,
+        sys_object_id=sys_object_id,
+        sys_descr=sys_descr,
+    ):
+        return BaseVendorProfile()
+    raise VendorProfileNotFound(f'No exact vendor profile for vendor={vendor!r}, model={model!r}')

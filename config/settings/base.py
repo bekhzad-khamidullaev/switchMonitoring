@@ -1,4 +1,3 @@
-import importlib.util
 import os
 from pathlib import Path
 
@@ -41,14 +40,6 @@ INSTALLED_APPS = [
     'rest_framework',
 ]
 
-
-def _is_available(app_name):
-    return importlib.util.find_spec(app_name) is not None
-
-
-for optional_app in ['background_task', 'compressor', 'tailwind', 'theme', 'vendors', 'zabbixapp']:
-    if _is_available(optional_app):
-        INSTALLED_APPS.append(optional_app)
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -282,15 +273,11 @@ if AUTOPROVISION_ENABLED:
 LOGIN_REDIRECT_URL = '/snmp/devices/'
 
 COMPRESS_ROOT = BASE_DIR / 'static'
-COMPRESS_ENABLED = _is_available('compressor')
+COMPRESS_ENABLED = False
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
-if _is_available('compressor'):
-    STATICFILES_FINDERS.append('compressor.finders.CompressorFinder')
-
-TAILWIND_APP_NAME = 'theme'
 INTERNAL_IPS = [
     '127.0.0.1',
 ]

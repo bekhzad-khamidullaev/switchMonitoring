@@ -33,16 +33,16 @@ def _normalize_mac(value: str) -> str:
     return ''
 
 
-def _parse_port_number(value, fallback=0) -> int:
+def _parse_port_number(value, default=0) -> int:
     if value is None:
-        return fallback
+        return default
     text = str(value).strip()
     if text.isdigit():
         return int(text)
     match = _DIGIT_SUFFIX.search(text)
     if match:
         return int(match.group(1))
-    return fallback
+    return default
 
 
 def _sync_device_neighbors(device: Device, lldp_neighbors) -> int:
@@ -71,12 +71,10 @@ def _sync_device_neighbors(device: Device, lldp_neighbors) -> int:
         remote_mac = _normalize_mac(item.get('remote_chassis_mac', ''))
         if remote_mac not in remote_devices:
             continue
-        port1 = _parse_port_number(item.get('local_port'), fallback=0)
+        port1 = _parse_port_number(item.get('local_port'), default=0)
         if port1 <= 0:
             continue
-        port2 = _parse_port_number(item.get('remote_port'), fallback=0)
-        if port2 <= 0:
-            port2 = _parse_port_number(item.get('remote_port_id'), fallback=0)
+        port2 = _parse_port_number(item.get('remote_port'), default=0)
         if port2 <= 0:
             continue
         neighbors_to_create.append(
@@ -113,8 +111,6 @@ def run_device_discovery(
         model=normalized.get('model', '') or base.get('sys_descr', ''),
         firmware=normalized.get('firmware', '') or base.get('sys_descr', ''),
     )
-    if profile is None:
-        profile = match_device_profile(vendor='generic', model='', firmware='')
 
     with transaction.atomic():
         device, _ = Device.objects.update_or_create(
@@ -150,11 +146,11 @@ def run_device_discovery(
                     'oper_up': item.get('oper_up'),
                 },
             )
-        
+
         # Cleanup stale interfaces that were not found in this latest discovery run
         if seen_indexes:
             Interface.objects.filter(device=device).exclude(if_index__in=seen_indexes).delete()
-            
+
         neighbors_count = _sync_device_neighbors(device=device, lldp_neighbors=base.get('lldp_neighbors', []))
 
     logger.info(

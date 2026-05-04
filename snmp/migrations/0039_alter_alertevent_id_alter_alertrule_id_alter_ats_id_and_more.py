@@ -38,6 +38,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='metricsubscription',
-            constraint=models.CheckConstraint(check=models.Q(('poll_interval_sec__isnull', True), ('poll_interval_sec__gte', 5), _connector='OR'), name='chk_subscription_poll_interval_gte_5'),
+            constraint=models.CheckConstraint(condition=models.Q(('poll_interval_sec__isnull', True), ('poll_interval_sec__gte', 5), _connector='OR'), name='chk_subscription_poll_interval_gte_5'),
         ),
     ]

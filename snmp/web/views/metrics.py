@@ -95,7 +95,7 @@ def _sync_discovered_metric_subscriptions(device, bindings, interfaces):
     }
 
 
-def _redirect_to_next_or_view(request, device, fallback_view='device_host_settings'):
+def _redirect_to_next_or_view(request, device, default_view='device_host_settings'):
     next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
     if next_url and url_has_allowed_host_and_scheme(
         url=next_url,
@@ -103,7 +103,7 @@ def _redirect_to_next_or_view(request, device, fallback_view='device_host_settin
         require_https=request.is_secure(),
     ):
         return redirect(next_url)
-    return redirect(fallback_view, pk=device.pk)
+    return redirect(default_view, pk=device.pk)
 
 
 def build_device_metrics_context(device):
@@ -178,7 +178,7 @@ def handle_device_metrics_post(request, device):
                 ),
             )
             if not result.get('profile_id'):
-                messages.warning(request, 'No exact profile was matched; generic fallback was used if available.')
+                messages.warning(request, 'No exact monitoring profile was matched for this device.')
         except SnmpReadError as exc:
             messages.error(request, f'Discovery failed: {exc}')
         return _redirect_to_next_or_view(request, device)

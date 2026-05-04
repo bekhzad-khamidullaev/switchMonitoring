@@ -3,7 +3,10 @@ from django.test import SimpleTestCase, TestCase
 from snmp.models import DeviceProfile
 from snmp.services.discovery.normalize import normalize_vendor_model
 from snmp.services.discovery.profile_matcher import match_device_profile
-from snmp.services.discovery.vendor_profiles.factory import get_vendor_profile
+from snmp.services.discovery.vendor_profiles.factory import (
+    VendorProfileNotFound,
+    get_vendor_profile,
+)
 
 
 class DiscoveryNormalizeTests(SimpleTestCase):
@@ -123,15 +126,15 @@ class VendorProfileFactoryTests(SimpleTestCase):
         )
         self.assertEqual(profile.name, "h3c")
 
-    def test_factory_falls_back_to_generic_profile(self):
-        profile = get_vendor_profile(
-            vendor="unknown",
-            model="",
-            firmware="",
-            sys_object_id="1.3.6.1.4.1.9999.1",
-            sys_descr="Generic switch",
-        )
-        self.assertEqual(profile.name, "generic")
+    def test_factory_rejects_unknown_vendor_without_exact_profile(self):
+        with self.assertRaises(VendorProfileNotFound):
+            get_vendor_profile(
+                vendor="unknown",
+                model="",
+                firmware="",
+                sys_object_id="1.3.6.1.4.1.9999.1",
+                sys_descr="Generic switch",
+            )
 
     def test_factory_picks_dlink_profile(self):
         profile = get_vendor_profile(
